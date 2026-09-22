@@ -1,0 +1,159 @@
+@page
+@model LssTraining.Web.Pages.Training.EnrollmentsModel
+@{
+    ViewData["Title"] = "Participant Progress";
+}
+
+<div class="page-nav-bar mb-3 d-flex align-items-center gap-2">
+    <a href="javascript:history.back()" class="btn btn-sm btn-light d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+        </svg>
+        <span>Back</span>
+    </a>
+    <a asp-page="/Index" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5z"/>
+        </svg>
+        <span>Dashboard</span>
+    </a>
+    <a asp-page="/Participants/Roadmap" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.854 4.146a.5.5 0 0 0-.708-.708L10 7.293 7.854 5.146a.5.5 0 0 0-.708 0L3.5 8.793l.708.707L7.5 6.207l2.146 2.147a.5.5 0 0 0 .708 0l4.5-4.5Z"/>
+        </svg>
+        <span>Roadmap</span>
+    </a>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="eyebrow mb-0">TRAINING PROGRESS</span>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                    Role: <strong>@(User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Trainer")</strong>
+                </span>
+            }
+            else
+            {
+                <span class="badge bg-light text-muted border">
+                    Public View · Status & Progress
+                </span>
+            }
+        </div>
+        <h1 class="page-title">Participant Progress</h1>
+        <p class="page-subtitle">Monitor actual hours, modules, and completion status for each enrollment.</p>
+    </div>
+    @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+    {
+        <a class="btn btn-primary" asp-page="Enroll">+ New Enrollment</a>
+    }
+</div>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success">@success</div>
+}
+
+<section class="panel">
+    <div class="panel-heading d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <p class="eyebrow mb-1">ENROLLMENT DIRECTORY</p>
+            <h2 class="h5 mb-0">Active & Completed Records</h2>
+        </div>
+        <form method="get" class="roadmap-search-form d-flex align-items-center gap-2">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white border-end-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                </span>
+                <input name="Search" value="@Model.Search" class="form-control border-start-0" placeholder="Search participant, ID, or program..." style="min-width: 200px;" />
+                <button class="btn btn-dark px-3" type="submit">Search</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Search))
+                {
+                    <a asp-page="Enrollments" class="btn btn-outline-secondary" title="Clear search">✕</a>
+                }
+            </div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Participant</th>
+                    <th>Program</th>
+                    <th style="min-width: 220px;">Status Modul</th>
+                    <th>Enrolled Date</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Enrollments.Any())
+                {
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">No enrollments found.</td>
+                    </tr>
+                }
+                @foreach (var item in Model.Enrollments)
+                {
+                    var pct = item.TotalModulesCount > 0 ? (int)Math.Round((double)item.CompletedModulesCount / item.TotalModulesCount * 100) : 0;
+                    <tr>
+                        <td>
+                            <strong>@item.ParticipantName</strong>
+                            <small class="d-block text-muted">@item.EmployeeId</small>
+                        </td>
+                        <td>
+                            @item.ProgramName
+                            @if (item.TocFlag)
+                            {
+                                <span class="toc-badge">TOC</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.IsCertified)
+                            {
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                    ✓ Certified (@item.CompletedModulesCount/@item.TotalModulesCount · Kurang 0)
+                                </span>
+                            }
+                            else if (item.IsCompletedTraining)
+                            {
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                    ✓ Lengkap (@item.CompletedModulesCount/@item.TotalModulesCount · Kurang 0)
+                                </span>
+                            }
+                            else
+                            {
+                                <div class="d-flex flex-column gap-1" style="max-width: 220px;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="fw-bold text-dark">Sampai Modul @item.CompletedModulesCount/@item.TotalModulesCount</small>
+                                        <span class="badge bg-warning text-dark border">Kurang @item.RemainingModulesCount</span>
+                                    </div>
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar bg-warning" role="progressbar" style="width: @pct%;"></div>
+                                    </div>
+                                </div>
+                            }
+                        </td>
+                        <td>@item.EnrolledAt.ToLocalTime().ToString("dd MMM yyyy")</td>
+                        <td>
+                            <span class="badge-status @(item.Status == "Completed" ? "active" : item.Status == "Certified" ? "active" : "progressing")">
+                                @item.Status
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-light" asp-page="Progress" asp-route-enrollmentId="@item.Id">Hours & Modules</a>
+                            @if (item.ProgramName.Contains("Green Belt"))
+                            {
+                                <a class="btn btn-sm btn-light ms-1" asp-page="/Reviews/Index" asp-route-enrollmentId="@item.Id">Roadmap</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

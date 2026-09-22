@@ -1,0 +1,464 @@
+@page "{id:int}"
+@model LssTraining.Web.Pages.Training.DetailsModel
+@{
+    ViewData["Title"] = Model.Program?.Name ?? "Training";
+}
+
+@if (Model.Program is null)
+{
+    <div class="empty-state">
+        <h1>Program Not Found</h1>
+        <a asp-page="Index" class="btn btn-primary">Back to Training</a>
+    </div>
+}
+else
+{
+    <div class="page-nav-bar mb-3 d-flex align-items-center gap-2">
+        <a href="javascript:history.back()" class="btn btn-sm btn-light d-inline-flex align-items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+            </svg>
+            <span>Back</span>
+        </a>
+        <a asp-page="/Index" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5z"/>
+            </svg>
+            <span>Dashboard</span>
+        </a>
+    </div>
+
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-end mt-4">
+            <div>
+                <p class="eyebrow mb-2">@Model.Program.ShortName.ToUpperInvariant()</p>
+                <h1 class="page-title">@Model.Program.Name</h1>
+                <p class="page-subtitle">@Model.Program.Description</p>
+            </div>
+            @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+            {
+                <a class="btn btn-primary" asp-page="ModuleEdit" asp-route-programId="@Model.Program.Id">+ Add Module</a>
+            }
+        </div>
+    </div>
+
+    <section class="panel mb-4">
+        <div class="panel-heading">
+            <div>
+                <p class="eyebrow mb-1">CURRICULUM</p>
+                <h2>Training Modules</h2>
+            </div>
+            <span class="text-muted">@Model.Modules.Sum(x => x.TargetHours) total hrs</span>
+        </div>
+
+        <div class="module-list">
+            @if (!Model.Modules.Any())
+            {
+                <div class="empty-state small">
+                    <p>No modules available yet. Add the first module to start.</p>
+                </div>
+            }
+
+            @foreach (var module in Model.Modules)
+            {
+                <div class="module-row">
+                    <span class="module-number">@module.SortOrder.ToString("00")</span>
+                    <div class="flex-grow-1">
+                        <strong>@module.Name</strong>
+                        <small>@module.Description</small>
+                    </div>
+                    <span class="duration-pill">@module.TargetHours hrs</span>
+                    @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                    {
+                        <a class="btn btn-sm btn-light" asp-page="ModuleEdit" asp-route-programId="@Model.Program.Id" asp-route-id="@module.Id">Edit</a>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- Summary Stat Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-md-3">
+            <div class="p-3 bg-white border rounded-3 shadow-sm h-100">
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1">Total Terdaftar</span>
+                <div class="d-flex align-items-baseline gap-2">
+                    <span class="fs-3 fw-bold text-dark">@Model.Graduates.Count</span>
+                    <small class="text-muted">peserta</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+            <div class="p-3 bg-white border rounded-3 shadow-sm h-100 border-start border-4 border-warning">
+                <span class="text-warning small fw-semibold text-uppercase d-block mb-1">Dalam Masa Training</span>
+                <div class="d-flex align-items-baseline gap-2">
+                    <span class="fs-3 fw-bold text-warning">@Model.InTrainingParticipants.Count</span>
+                    <small class="text-muted">sedang proses modul</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+            <div class="p-3 bg-white border rounded-3 shadow-sm h-100 border-start border-4 border-primary">
+                <span class="text-primary small fw-semibold text-uppercase d-block mb-1">Selesai Training</span>
+                <div class="d-flex align-items-baseline gap-2">
+                    <span class="fs-3 fw-bold text-primary">@Model.CompletedTrainingParticipants.Count</span>
+                    <small class="text-muted">modul lengkap</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-md-3">
+            <div class="p-3 bg-white border rounded-3 shadow-sm h-100 border-start border-4 border-success">
+                <span class="text-success small fw-semibold text-uppercase d-block mb-1">Certified</span>
+                <div class="d-flex align-items-baseline gap-2">
+                    <span class="fs-3 fw-bold text-success">@Model.CertifiedParticipants.Count</span>
+                    <small class="text-muted">lulus sertifikasi</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Buttons -->
+    <div class="d-flex gap-2 mb-4 flex-wrap align-items-center" id="participantSectionFilter">
+        <span class="text-muted small fw-bold me-1">TAMPILKAN:</span>
+        <button type="button" class="btn btn-sm btn-dark active filter-btn" data-target="all">Semua Peserta (@Model.Graduates.Count)</button>
+        <button type="button" class="btn btn-sm btn-outline-success filter-btn" data-target="certified-section">
+            <span class="d-inline-block rounded-circle bg-success me-1" style="width:7px;height:7px;"></span>
+            Certified (@Model.CertifiedParticipants.Count)
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-primary filter-btn" data-target="completed-section">
+            <span class="d-inline-block rounded-circle bg-primary me-1" style="width:7px;height:7px;"></span>
+            Completed Training (@Model.CompletedTrainingParticipants.Count)
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-warning filter-btn" data-target="intraining-section">
+            <span class="d-inline-block rounded-circle bg-warning me-1" style="width:7px;height:7px;"></span>
+            Dalam Masa Training (@Model.InTrainingParticipants.Count)
+        </button>
+    </div>
+
+    <!-- 1. SECTION: PESERTA CERTIFIED -->
+    <section class="panel mb-4 border-start border-4 border-success participant-block" id="certified-section">
+        <div class="panel-heading bg-light bg-opacity-50">
+            <div>
+                <p class="eyebrow mb-1 text-success fw-bold">CARD LIST · STATUS CERTIFIED</p>
+                <h2 class="h4 mb-0 text-success d-flex align-items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="text-success" viewBox="0 0 16 16">
+                        <path d="M2.5.5A.5.5 0 0 1 3 1v10.5A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5V1a.5.5 0 0 1 1 0v10.5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5V1a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M8 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm0 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
+                    </svg>
+                    <span>Peserta Certified (@Model.CertifiedParticipants.Count)</span>
+                </h2>
+                <p class="text-muted small mb-0 mt-1">Daftar peserta yang telah menyelesaikan seluruh modul kurikulum dan resmi memperoleh predikat kelulusan sertifikasi.</p>
+            </div>
+            <span class="badge bg-success fs-6 px-3 py-2">@Model.CertifiedParticipants.Count Certified</span>
+        </div>
+
+        @if (!Model.CertifiedParticipants.Any())
+        {
+            <div class="empty-state small py-4 text-center">
+                <p class="text-muted mb-1">Belum ada peserta dengan status Certified pada program @Model.Program.Name.</p>
+                <small class="text-muted">Peserta yang telah menyelesaikan seluruh modul dapat diberikan sertifikasi melalui halaman Edit Peserta.</small>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 130px;">Employee ID</th>
+                            <th>Nama Peserta</th>
+                            <th>Departemen & Jabatan</th>
+                            <th style="width: 180px;">Status Modul</th>
+                            @if (Model.Program.IsGreenBelt)
+                            {
+                                <th style="width: 130px;">DMAIC Phase</th>
+                            }
+                            <th style="width: 150px;">Tanggal Sertifikasi</th>
+                            <th style="width: 130px;">Status</th>
+                            @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                            {
+                                <th style="width: 110px;" class="text-end">Aksi</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var grad in Model.CertifiedParticipants)
+                        {
+                            <tr>
+                                <td><code>@grad.EmployeeId</code></td>
+                                <td>
+                                    <strong>@grad.FullName</strong>
+                                    @if (grad.TocFlag)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1">+ TOC</span>
+                                    }
+                                </td>
+                                <td>
+                                    <small class="text-muted">@(grad.Department ?? "-") / @(grad.Position ?? "-")</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                        ✓ @grad.CompletedModulesCount/@grad.TotalModulesCount Selesai (Kurang 0)
+                                    </span>
+                                </td>
+                                @if (Model.Program.IsGreenBelt)
+                                {
+                                    <td>
+                                        <span class="badge bg-success">@(grad.StatusPhase ?? "Control")</span>
+                                    </td>
+                                }
+                                <td>
+                                    <small class="fw-semibold text-dark">@(grad.CertifiedAt?.ToString("dd MMM yyyy") ?? "-")</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success d-inline-flex align-items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"/>
+                                        </svg>
+                                        <span>Certified</span>
+                                    </span>
+                                </td>
+                                @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                {
+                                    <td class="text-end">
+                                        <a asp-page="/Participants/Edit" asp-route-id="@grad.ParticipantId" class="btn btn-sm btn-outline-secondary">Detail</a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <!-- 2. SECTION: PESERTA SUDAH COMPLETED TRAINING -->
+    <section class="panel mb-4 border-start border-4 border-primary participant-block" id="completed-section">
+        <div class="panel-heading bg-light bg-opacity-50">
+            <div>
+                <p class="eyebrow mb-1 text-primary fw-bold">LIST PESERTA · SELESAI TRAINING</p>
+                <h2 class="h4 mb-0 text-primary d-flex align-items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="text-primary" viewBox="0 0 16 16">
+                        <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                        <path d="M10.97 4.97a.75.75 0 0 1 1.071 1.05l-3.992 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.235.235 0 0 1 .02-.022z"/>
+                    </svg>
+                    <span>Peserta Selesai Training / Completed (@Model.CompletedTrainingParticipants.Count)</span>
+                </h2>
+                <p class="text-muted small mb-0 mt-1">Peserta yang telah menuntaskan 100% modul kurikulum yang ditetapkan, siap untuk verifikasi sertifikasi atau fase DMAIC lanjutan.</p>
+            </div>
+            <span class="badge bg-primary fs-6 px-3 py-2">@Model.CompletedTrainingParticipants.Count Selesai</span>
+        </div>
+
+        @if (!Model.CompletedTrainingParticipants.Any())
+        {
+            <div class="empty-state small py-4 text-center">
+                <p class="text-muted mb-0">Belum ada peserta yang berstatus Selesai Training (tanpa sertifikasi) untuk @Model.Program.Name.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 130px;">Employee ID</th>
+                            <th>Nama Peserta</th>
+                            <th>Departemen & Jabatan</th>
+                            <th style="width: 220px;">Status Modul</th>
+                            @if (Model.Program.IsGreenBelt)
+                            {
+                                <th style="width: 130px;">DMAIC Phase</th>
+                            }
+                            <th style="width: 140px;">Tgl Enrolled</th>
+                            <th style="width: 130px;">Status</th>
+                            @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                            {
+                                <th style="width: 110px;" class="text-end">Aksi</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var comp in Model.CompletedTrainingParticipants)
+                        {
+                            <tr>
+                                <td><code>@comp.EmployeeId</code></td>
+                                <td>
+                                    <strong>@comp.FullName</strong>
+                                    @if (comp.TocFlag)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1">+ TOC</span>
+                                    }
+                                </td>
+                                <td>
+                                    <small class="text-muted">@(comp.Department ?? "-") / @(comp.Position ?? "-")</small>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1">
+                                            <span>✓</span>
+                                            <span>Semua Modul Selesai (@comp.CompletedModulesCount/@comp.TotalModulesCount)</span>
+                                        </span>
+                                        <small class="text-success fw-semibold">Kurang 0 modul (Lengkap)</small>
+                                    </div>
+                                </td>
+                                @if (Model.Program.IsGreenBelt)
+                                {
+                                    <td>
+                                        <span class="badge bg-secondary">@(comp.StatusPhase ?? "Define")</span>
+                                    </td>
+                                }
+                                <td>
+                                    <small>@comp.EnrolledAt.ToString("dd MMM yyyy")</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">Completed</span>
+                                </td>
+                                @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                {
+                                    <td class="text-end">
+                                        <a asp-page="/Participants/Edit" asp-route-id="@comp.ParticipantId" class="btn btn-sm btn-outline-primary">Detail / Sertifikasi</a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <!-- 3. SECTION: PESERTA DALAM MASA TRAINING (IN PROGRESS) -->
+    <section class="panel mb-4 border-start border-4 border-warning participant-block" id="intraining-section">
+        <div class="panel-heading bg-light bg-opacity-50">
+            <div>
+                <p class="eyebrow mb-1 text-warning fw-bold">LIST PESERTA · DALAM MASA TRAINING</p>
+                <h2 class="h4 mb-0 text-dark d-flex align-items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="text-warning" viewBox="0 0 16 16">
+                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                    </svg>
+                    <span>Peserta Dalam Masa Training / In Progress (@Model.InTrainingParticipants.Count)</span>
+                </h2>
+                <p class="text-muted small mb-0 mt-1">Peserta yang sedang aktif menempuh modul kurikulum dan belum menyelesaikan seluruh modul yang ditetapkan.</p>
+            </div>
+            <span class="badge bg-warning text-dark fs-6 px-3 py-2">@Model.InTrainingParticipants.Count Dalam Proses</span>
+        </div>
+
+        @if (!Model.InTrainingParticipants.Any())
+        {
+            <div class="empty-state small py-4 text-center">
+                <p class="text-muted mb-0">Tidak ada peserta yang sedang dalam masa training untuk @Model.Program.Name.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 130px;">Employee ID</th>
+                            <th>Nama Peserta</th>
+                            <th>Departemen & Jabatan</th>
+                            <th style="width: 250px;">Status Modul (Sampai & Kurang)</th>
+                            @if (Model.Program.IsGreenBelt)
+                            {
+                                <th style="width: 130px;">DMAIC Phase</th>
+                            }
+                            <th style="width: 140px;">Tgl Enrolled</th>
+                            <th style="width: 130px;">Status</th>
+                            @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                            {
+                                <th style="width: 110px;" class="text-end">Aksi</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var part in Model.InTrainingParticipants)
+                        {
+                            var pct = part.TotalModulesCount > 0 ? (int)Math.Round((double)part.CompletedModulesCount / part.TotalModulesCount * 100) : 0;
+                            <tr>
+                                <td><code>@part.EmployeeId</code></td>
+                                <td>
+                                    <strong>@part.FullName</strong>
+                                    @if (part.TocFlag)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1">+ TOC</span>
+                                    }
+                                </td>
+                                <td>
+                                    <small class="text-muted">@(part.Department ?? "-") / @(part.Position ?? "-")</small>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span class="fw-bold text-dark small">
+                                                Sampai Modul @part.CompletedModulesCount dari @part.TotalModulesCount
+                                            </span>
+                                            <span class="badge bg-warning text-dark border">
+                                                Kurang @part.RemainingModulesCount modul
+                                            </span>
+                                        </div>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-warning" role="progressbar" style="width: @pct%;" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                @if (Model.Program.IsGreenBelt)
+                                {
+                                    <td>
+                                        <span class="badge bg-light text-dark border">@(part.StatusPhase ?? "Define")</span>
+                                    </td>
+                                }
+                                <td>
+                                    <small>@part.EnrolledAt.ToString("dd MMM yyyy")</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">In Progress</span>
+                                </td>
+                                @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                {
+                                    <td class="text-end">
+                                        <a asp-page="/Participants/Edit" asp-route-id="@part.ParticipantId" class="btn btn-sm btn-outline-secondary">Kelola</a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @section Scripts {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const filterBtns = document.querySelectorAll("#participantSectionFilter .filter-btn");
+                const blocks = document.querySelectorAll(".participant-block");
+
+                filterBtns.forEach(btn => {
+                    btn.addEventListener("click", function () {
+                        filterBtns.forEach(b => {
+                            b.classList.remove("active", "btn-dark");
+                            if (!b.classList.contains("btn-outline-success") &&
+                                !b.classList.contains("btn-outline-primary") &&
+                                !b.classList.contains("btn-outline-warning")) {
+                                b.classList.add("btn-outline-secondary");
+                            }
+                        });
+
+                        this.classList.add("active", "btn-dark");
+                        const targetId = this.getAttribute("data-target");
+
+                        if (targetId === "all") {
+                            blocks.forEach(block => block.style.display = "");
+                        } else {
+                            blocks.forEach(block => {
+                                block.style.display = (block.id === targetId) ? "" : "none";
+                            });
+                        }
+                    });
+                });
+            });
+        </script>
+    }
+}

@@ -1,0 +1,360 @@
+@page
+@model LssTraining.Web.Pages.Participants.RoadmapModel
+@{
+    ViewData["Title"] = "Roadmap & Review Status";
+    var stages = new[] { "Define", "Measure", "Analyze", "Improve", "Control" };
+    var stageDescriptions = new[] {
+        "Problem definition & project charter",
+        "Baseline measurement & capability",
+        "Root cause analysis (RCA)",
+        "Solution piloting & implementation",
+        "Standardization & sustained control"
+    };
+    var reviewStages = new[] { "Define", "Define", "Measure", "Analyze", "Improve", "Control" };
+}
+<div class="roadmap-page">
+    <div class="page-nav-bar mb-3 d-flex align-items-center gap-2">
+        <a href="javascript:history.back()" class="btn btn-sm btn-light d-inline-flex align-items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+            </svg>
+            <span>Back</span>
+        </a>
+        <a asp-page="/Index" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5z"/>
+            </svg>
+            <span>Dashboard</span>
+        </a>
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="eyebrow mb-0">TRAINING PATHWAYS · PARTICIPANT ROADMAP</span>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                        Role: <strong>@(User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Trainer")</strong>
+                    </span>
+                }
+            </div>
+            <h1 class="page-title">Participant Roadmap & Review Status</h1>
+            <p class="page-subtitle">Visualization of participant progress along the DMAIC highway and R0–R5 review gates.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" asp-page="/Participants/Index">Participants Directory</a>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="btn btn-primary" asp-page="Edit">+ Add Participant</a>
+            }
+        </div>
+    </div>
+
+    <section class="roadmap-legend panel mb-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between w-100 gap-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="legend-heading">DMAIC PHASE:</span>
+                @for (var i = 0; i < stages.Length; i++)
+                {
+                    <span class="phase-legend phase-@i"><i></i>@stages[i]</span>
+                }
+            </div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="legend-heading">REVIEW STATUS:</span>
+                <span class="rev-legend-item rev-legend-done"><i>✓</i> Completed</span>
+                <span class="rev-legend-item rev-legend-progress"><i>▶</i> In Progress</span>
+                <span class="rev-legend-item rev-legend-pending"><i>○</i> Not Started</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="highway-panel panel mb-4" id="highwayPanel">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 px-1">
+            <div>
+                <p class="eyebrow mb-0">DMAIC HIGHWAY VISUALIZATION</p>
+                <h2 class="h6 mb-0 text-muted">Participant Distribution Across Project Phases</h2>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small fw-semibold">Display Size:</span>
+                <div class="btn-group btn-group-sm" id="highwayDensityToggle" role="group">
+                    <button type="button" class="btn btn-outline-secondary" data-density="compact">Compact</button>
+                    <button type="button" class="btn btn-outline-secondary active" data-density="normal">Standard</button>
+                    <button type="button" class="btn btn-outline-secondary" data-density="expanded">Expanded</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="highway-scroll">
+            <div class="highway">
+                <div class="highway-labels">
+                    @for (var i = 0; i < stages.Length; i++)
+                    {
+                        var stageName = stages[i];
+                        var countInStage = Model.Participants.Count(p => p.StageIndex == i);
+                        <div class="checkpoint checkpoint-@i phase-@i">
+                            <span class="checkpoint-number">0@(i + 1)</span>
+                            <strong>@stageName</strong>
+                            <small>@stageDescriptions[i]</small>
+                            <span class="badge bg-light text-dark border mt-1 d-inline-block">@countInStage participants</span>
+                        </div>
+                    }
+                </div>
+                <div class="road-surface">
+                    <div class="road-dashes"></div>
+                    <div class="road-markers">
+                        @for (var i = 0; i < stages.Length; i++)
+                        {
+                            var stageName = stages[i];
+                            var participantsInStage = Model.Participants.Where(p => p.StageIndex == i).ToList();
+                            <div class="road-lane phase-lane-@i phase-@i" data-stage="@stageName">
+                                <div class="lane-header mb-2">
+                                    <span class="lane-count-badge">@participantsInStage.Count Participants</span>
+                                </div>
+                                @if (participantsInStage.Count > 0)
+                                {
+                                    <div class="lane-participants">
+                                        @foreach (var person in participantsInStage)
+                                        {
+                                            @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                            {
+                                                <a class="person-marker" asp-page="Edit" asp-route-id="@person.ParticipantId" title="@person.FullName · @person.EmployeeId · Phase @stageName (Click to edit participant)">
+                                                    <span class="person-avatar avatar-color-@((person.ParticipantId % 6) + 1)">@string.Concat(person.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0])).ToUpperInvariant()</span>
+                                                    <span class="person-name">@person.FullName</span>
+                                                    <span class="person-phase-tag phase-@i">@stageName</span>
+                                                </a>
+                                            }
+                                            else if (person.GreenBeltEnrollmentId is not null)
+                                            {
+                                                <a class="person-marker" asp-page="/Reviews/Index" asp-route-enrollmentId="@person.GreenBeltEnrollmentId" title="@person.FullName · @person.EmployeeId · Phase @stageName (Click to view review results)">
+                                                    <span class="person-avatar avatar-color-@((person.ParticipantId % 6) + 1)">@string.Concat(person.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0])).ToUpperInvariant()</span>
+                                                    <span class="person-name">@person.FullName</span>
+                                                    <span class="person-phase-tag phase-@i">@stageName</span>
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <span class="person-marker" title="@person.FullName · @person.EmployeeId · Phase @stageName">
+                                                    <span class="person-avatar avatar-color-@((person.ParticipantId % 6) + 1)">@string.Concat(person.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0])).ToUpperInvariant()</span>
+                                                    <span class="person-name">@person.FullName</span>
+                                                    <span class="person-phase-tag phase-@i">@stageName</span>
+                                                </span>
+                                            }
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="lane-empty" title="No participants in phase @stageName">
+                                        <span class="lane-empty-dot"></span>
+                                        <small class="text-white-50">Empty</small>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel roadmap-table-panel">
+        <div class="panel-heading">
+            <div>
+                <p class="eyebrow mb-1">PROGRESS MONITORING</p>
+                <h2>Participant Review Status & DMAIC Phases</h2>
+            </div>
+            <form method="get" class="roadmap-search-form d-flex align-items-center gap-2">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                        </svg>
+                    </span>
+                    <input name="Search" value="@Model.Search" class="form-control border-start-0" placeholder="Search name, ID, or phase..." style="min-width: 200px;" />
+                    <button class="btn btn-dark px-3" type="submit">Search</button>
+                    @if (!string.IsNullOrWhiteSpace(Model.Search))
+                    {
+                        <a asp-page="Roadmap" class="btn btn-outline-secondary" title="Clear search">✕</a>
+                    }
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle roadmap-detail-table">
+                <thead>
+                    <tr>
+                        <th style="min-width: 210px;">Participant</th>
+                        <th style="min-width: 160px;">Program</th>
+                        <th style="min-width: 220px;">Status Modul Training</th>
+                        <th style="min-width: 150px;">Current Phase</th>
+                        <th style="min-width: 350px;">Review Status (R0 — R5)</th>
+                        <th class="text-end" style="min-width: 120px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Participants.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">No participants match the search criteria.</td>
+                        </tr>
+                    }
+                    @foreach (var person in Model.Participants)
+                    {
+                        var isGb = person.GreenBeltEnrollmentId is not null || (person.Reviews != null && person.Reviews.Count > 0);
+                        var completedReviewsCount = person.Reviews?.Count(r => r.Status == "Completed") ?? 0;
+                        var pct = person.TotalModulesCount > 0 ? (int)Math.Round((double)person.CompletedModulesCount / person.TotalModulesCount * 100) : 0;
+                        <tr>
+                            <td>
+                                <div class="table-person">
+                                    <span class="person-avatar avatar-color-@((person.ParticipantId % 6) + 1)">@string.Concat(person.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0])).ToUpperInvariant()</span>
+                                    <div>
+                                        <strong class="d-block">@person.FullName</strong>
+                                        <small class="text-muted"><code>@person.EmployeeId</code> · @(person.Department ?? "—")</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="program-title-label">@person.ProgramName</span>
+                                    @if (isGb)
+                                    {
+                                        <span class="toc-badge ms-1">TOC</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                @if (person.IsCertified)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1">
+                                        <span>✓</span>
+                                        <span>Certified (@person.CompletedModulesCount/@person.TotalModulesCount · Kurang 0)</span>
+                                    </span>
+                                }
+                                else if (person.IsCompletedTraining)
+                                {
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1">
+                                        <span>✓</span>
+                                        <span>Lengkap (@person.CompletedModulesCount/@person.TotalModulesCount · Kurang 0)</span>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <div class="d-flex flex-column gap-1" style="max-width: 220px;">
+                                        <div class="d-flex align-items-center justify-content-between gap-1">
+                                            <span class="fw-bold small text-dark">
+                                                Sampai Modul @person.CompletedModulesCount/@person.TotalModulesCount
+                                            </span>
+                                            <span class="badge bg-warning text-dark border">
+                                                Kurang @person.RemainingModulesCount
+                                            </span>
+                                        </div>
+                                        <div class="progress" style="height: 5px;">
+                                            <div class="progress-bar bg-warning" role="progressbar" style="width: @pct%;"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                <div class="phase-cell">
+                                    @if (!string.IsNullOrWhiteSpace(person.DmaicStage) && person.StageIndex >= 0)
+                                    {
+                                        <span class="phase-badge phase-@person.StageIndex">
+                                            <span class="phase-dot"></span> Phase @(person.StageIndex + 1): @person.DmaicStage
+                                        </span>
+                                        <small class="d-block text-muted mt-1 phase-desc">
+                                            @stageDescriptions[person.StageIndex]
+                                        </small>
+                                    }
+                                    else
+                                    {
+                                        <span class="phase-badge phase-none">Not started</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                @if (isGb)
+                                {
+                                    <div class="review-matrix">
+                                        <div class="review-chips-group">
+                                            @for (int rIdx = 0; rIdx <= 5; rIdx++)
+                                            {
+                                                var reviewItem = person.Reviews?.FirstOrDefault(r => r.ReviewNumber == rIdx);
+                                                var rStage = reviewStages[rIdx];
+                                                var status = reviewItem?.Status ?? "Not Started";
+                                                var statusClass = status == "Completed" ? "completed" : status == "In Progress" ? "progressing" : "pending";
+                                                var statusIcon = status == "Completed" ? "✓" : status == "In Progress" ? "▶" : "○";
+                                                var statusTooltip = $"R{rIdx} ({rStage}): {status}" + (!string.IsNullOrWhiteSpace(reviewItem?.TrainerComment) ? $" — \"{reviewItem.TrainerComment}\"" : "");
+
+                                                <div class="rev-chip rev-chip-@statusClass" title="@statusTooltip">
+                                                    <span class="rev-icon">@statusIcon</span>
+                                                    <span class="rev-label">R@(rIdx)</span>
+                                                    <span class="rev-stage">@rStage</span>
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="review-meta mt-1">
+                                            <span class="rev-count-badge @(completedReviewsCount == 6 ? "all-done" : "")">
+                                                @completedReviewsCount / 6 Completed
+                                            </span>
+                                            @{
+                                                var activeRev = person.Reviews?.FirstOrDefault(r => r.Status == "In Progress") ?? person.Reviews?.LastOrDefault(r => r.Status == "Completed");
+                                            }
+                                            @if (activeRev != null)
+                                            {
+                                                <small class="text-muted ms-2">Active gate: <strong>R@(activeRev.ReviewNumber) (@reviewStages[activeRev.ReviewNumber])</strong></small>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="non-review-program">
+                                        <span class="badge bg-light text-muted border">Program Modul (Tanpa Review DMAIC)</span>
+                                    </div>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end gap-1">
+                                    @if (person.GreenBeltEnrollmentId is not null)
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Reviews/Index" asp-route-enrollmentId="@person.GreenBeltEnrollmentId" title="Detail Review R0–R5">
+                                            Review R0–R5
+                                        </a>
+                                    }
+                                    @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                    {
+                                        <a class="btn btn-sm btn-outline-primary" asp-page="Edit" asp-route-id="@person.ParticipantId" title="Edit participant profile and DMAIC phase">
+                                            Edit
+                                        </a>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const toggleButtons = document.querySelectorAll("#highwayDensityToggle button");
+            const highwayPanel = document.getElementById("highwayPanel");
+            if (toggleButtons.length && highwayPanel) {
+                toggleButtons.forEach(function (btn) {
+                    btn.addEventListener("click", function () {
+                        toggleButtons.forEach(function (b) { b.classList.remove("active"); });
+                        this.classList.add("active");
+                        const density = this.getAttribute("data-density");
+                        highwayPanel.classList.remove("highway-compact", "highway-normal", "highway-expanded");
+                        highwayPanel.classList.add("highway-" + density);
+                    });
+                });
+            }
+        });
+    </script>
+}

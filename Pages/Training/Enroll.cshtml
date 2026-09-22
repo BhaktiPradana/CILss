@@ -1,0 +1,70 @@
+@page
+@model LssTraining.Web.Pages.Training.EnrollModel
+@{
+    ViewData["Title"] = "New Enrollment";
+}
+
+<div class="page-nav-bar mb-3 d-flex align-items-center gap-2">
+    <a asp-page="Enrollments" class="btn btn-sm btn-light d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+        </svg>
+        <span>Back to Progress</span>
+    </a>
+    <a asp-page="/Index" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5z"/>
+        </svg>
+        <span>Dashboard</span>
+    </a>
+</div>
+
+<div class="mb-4">
+    <p class="eyebrow mb-2">ENROLLMENT</p>
+    <h1 class="page-title">Enroll Participant in Training</h1>
+    <p class="page-subtitle">Required program modules are automatically assigned; reviews R0–R5 are created for Green Belt.</p>
+</div>
+
+<section class="panel form-panel">
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="Input.ParticipantId" class="form-label">Participant *</label>
+            <select asp-for="Input.ParticipantId" class="form-select">
+                <option value="">— Select Participant —</option>
+                @foreach (var participant in Model.Participants)
+                {
+                    <option value="@participant.Id">@participant.FullName (@participant.EmployeeId)</option>
+                }
+            </select>
+            <span asp-validation-for="Input.ParticipantId" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Input.ProgramId" class="form-label">Program *</label>
+            <select asp-for="Input.ProgramId" class="form-select">
+                <option value="">— Select Program —</option>
+                @foreach (var program in Model.Programs)
+                {
+                    <option value="@program.Id">@program.Name</option>
+                }
+            </select>
+            <span asp-validation-for="Input.ProgramId" class="text-danger"></span>
+        </div>
+
+        <div class="form-check form-switch mb-4">
+            <input asp-for="Input.TocFlag" class="form-check-input" />
+            <label asp-for="Input.TocFlag" class="form-check-label">Flag TOC (Theory of Constraints)</label>
+        </div>
+
+        <div class="form-actions">
+            <a asp-page="Enrollments" class="btn btn-light">Cancel</a>
+            <button class="btn btn-primary" type="submit">Enroll</button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

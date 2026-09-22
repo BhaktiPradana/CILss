@@ -1,0 +1,71 @@
+﻿@page
+@model LssTraining.Web.Pages.Account.RegisterModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Register";
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Register · CILeanSixSigma</title>
+    <!-- Masukkan <link> CSS yang sama persis seperti di Login.cshtml -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body class="login-page">
+    <main class="login-shell">
+        <section class="login-card">
+            <div class="brand-mark mb-4">
+                <span class="brand-dot"></span>
+                <span>CI<span class="brand-muted">LeanSixSigma</span></span>
+            </div>
+            <h1>Create Account</h1>
+            <p class="login-subtitle">Register for access. An admin must approve your account.</p>
+
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger">@Model.ErrorMessage</div>
+            }
+
+            @if (Model.IsSuccess)
+            {
+                <div class="alert alert-success">
+                    <strong>Success!</strong> Your account has been created, but it requires administrator approval before you can sign in.
+                </div>
+                <a asp-page="/Account/Login" class="btn btn-outline-primary w-100 mt-3">Back to Sign In</a>
+            }
+            else
+            {
+                <form method="post">
+                    <div class="mb-3">
+                        <label asp-for="Input.DisplayName" class="form-label">Full Name</label>
+                        <input asp-for="Input.DisplayName" class="form-control" autocomplete="name" autofocus />
+                        <span asp-validation-for="Input.DisplayName" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Input.Username" class="form-label">Username</label>
+                        <input asp-for="Input.Username" class="form-control" autocomplete="username" />
+                        <span asp-validation-for="Input.Username" class="text-danger"></span>
+                    </div>
+                    <div class="mb-4">
+                        <label asp-for="Input.Password" class="form-label">Password</label>
+                        <input asp-for="Input.Password" class="form-control" autocomplete="new-password" type="password" />
+                        <span asp-validation-for="Input.Password" class="text-danger"></span>
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit">Register</button>
+                </form>
+                <div class="mt-4 text-center">
+                    <p class="small text-muted">Already have an account? <a asp-page="/Account/Login">Sign In</a></p>
+                </div>
+            }
+        </section>
+    </main>
+    <partial name="_ValidationScriptsPartial" />
+</body>
+</html>

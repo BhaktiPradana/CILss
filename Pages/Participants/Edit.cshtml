@@ -1,0 +1,516 @@
+@page "{id:int?}"
+@model LssTraining.Web.Pages.Participants.EditModel
+@{
+    ViewData["Title"] = Model.IsNew ? "Add Participant" : "Edit Participant";
+}
+
+<div class="page-nav-bar mb-3 d-flex align-items-center gap-2">
+    <a asp-page="Index" class="btn btn-sm btn-light d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+        </svg>
+        <span>Back to Participants</span>
+    </a>
+    <a asp-page="/Index" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5z"/>
+        </svg>
+        <span>Dashboard</span>
+    </a>
+</div>
+
+@if (TempData["Success"] is string successMsg)
+{
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+        </svg>
+        <span>@successMsg</span>
+    </div>
+}
+
+@if (TempData["Error"] is string errorMsg)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+        </svg>
+        <span>@errorMsg</span>
+    </div>
+}
+
+<div class="mb-4">
+    <p class="eyebrow mb-2">PARTICIPANT PROFILE</p>
+    <h1 class="page-title">@(Model.IsNew ? "Add New Participant" : "Edit Participant")</h1>
+    <p class="page-subtitle">@(Model.IsNew ? "Register participant, select training program, and set module progress." : "Update participant profile information, DMAIC phase, and module completion status.")</p>
+</div>
+
+<form method="post" id="mainParticipantForm">
+    <input type="hidden" asp-for="Input.Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <section class="panel mb-4">
+        <div class="panel-heading mb-3 pb-2 border-bottom">
+            <div>
+                <p class="eyebrow mb-1">PROFILE</p>
+                <h2 class="h5 mb-0">Personal & Assignment Information</h2>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="Input.EmployeeId" class="form-label">Employee ID *</label>
+                <input asp-for="Input.EmployeeId" class="form-control" placeholder="e.g. LSS-001" autofocus />
+                <span asp-validation-for="Input.EmployeeId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.FullName" class="form-label">Full Name *</label>
+                <input asp-for="Input.FullName" class="form-control" placeholder="Participant full name" />
+                <span asp-validation-for="Input.FullName" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.Department" class="form-label">Department</label>
+                <input asp-for="Input.Department" class="form-control" placeholder="e.g. Production, Quality, Supply Chain" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.Position" class="form-label">Position</label>
+                <input asp-for="Input.Position" class="form-control" placeholder="e.g. Engineer, Specialist, Supervisor" />
+            </div>
+            <div class="col-md-6">
+                <div class="form-check form-switch mt-4">
+                    <input asp-for="Input.IsActive" class="form-check-input" />
+                    <label asp-for="Input.IsActive" class="form-check-label">Active participant</label>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @if (Model.IsNew)
+    {
+        <section class="panel mb-4">
+            <div class="panel-heading mb-3 pb-2 border-bottom">
+                <div>
+                    <p class="eyebrow mb-1">TRAINING PROGRAM</p>
+                    <h2 class="h5 mb-0">Program Selection & Module Progress</h2>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label asp-for="Input.ProgramId" class="form-label">Training Program *</label>
+                    <select asp-for="Input.ProgramId" class="form-select" id="newProgramSelect">
+                        <option value="">— Select training program —</option>
+                        @foreach (var program in Model.Programs)
+                        {
+                            <option value="@program.Id">@program.Name</option>
+                        }
+                    </select>
+                    <span asp-validation-for="Input.ProgramId" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Input.StatusPhase" class="form-label">Project DMAIC Phase</label>
+                    <select asp-for="Input.StatusPhase" class="form-select" id="newStatusPhaseSelect">
+                        <option value="">— Not Started —</option>
+                        <option value="Define">Define (Phase 1: Problem statement & charter)</option>
+                        <option value="Measure">Measure (Phase 2: Baseline measurement)</option>
+                        <option value="Analyze">Analyze (Phase 3: Root cause analysis)</option>
+                        <option value="Improve">Improve (Phase 4: Solution implementation)</option>
+                        <option value="Control">Control (Phase 5: Standardization & control)</option>
+                    </select>
+                    <span asp-validation-for="Input.StatusPhase" class="text-danger"></span>
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input asp-for="Input.TocFlag" class="form-check-input" />
+                        <label asp-for="Input.TocFlag" class="form-check-label">TOC Flag (Theory of Constraints)</label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="newParticipantModulesSection">
+                @foreach (var program in Model.Programs)
+                {
+                    var programModules = Model.AllModules.Where(m => m.ProgramId == program.Id).OrderBy(m => m.SortOrder).ToList();
+                    <div class="program-module-group p-3 border rounded-3 bg-light mb-3" id="program-group-@program.Id" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Curriculum Modules: @program.Name</strong>
+                            <span class="badge bg-secondary">@programModules.Sum(m => m.TargetHours) total hrs</span>
+                        </div>
+
+                        <div class="p-2 mb-3 bg-white border rounded">
+                            <div class="d-flex gap-2 flex-wrap align-items-center">
+                                <span class="badge bg-success" id="badge-followed-@program.Id">Completed modules: 0</span>
+                                <span class="badge bg-warning text-dark" id="badge-remaining-@program.Id">Remaining modules: @programModules.Count</span>
+                            </div>
+                        </div>
+
+                        <div class="list-group">
+                            @foreach (var mod in programModules)
+                            {
+                                <label class="list-group-item d-flex justify-content-between align-items-center cursor-pointer">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input class="form-check-input me-1 init-module-check" type="checkbox" name="InitialCompletedModuleIds" value="@mod.Id" data-program-id="@program.Id">
+                                        <span>@mod.Name</span>
+                                    </div>
+                                    <span class="badge bg-light text-dark border">@mod.TargetHours hrs</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+    else
+    {
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <p class="eyebrow mb-1">ENROLLED TRAINING PROGRAMS</p>
+                    <h2 class="h4 mb-0">Curriculum, Module Progress & Certification</h2>
+                </div>
+                <span class="badge bg-primary fs-6">@Model.EnrolledPrograms.Count Enrolled Programs</span>
+            </div>
+            <p class="text-muted small">Participants can enroll in multiple training programs. Check completed modules to update progress.</p>
+        </div>
+
+        @if (!Model.EnrolledPrograms.Any())
+        {
+            <div class="panel mb-4 text-center py-4">
+                <p class="text-muted mb-2">Participant is not enrolled in any training programs yet.</p>
+                <p class="small text-muted">Use the form below to enroll this participant into a training program.</p>
+            </div>
+        }
+
+        @foreach (var progress in Model.EnrolledPrograms)
+        {
+            var isCertified = progress.IsCertified;
+            var canCertify = progress.CanCertify(Model.Input.StatusPhase);
+
+            <section class="panel mb-4 border-start border-4 @(isCertified ? "border-success" : progress.IsAllModulesCompleted ? "border-primary" : "border-warning")">
+                <div class="d-flex justify-content-between align-items-start mb-3 pb-2 border-bottom flex-wrap gap-2">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-dark">@progress.ShortName</span>
+                            <h3 class="h5 mb-0 fw-bold">@progress.ProgramName</h3>
+                            @if (progress.TocFlag)
+                            {
+                                <span class="badge bg-warning text-dark">+ TOC</span>
+                            }
+                        </div>
+                        <small class="text-muted">Enrolled on @progress.EnrolledAt.ToString("dd MMM yyyy")</small>
+                    </div>
+                    <div>
+                        @if (isCertified)
+                        {
+                            <span class="badge bg-success px-3 py-2 fs-6 d-inline-flex align-items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M2.5.5A.5.5 0 0 1 3 1v10.5A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5V1a.5.5 0 0 1 1 0v10.5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5V1a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M8 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm0 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
+                                </svg>
+                                <span>Certified</span>
+                            </span>
+                        }
+                        else if (progress.Status == "Completed" || progress.IsAllModulesCompleted)
+                        {
+                            <span class="badge bg-primary px-3 py-2 fs-6">Completed</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary px-3 py-2 fs-6">In Progress</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="alert alert-light border d-flex justify-content-between align-items-center mb-3 py-2 px-3 flex-wrap gap-2">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase d-block">Status Training & Modul</span>
+                        <span class="fw-bold @(isCertified ? "text-success" : progress.IsAllModulesCompleted ? "text-primary" : "text-dark")">
+                            @if (isCertified)
+                            {
+                                <span>Certified · Semua Modul Selesai (@progress.CompletedModulesCount/@progress.TotalModulesCount Modul · Kurang 0 Modul)</span>
+                            }
+                            else if (progress.IsAllModulesCompleted)
+                            {
+                                <span>Completed Training · Semua Modul Selesai (@progress.CompletedModulesCount/@progress.TotalModulesCount Modul · Kurang 0 Modul)</span>
+                            }
+                            else
+                            {
+                                <span>Sudah Sampai Modul @progress.CompletedModulesCount dari @progress.TotalModulesCount (Kurang @progress.RemainingModulesCount modul)</span>
+                            }
+                        </span>
+                    </div>
+                    <div>
+                        <span class="badge @(isCertified ? "bg-success" : progress.IsAllModulesCompleted ? "bg-primary" : "bg-warning text-dark")">
+                            @(isCertified ? "Certified" : progress.IsAllModulesCompleted ? "Completed Training" : "Dalam Masa Training")
+                        </span>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-3 border h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-success d-inline-flex align-items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"/>
+                                    </svg>
+                                    <span>Completed Modules (@progress.CompletedModulesCount / @progress.TotalModulesCount)</span>
+                                </span>
+                                <span class="badge bg-success">@progress.CompletedModulesCount completed</span>
+                            </div>
+                            @if (progress.CompletedModules.Any())
+                            {
+                                <ul class="list-unstyled mb-0 small">
+                                    @foreach (var mod in progress.CompletedModules)
+                                    {
+                                        <li class="py-1 text-success d-flex align-items-center gap-1">
+                                            <span>✓</span>
+                                            <strong>@mod.ModuleName</strong>
+                                            <span class="text-muted">(@mod.TargetHours hrs)</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0">No modules completed for this program yet.</p>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-3 border h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-warning d-inline-flex align-items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                                    </svg>
+                                    <span>Remaining Modules (@progress.RemainingModules.Count)</span>
+                                </span>
+                                <span class="badge bg-warning text-dark">@progress.RemainingModules.Count remaining</span>
+                            </div>
+                            @if (progress.RemainingModules.Any())
+                            {
+                                <ul class="list-unstyled mb-0 small">
+                                    @foreach (var mod in progress.RemainingModules)
+                                    {
+                                        <li class="py-1 text-danger d-flex align-items-center gap-1">
+                                            <span>✗</span>
+                                            <span>@mod.ModuleName</span>
+                                            <span class="text-muted">(@mod.TargetHours hrs)</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="text-success small fw-bold mb-0">Complete! All curriculum modules have been completed (Kurang 0 modul).</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase">Curriculum Module Checklist</label>
+                    <div class="list-group">
+                        @foreach (var mod in progress.Modules)
+                        {
+                            var isChecked = mod.IsCompleted;
+                            <label class="list-group-item d-flex justify-content-between align-items-center cursor-pointer">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input class="form-check-input me-1" type="checkbox" name="CompletedModuleIds" value="@mod.ModuleId" @(isChecked ? "checked" : "")>
+                                    <span class="@(isChecked ? "fw-bold text-success" : "")">@mod.ModuleName</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge @(isChecked ? "bg-success" : "bg-light text-dark border")">@mod.TargetHours hrs</span>
+                                    <span class="badge @(isChecked ? "bg-success" : "bg-secondary")">@(isChecked ? "Completed" : "Pending")</span>
+                                </div>
+                            </label>
+                        }
+                    </div>
+                    <small class="text-muted d-block mt-1">Check/uncheck modules and click "Save Participant" below to update progress.</small>
+                </div>
+
+                @if (progress.IsGreenBelt || progress.ShortName.Contains("BB") || progress.ProgramName.Contains("Black Belt"))
+                {
+                    <div class="p-3 rounded-3 border bg-light mt-3 mb-3">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-7">
+                                <label asp-for="Input.StatusPhase" class="form-label fw-bold mb-1">Project DMAIC Phase</label>
+                                <select asp-for="Input.StatusPhase" class="form-select" id="statusPhaseSelect">
+                                    <option value="">— Not Started —</option>
+                                    <option value="Define">Define (Phase 1: Problem statement & charter)</option>
+                                    <option value="Measure">Measure (Phase 2: Baseline measurement)</option>
+                                    <option value="Analyze">Analyze (Phase 3: Root cause analysis)</option>
+                                    <option value="Improve">Improve (Phase 4: Solution implementation)</option>
+                                    <option value="Control">Control (Phase 5: Standardization & control)</option>
+                                </select>
+                                <small class="text-muted">Participant project milestone phase. Click "Save Participant" to apply changes.</small>
+                            </div>
+                            <div class="col-md-5 d-flex flex-column align-items-md-end justify-content-center">
+                                <span class="text-muted small mb-1">Milestone Review Gates:</span>
+                                <a asp-page="/Reviews/Index" asp-route-enrollmentId="@progress.EnrollmentId" class="btn btn-outline-primary d-inline-flex align-items-center gap-1 fw-bold">
+                                    <span>Manage R0–R5 Reviews</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (progress.IsGreenBelt || progress.ShortName.Contains("BB") || progress.ProgramName.Contains("Black Belt") || progress.ShortName.Contains("Yellow"))
+                {
+                    <div class="p-3 rounded-3 border @(isCertified ? "bg-success-subtle border-success" : canCertify ? "bg-warning-subtle border-warning" : "bg-light")">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <h4 class="h6 mb-1 fw-bold">Program Certification Status (@progress.ShortName)</h4>
+                                @if (isCertified)
+                                {
+                                    <p class="mb-0 text-success small">Participant achieved official certification on <strong>@progress.CertifiedAt?.ToString("dd MMM yyyy HH:mm")</strong>.</p>
+                                }
+                                else if (canCertify)
+                                {
+                                    <p class="mb-0 text-dark small"><strong>Requirements Met:</strong> All curriculum modules completed (@progress.CompletedModulesCount/@progress.TotalModulesCount). Certification action is ready.</p>
+                                }
+                                else
+                                {
+                                    <p class="mb-0 text-muted small">Certification Criteria: All curriculum modules must be completed (currently: <strong>@progress.CompletedModulesCount/@progress.TotalModulesCount</strong> · Kurang <strong>@progress.RemainingModulesCount</strong> modul)@(progress.IsGreenBelt ? $" and DMAIC Phase must reach Control (currently: {(string.IsNullOrWhiteSpace(Model.Input.StatusPhase) ? "Not started" : Model.Input.StatusPhase)})" : "").</p>
+                                }
+                            </div>
+                            <div>
+                                @if (isCertified)
+                                {
+                                    @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                    {
+                                        <button type="submit"
+                                                formaction="?handler=RevokeCertification&enrollmentId=@progress.EnrollmentId&participantId=@Model.Input.Id"
+                                                class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('Are you sure you want to revoke certification for this participant?');">
+                                            Revoke Certification
+                                        </button>
+                                    }
+                                }
+                                else if (canCertify)
+                                {
+                                    @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                    {
+                                        <button type="submit"
+                                                formaction="?handler=Certify&enrollmentId=@progress.EnrollmentId&participantId=@Model.Input.Id"
+                                                class="btn btn-success d-inline-flex align-items-center gap-2 fw-bold px-3">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M2.5.5A.5.5 0 0 1 3 1v10.5A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5V1a.5.5 0 0 1 1 0v10.5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5V1a.5.5 0 0 1 .5-.5z"/>
+                                                <path d="M8 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm0 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
+                                            </svg>
+                                            <span>Grant Certification</span>
+                                        </button>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </section>
+        }
+    }
+
+    <div class="form-actions mt-4 d-flex gap-2">
+        <a asp-page="Index" class="btn btn-light">Cancel</a>
+        <button type="submit" class="btn btn-primary px-4 fw-bold">Save Participant</button>
+    </div>
+</form>
+
+@if (!Model.IsNew)
+{
+    var existingProgramIds = Model.EnrolledPrograms.Select(p => p.ProgramId).ToHashSet();
+    var availablePrograms = Model.Programs.Where(p => !existingProgramIds.Contains(p.Id)).ToList();
+
+    @if (availablePrograms.Any())
+    {
+        <section class="panel mt-4">
+            <div class="panel-heading mb-3 pb-2 border-bottom">
+                <div>
+                    <p class="eyebrow mb-1">ADDITIONAL PROGRAM</p>
+                    <h2 class="h5 mb-0">Enroll Participant in Another Training Program</h2>
+                </div>
+            </div>
+
+            <form method="post" asp-page-handler="AddProgram" asp-route-id="@Model.Input.Id">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label asp-for="NewProgramId" class="form-label">Select Additional Program</label>
+                        <select asp-for="NewProgramId" class="form-select">
+                            <option value="">— Select additional program —</option>
+                            @foreach (var prog in availablePrograms)
+                            {
+                                <option value="@prog.Id">@prog.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch mb-2">
+                            <input asp-for="NewProgramToc" class="form-check-input" />
+                            <label asp-for="NewProgramToc" class="form-check-label">TOC Flag</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-outline-primary w-100 fw-bold">+ Enroll in This Program</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+    }
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const progSelect = document.getElementById("newProgramSelect");
+            if (progSelect) {
+                function updateProgramModules() {
+                    const selectedVal = progSelect.value;
+                    const groups = document.querySelectorAll(".program-module-group");
+                    groups.forEach(function (g) {
+                        g.style.display = "none";
+                    });
+                    if (selectedVal) {
+                        const target = document.getElementById("program-group-" + selectedVal);
+                        if (target) {
+                            target.style.display = "block";
+                            refreshCounts(selectedVal);
+                        }
+                    }
+                }
+
+                function refreshCounts(programId) {
+                    const target = document.getElementById("program-group-" + programId);
+                    if (!target) return;
+                    const checks = target.querySelectorAll(".init-module-check");
+                    let followed = 0;
+                    checks.forEach(function (c) {
+                        if (c.checked) followed++;
+                    });
+                    const remaining = checks.length - followed;
+                    const followedBadge = document.getElementById("badge-followed-" + programId);
+                    const remainingBadge = document.getElementById("badge-remaining-" + programId);
+                    if (followedBadge) followedBadge.textContent = "Completed modules: " + followed;
+                    if (remainingBadge) remainingBadge.textContent = "Remaining modules: " + remaining;
+                }
+
+                progSelect.addEventListener("change", updateProgramModules);
+                updateProgramModules();
+
+                document.querySelectorAll(".init-module-check").forEach(function (check) {
+                    check.addEventListener("change", function () {
+                        const progId = this.getAttribute("data-program-id");
+                        if (progId) refreshCounts(progId);
+                    });
+                });
+            }
+        });
+    </script>
+}

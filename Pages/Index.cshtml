@@ -1,0 +1,78 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="dashboard-shell">
+    <div class="public-hero mb-4">
+        <div class="hero-header-content">
+            <div class="hero-logo-box">
+                <img src="~/images/Company_Logo.png" alt="Company Logo" class="hero-company-logo" asp-append-version="true" />
+            </div>
+            <div>
+                <p class="eyebrow mb-2">CILeanSixSigma · @DateTime.UtcNow.ToString("dd MMMM yyyy")</p>
+                <h1 class="page-title">Continuous Improvement Pathways</h1>
+                <p class="page-subtitle">Lean Six Sigma certification paths and participant milestones.</p>
+            </div>
+        </div>
+        <div class="hero-road-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"/>
+            </svg>
+        </div>
+    </div>
+
+    @if (Model.HasDatabaseError)
+    {
+        <div class="alert alert-warning mb-4">
+            <strong>Preview mode.</strong> Database is not connected; showing preview metrics.
+        </div>
+    }
+
+    <section class="metric-grid public-metrics mb-5">
+        <a class="metric-card metric-card-link total-card" asp-page="/Participants/Index" title="Click to view participants directory and management">
+            <span class="metric-label">TOTAL PARTICIPANTS</span>
+            <strong>@Model.Metrics.TotalParticipants</strong>
+            <span class="metric-note positive">Participants & management <span aria-hidden="true">→</span></span>
+        </a>
+        <a class="metric-card metric-card-link active-card" asp-page="/Training/Enrollments" title="Click to view participant progress and training status">
+            <span class="metric-label">ACTIVE TRAININGS</span>
+            <strong>@Model.Metrics.ActiveEnrollments</strong>
+            <span class="metric-note positive">Participant progress & status <span aria-hidden="true">→</span></span>
+        </a>
+        <a class="metric-card metric-card-link pathway-metric" asp-page="/Participants/Roadmap" title="Click to view participant roadmap and review gates">
+            <span class="metric-label">TRAINING PATHWAYS</span>
+            <strong>@Model.Programs.Count</strong>
+            <span class="metric-note positive">Roadmap & review status <span aria-hidden="true">→</span></span>
+        </a>
+    </section>
+
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow mb-1">TRAINING PATHWAYS</p>
+            <h2>Certification Programs</h2>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a class="btn btn-outline-primary" asp-page="/Participants/Roadmap">View Roadmap & Review Status <span>→</span></a>
+        </div>
+    </div>
+
+    <section class="pathway-grid">
+        @foreach (var program in Model.Programs)
+        {
+            <a class="pathway-card @program.AccentClass" asp-page="/Training/Details" asp-route-id="@program.Id">
+                <div class="pathway-top">
+                    <span class="pathway-icon">@program.ShortName[..1]</span>
+                    <span class="status-dot" title="Active program"></span>
+                </div>
+                <h3>@program.Name</h3>
+                <p>@program.Description</p>
+                <div class="pathway-footer">
+                    <span><strong>@program.ParticipantCount</strong> enrolled</span>
+                    <span class="text-primary fw-bold small">View Curriculum Details →</span>
+                </div>
+            </a>
+        }
+    </section>
+</div>

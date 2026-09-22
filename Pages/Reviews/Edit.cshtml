@@ -1,0 +1,64 @@
+@page "{enrollmentId:int}/{id:int}"
+@model LssTraining.Web.Pages.Reviews.EditModel
+@{
+    ViewData["Title"] = "Edit Review";
+}
+
+<div class="page-nav-bar mb-3 d-flex align-items-center gap-2">
+    <a asp-page="Index" asp-route-enrollmentId="@Model.EnrollmentId" class="btn btn-sm btn-light d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+        </svg>
+        <span>Back to Roadmap</span>
+    </a>
+    <a asp-page="/Index" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5z"/>
+        </svg>
+        <span>Dashboard</span>
+    </a>
+</div>
+
+<div class="mb-4">
+    <p class="eyebrow mb-2">GREEN BELT · @Model.Review?.ReviewLabel</p>
+    <h1 class="page-title">Update Review</h1>
+</div>
+
+<section class="panel form-panel">
+    <form method="post">
+        <input type="hidden" asp-for="Input.Id" />
+        <input type="hidden" asp-for="Input.EnrollmentId" />
+        <input type="hidden" asp-for="Input.ReviewNumber" />
+
+        <div class="mb-3">
+            <label asp-for="Input.Status" class="form-label">Review Status</label>
+            <select asp-for="Input.Status" class="form-select">
+                <option>Not Started</option>
+                <option>In Progress</option>
+                <option>Completed</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Input.DmaicStage" class="form-label">DMAIC Stage</label>
+            <select asp-for="Input.DmaicStage" class="form-select">
+                <option value="">— Select Stage —</option>
+                <option>Define</option>
+                <option>Measure</option>
+                <option>Analyze</option>
+                <option>Improve</option>
+                <option>Control</option>
+            </select>
+        </div>
+
+        <div class="mb-4">
+            <label asp-for="Input.TrainerComment" class="form-label">Trainer Comment</label>
+            <textarea asp-for="Input.TrainerComment" class="form-control" rows="5" placeholder="Record feedback, decisions, or next steps..."></textarea>
+        </div>
+
+        <div class="form-actions">
+            <a asp-page="Index" asp-route-enrollmentId="@Model.EnrollmentId" class="btn btn-light">Cancel</a>
+            <button class="btn btn-primary" type="submit">Save Changes</button>
+        </div>
+    </form>
+</section>

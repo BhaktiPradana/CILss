@@ -1,0 +1,262 @@
+@page
+@model LssTraining.Web.Pages.Participants.IndexModel
+@{
+    ViewData["Title"] = "Participants";
+}
+
+<div class="page-nav-bar mb-3 d-flex align-items-center gap-2">
+    <a href="javascript:history.back()" class="btn btn-sm btn-light d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+        </svg>
+        <span>Back</span>
+    </a>
+    <a asp-page="/Index" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5z"/>
+        </svg>
+        <span>Dashboard</span>
+    </a>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="eyebrow mb-0">PARTICIPANT DIRECTORY</span>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                    Role: <strong>@(User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Trainer")</strong> (Edit Access Active)
+                </span>
+            }
+            else
+            {
+                <span class="badge bg-light text-muted border">
+                    View Mode · <a asp-page="/Account/Login" asp-route-returnUrl="/Participants/Index" class="text-primary text-decoration-none">Login as Admin/Trainer to edit</a>
+                </span>
+            }
+        </div>
+        <h1 class="page-title">Training Participants</h1>
+        <p class="page-subtitle">Manage participant profiles, certification enrollments, and DMAIC project phases.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-1" asp-page="Roadmap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.854 4.146a.5.5 0 0 0-.708-.708L10 7.293 7.854 5.146a.5.5 0 0 0-.708 0L3.5 8.793l.708.707L7.5 6.207l2.146 2.147a.5.5 0 0 0 .708 0l4.5-4.5Z"/>
+            </svg>
+            <span>View Roadmap</span>
+        </a>
+        <a class="btn btn-outline-success d-inline-flex align-items-center gap-1" 
+           href="/Participants/Export/CILeanSixSigma_Participants.xlsx" 
+           id="exportExcelBtn" 
+           download="CILeanSixSigma_Participants.xlsx" 
+           title="Export participants directory to Excel format (.xlsx)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.748l2.116 2.572a.5.5 0 0 0 .768-.64L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.252 5.884 6.68z"/>
+                <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+            </svg>
+            <span id="exportExcelLabel">Export Excel (.xlsx)</span>
+        </a>
+        @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+        {
+            <a class="btn btn-outline-primary d-inline-flex align-items-center gap-1" asp-page="Import">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 15A.5.5 0 0 0 8.5 14.5V4.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L7.5 4.707V14.5A.5.5 0 0 0 8 15z"/>
+                </svg>
+                <span>Import CSV</span>
+            </a>
+            <a class="btn btn-primary d-inline-flex align-items-center gap-1" asp-page="Edit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                <span>Add Participant</span>
+            </a>
+        }
+    </div>
+</div>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @success
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error:</strong> @error
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<section class="panel">
+    <form method="get" class="search-bar mb-4">
+        <div class="input-group">
+            <span class="input-group-text">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+            </span>
+            <input class="form-control" name="Search" value="@Model.Search" placeholder="Search name, employee ID, department, or phase..." />
+            <button class="btn btn-dark" type="submit">Search</button>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Participant</th>
+                    <th>Employee ID</th>
+                    <th>Department</th>
+                    <th>Position</th>
+                    <th>Program</th>
+                    <th>DMAIC Phase</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Items.Any())
+                {
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">No participants match the search query.</td>
+                    </tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <strong>@item.FullName</strong>
+                        </td>
+                        <td><code>@item.EmployeeId</code></td>
+                        <td>@(item.Department ?? "—")</td>
+                        <td>@(item.Position ?? "—")</td>
+                        <td>
+                            <div>
+                                <span class="fw-semibold">@(item.ProgramName ?? "Not enrolled")</span>
+                                @if (item.TocFlag)
+                                {
+                                    <span class="toc-badge ms-1">TOC</span>
+                                }
+                                @if (item.ProgramId.HasValue && item.TotalModulesCount > 0)
+                                {
+                                    <small class="d-block mt-1">
+                                        @if (item.EnrollmentStatus == "Certified")
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                Certified (Lengkap)
+                                            </span>
+                                        }
+                                        else if (item.CompletedModulesCount >= item.TotalModulesCount)
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                Lengkap (@item.CompletedModulesCount/@item.TotalModulesCount Modul)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning-subtle text-dark border border-warning-subtle">
+                                                Sampai Modul @item.CompletedModulesCount/@item.TotalModulesCount (Kurang @item.RemainingModulesCount)
+                                            </span>
+                                        }
+                                    </small>
+                                }
+                            </div>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(item.StatusPhase) && item.StageIndex >= 0)
+                            {
+                                <span class="phase-badge phase-@item.StageIndex">@item.StatusPhase</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">Not started</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge-status @(item.IsActive ? "active" : "inactive")">@(item.IsActive ? "Active" : "Inactive")</span>
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-1">
+                                @if (item.EnrollmentId.HasValue && item.ProgramName?.Contains("Green Belt") == true)
+                                {
+                                    <a class="btn btn-sm btn-outline-secondary" asp-page="/Reviews/Index" asp-route-enrollmentId="@item.EnrollmentId.Value" title="View Review Progress (R0–R5)">
+                                        Review R0–R5
+                                    </a>
+                                }
+                                else if (item.EnrollmentId.HasValue)
+                                {
+                                    <a class="btn btn-sm btn-outline-secondary" asp-page="/Training/Progress" asp-route-enrollmentId="@item.EnrollmentId.Value" title="View Training Progress">
+                                        Progress
+                                    </a>
+                                }
+                                @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
+                                {
+                                    <a class="btn btn-sm btn-outline-primary" asp-page="Edit" asp-route-id="@item.Id">Edit</a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Pagination">
+            <ul class="pagination mb-0">
+                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                {
+                    <li class="page-item @(pageNumber == Model.CurrentPage ? "active" : "")">
+                        <a class="page-link" asp-route-page="@pageNumber" asp-route-search="@Model.Search">@pageNumber</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+</section>
+
+@section Scripts {
+    <script>
+        document.getElementById('exportExcelBtn')?.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const btn = this;
+            const label = document.getElementById('exportExcelLabel');
+            const originalText = label ? label.textContent : 'Export Excel (.xlsx)';
+            
+            if (label) label.textContent = 'Generating Excel...';
+            btn.classList.add('disabled');
+
+            try {
+                const response = await fetch('/Participants/Export/CILeanSixSigma_Participants.xlsx');
+                if (!response.ok) throw new Error('Download request failed with status: ' + response.status);
+                
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.style.display = 'none';
+                link.href = blobUrl;
+                link.download = 'CILeanSixSigma_Participants.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(blobUrl);
+                }, 1000);
+                
+                if (label) label.textContent = 'Downloaded!';
+                setTimeout(() => {
+                    if (label) label.textContent = originalText;
+                    btn.classList.remove('disabled');
+                }, 2000);
+            } catch (err) {
+                console.warn('Blob download failed, falling back to direct navigation:', err);
+                window.location.href = '/Participants/Export/CILeanSixSigma_Participants.xlsx';
+                if (label) label.textContent = originalText;
+                btn.classList.remove('disabled');
+            }
+        });
+    </script>
+}
