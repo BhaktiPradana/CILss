@@ -1,0 +1,148 @@
+@page
+@model LssTraining.Web.Pages.Electricity.DbMappingAddModel
+@{
+    ViewData["Title"] = "Add DB Mapping";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <!-- Header with Back Button -->
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <a asp-page="/Electricity/DbMapping" class="btn btn-outline-secondary btn-sm rounded-circle p-2 d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px;" title="Back">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                        </svg>
+                    </a>
+                    <div>
+                        <h2 class="mb-0 fw-bold">Add DB Machine Mapping</h2>
+                        <p class="text-muted small mb-0">Hubungkan Mesin ke Distribution Board (DB) Panel Listrik</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-body p-4 p-md-5">
+                    @if (!ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger shadow-sm border-0 mb-4">
+                            <div asp-validation-summary="All" class="mb-0"></div>
+                        </div>
+                    }
+
+                    <form method="post" id="mappingForm">
+                        <h5 class="fw-bold text-primary mb-3 border-bottom pb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" class="me-2">
+                                <path d="M1 0 0 1l2.957 3.378A9.985 9.985 0 0 0 0 8c0 3.03 2.52 5.5 5.5 5.5 1.33 0 2.55-.44 3.54-1.17L12 16l1-1-3.66-4.18A5.478 5.478 0 0 0 11 8c0-3.03-2.52-5.5-5.5-5.5a5.46 5.46 0 0 0-2.54.63L1 0z"/>
+                            </svg>
+                            Machine Selection
+                        </h5>
+
+                        <div class="row g-3 mb-4">
+                            <!-- Machine Name Dropdown -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Machine Name (MachName) <span class="text-danger">*</span></label>
+                                <select id="machineNameSelect" class="form-select form-select-lg shadow-sm">
+                                    @foreach (var opt in Model.MachineNameOptions)
+                                    {
+                                        <option value="@opt.Value">@opt.Text</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- Machine Code Dropdown -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Machine Code (MachCode) <span class="text-danger">*</span></label>
+                                <select asp-for="SelectedMachCode" id="machineCodeSelect" asp-items="Model.MachineCodeOptions" class="form-select form-select-lg shadow-sm" required></select>
+                            </div>
+                        </div>
+
+                        <h5 class="fw-bold text-primary mb-3 border-bottom pb-2 pt-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" class="me-2">
+                                <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                            </svg>
+                            Distribution Board Connections
+                        </h5>
+
+                        <!-- DB Connection Primary -->
+                        <div class="mb-3">
+                            <label asp-for="DbPrimary" class="form-label fw-bold">
+                                DB Connection (Primary) <span class="text-danger">*</span>
+                            </label>
+                            <select asp-for="DbPrimary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm" required></select>
+                            <div class="form-text">Panel utama pasokan listrik mesin.</div>
+                        </div>
+
+                        <!-- Sub DB Name -->
+                        <div class="mb-3">
+                            <label asp-for="SubDBName" class="form-label fw-bold">
+                                Sub DB Name <span class="text-muted fw-normal">(SubDBName - Optional)</span>
+                            </label>
+                            <select asp-for="SubDBName" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
+                            <div class="form-text">Sub-panel / Sub-board penghubung mesin.</div>
+                        </div>
+
+                        <!-- DB Connection Secondary -->
+                        <div class="mb-3">
+                            <label asp-for="DbSecondary" class="form-label fw-bold">
+                                DB Connection Secondary <span class="text-muted fw-normal">(Optional)</span>
+                            </label>
+                            <select asp-for="DbSecondary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
+                            <div class="form-text">Panel sekunder / cadangan pasokan listrik (opsional).</div>
+                        </div>
+
+                        <!-- DB Connection Tertiary -->
+                        <div class="mb-3">
+                            <label asp-for="DbTertiary" class="form-label fw-bold">
+                                DB Connection Tertiary <span class="text-muted fw-normal">(Optional)</span>
+                            </label>
+                            <select asp-for="DbTertiary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
+                            <div class="form-text">Panel ketiga / tambahan pasokan listrik (opsional).</div>
+                        </div>
+
+                        <!-- Remarks -->
+                        <div class="mb-4">
+                            <label asp-for="Remarks" class="form-label fw-bold">
+                                Remarks <span class="text-muted fw-normal">(Optional)</span>
+                            </label>
+                            <input asp-for="Remarks" class="form-control form-control-lg shadow-sm" placeholder="Catatan tambahan lokasi / koneksi" />
+                            <div class="form-text">Catatan opsional untuk koneksi mesin.</div>
+                        </div>
+
+                        <!-- Submit and Cancel Buttons -->
+                        <div class="d-flex justify-content-end gap-3 pt-3 border-top">
+                            <a asp-page="/Electricity/DbMapping" class="btn btn-light btn-lg px-4 fw-bold">Cancel</a>
+                            <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm fw-bold">
+                                Save Mapping
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const machines = @Html.Raw(Model.MachinesJson);
+            const nameSelect = document.getElementById('machineNameSelect');
+            const codeSelect = document.getElementById('machineCodeSelect');
+
+            // Sync Machine Code when Machine Name changes
+            nameSelect.addEventListener('change', function () {
+                const selectedCode = this.value;
+                codeSelect.value = selectedCode;
+            });
+
+            // Sync Machine Name when Machine Code changes
+            codeSelect.addEventListener('change', function () {
+                const selectedCode = this.value;
+                nameSelect.value = selectedCode;
+            });
+        });
+    </script>
+}

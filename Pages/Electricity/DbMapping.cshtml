@@ -1,0 +1,219 @@
+@page
+@model LssTraining.Web.Pages.Electricity.DbMappingModel
+@{
+    ViewData["Title"] = "DB Mapping";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Distribution Board Mapping</h2>
+            <p class="text-muted mb-0">Mapping lokasi mesin terhadap Distribution Board (DB) panel listrik</p>
+        </div>
+        <a asp-page="/Electricity/DbMappingAdd" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm fw-bold">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Add Mapping
+        </a>
+    </div>
+
+    <!-- FILTER -->
+    <div class="card shadow-sm mb-4 border-0 bg-light">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-secondary">Building</label>
+                    <select asp-for="SelectedBuilding" asp-items="Model.BuildingOptions" class="form-select shadow-sm"></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-secondary">Floor</label>
+                    <select asp-for="SelectedFloor" asp-items="Model.FloorOptions" class="form-select shadow-sm"></select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-bold">Apply Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SUMMARY -->
+    @if (Model.Boards.Any())
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="db-summary-card">
+                    <div class="db-summary-icon" style="background: linear-gradient(135deg, #2563eb, #3b82f6);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                        </svg>
+                    </div>
+                    <div class="db-summary-content">
+                        <span class="db-summary-value">@Model.Boards.Count</span>
+                        <span class="db-summary-label">Distribution Boards</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="db-summary-card">
+                    <div class="db-summary-icon" style="background: linear-gradient(135deg, #059669, #10b981);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+                        </svg>
+                    </div>
+                    <div class="db-summary-content">
+                        <span class="db-summary-value">@Model.TotalMappings</span>
+                        <span class="db-summary-label">Machine Connections</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="db-summary-card">
+                    <div class="db-summary-icon" style="background: linear-gradient(135deg, #d97706, #f59e0b);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                        </svg>
+                    </div>
+                    <div class="db-summary-content">
+                        <span class="db-summary-value">@Model.Boards.Select(b => b.Building).Distinct().Count()</span>
+                        <span class="db-summary-label">Buildings</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DB CARDS LIST -->
+        <div class="row g-3">
+            @foreach (var board in Model.Boards)
+            {
+                var machineCount = Model.MachineCounts.GetValueOrDefault(board.BoardName, 0);
+                var mappings = Model.MappingsPerBoard.GetValueOrDefault(board.BoardName, new List<LssTraining.Web.Models.DbMachineMapping>());
+                var collapseId = $"collapse-{board.BoardName.Replace(" ", "").Replace("-", "").Replace(".", "_")}";
+
+                <div class="col-xl-4 col-lg-6 col-md-6">
+                    <div class="db-card-interactive">
+                        <!-- Clickable Card Header -->
+                        <div class="db-card-clickable" data-bs-toggle="collapse" data-bs-target="#@collapseId" aria-expanded="false">
+                            <div class="db-card-top">
+                                <div class="db-card-title-area">
+                                    <div class="db-panel-indicator @(board.IsActive ? "active" : "inactive")"></div>
+                                    <div>
+                                        <div class="db-card-board-name">@board.BoardName</div>
+                                        <div class="db-card-board-type">@board.PanelType · @board.Building · @board.Floor</div>
+                                    </div>
+                                </div>
+                                <div class="db-card-badge-area">
+                                    <span class="db-machine-count-badge">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M1 0 0 1l2.957 3.378A9.985 9.985 0 0 0 0 8c0 3.03 2.52 5.5 5.5 5.5 1.33 0 2.55-.44 3.54-1.17L12 16l1-1-3.66-4.18A5.478 5.478 0 0 0 11 8c0-3.03-2.52-5.5-5.5-5.5a5.46 5.46 0 0 0-2.54.63L1 0z"/>
+                                        </svg>
+                                        @machineCount machine(s)
+                                    </span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="db-card-chevron">
+                                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="db-card-meta">
+                                <span>📍 @board.Location</span>
+                                @if (board.RatedCapacityAmps.HasValue)
+                                {
+                                    <span>⚡ @board.RatedCapacityAmps A</span>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Expandable Machine List -->
+                        <div class="collapse" id="@collapseId">
+                            <div class="db-card-machines">
+                                @if (mappings.Any())
+                                {
+                                    <table class="table table-sm table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Machine Name</th>
+                                                <th>Machine Code</th>
+                                                <th>DB Name</th>
+                                                <th>Sub DB Name</th>
+                                                <th>Remarks</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var m in mappings)
+                                            {
+                                                <tr>
+                                                    <td class="fw-bold">@m.MachName</td>
+                                                    <td><span class="badge bg-secondary bg-opacity-10 text-secondary">@m.MachCode</span></td>
+                                                    <td>
+                                                        @if (!string.IsNullOrEmpty(m.DBName))
+                                                        {
+                                                            <span class="badge bg-primary bg-opacity-10 text-primary">@m.DBName</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">—</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (!string.IsNullOrEmpty(m.SubDBName))
+                                                        {
+                                                            <span class="badge bg-info bg-opacity-10 text-info">@m.SubDBName</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">—</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (!string.IsNullOrEmpty(m.Remarks))
+                                                        {
+                                                            <span class="badge bg-light text-dark border">@m.Remarks</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">—</span>
+                                                        }
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <form method="post" asp-page-handler="Delete" class="d-inline">
+                                                            <input type="hidden" name="connectionId" value="@m.ConnectionID" />
+                                                            <input type="hidden" name="machCode" value="@m.MachCode" />
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this machine connection?');" title="Delete Connection">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1H14a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                                                </svg>
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                                else
+                                {
+                                    <div class="db-card-empty">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16" class="text-muted mb-2" style="opacity:0.4;">
+                                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                            <path d="M4.285 12.433a.5.5 0 0 0 .683-.183A3.498 3.498 0 0 1 8 10.5c1.295 0 2.426.703 3.032 1.75a.5.5 0 0 0 .866-.5A4.498 4.498 0 0 0 8 9.5a4.5 4.5 0 0 0-3.898 2.25.5.5 0 0 0 .183.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z"/>
+                                        </svg>
+                                        <span class="text-muted small">Belum ada mesin yang terdaftar pada DB ini</span>
+                                        <a asp-page="/Electricity/DbMappingAdd" class="btn btn-sm btn-outline-primary mt-2">+ Tambah Mapping</a>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning shadow-sm border-0 mt-4 text-center">
+            No distribution board data available. Please ensure the <code>MasterDBs</code> table is populated.
+        </div>
+    }
+</div>

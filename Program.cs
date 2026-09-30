@@ -21,6 +21,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Error");
     options.Conventions.AllowAnonymousToPage("/Privacy");
     options.Conventions.AllowAnonymousToPage("/Electricity/Index"); 
+    options.Conventions.AllowAnonymousToPage("/Electricity/DbMapping");
 });
 
 builder.Services.AddAuthorization(options =>
@@ -50,6 +51,7 @@ builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
 builder.Services.AddScoped<IParticipantExportService, ParticipantExportService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<KwhRepository>();
+builder.Services.AddScoped<DistributionBoardRepository>();
 
 var app = builder.Build();
 

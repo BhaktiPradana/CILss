@@ -32,7 +32,28 @@
                         <li><a asp-page="/Participants/Roadmap">Roadmap</a></li>
                         <li><a asp-page="/Training/Index">Training</a></li>
                         <li><a asp-page="/Training/Enrollments">Progress</a></li>
-                        <li><a asp-page="/Electricity/Index">Electricity</a></li>
+                        <li class="nav-dropdown">
+                            <a href="#" class="nav-dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                Electricity
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" class="nav-dropdown-chevron">
+                                    <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </a>
+                            <ul class="nav-dropdown-menu dropdown-menu">
+                                <li><a class="dropdown-item" asp-page="/Electricity/Index">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                                    </svg>
+                                    Consumption Dashboard
+                                </a></li>
+                                <li><a class="dropdown-item" asp-page="/Electricity/DbMapping">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M14.763.075A.5.5 0 0 1 15 .5v15a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V14h-1v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V10a.5.5 0 0 1 .342-.474L6 7.64V4.5a.5.5 0 0 1 .276-.447l8-4a.5.5 0 0 1 .487.022z"/>
+                                    </svg>
+                                    DB Mapping
+                                </a></li>
+                            </ul>
+                        </li>
                     </ul>
 
                     <div class="nav-user">
