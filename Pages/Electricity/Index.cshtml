@@ -1,0 +1,165 @@
+@page
+@model LssTraining.Web.Pages.Electricity.IndexModel
+@{
+    ViewData["Title"] = "Electricity Dashboard";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Electricity Consumption Dashboard</h2>
+    </div>
+    <div class="card shadow-sm mb-4 border-0 bg-light">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold text-secondary">View Mode</label>
+                    <select asp-for="ViewMode" class="form-select shadow-sm">
+                        <option value="Daily">Daily Summary</option>
+                        <option value="Hourly">Hourly Detail</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold text-secondary">Distribution Board</label>
+                    <select asp-for="SelectedMeter" asp-items="Model.MeterOptions" class="form-select shadow-sm"></select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-secondary">Start Date</label>
+                    <input type="date" asp-for="StartDate" class="form-control shadow-sm" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-secondary">End Date</label>
+                    <input type="date" asp-for="EndDate" class="form-control shadow-sm" />
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-bold">Apply Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.Records != null && Model.Records.Any())
+    {
+        var floors = Model.Records.Select(r => r.Floor).Distinct().OrderBy(f => f).ToList();
+        <div class="row">
+            @foreach (var floor in floors)
+            {
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white pt-3 pb-0 border-0">
+                            <h5 class="fw-bold text-primary">🔋 Trend Konsumsi Listrik - @floor</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="chart-@floor.Replace(" ", "")"></div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- AREA TABEL -->
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="ps-4">@(Model.ViewMode == "Hourly" ? "Date & Time" : "Date")</th>
+                            <th>Floor Group</th>
+                            <th>Distribution Board (Meter Name)</th>
+                            <th class="text-end pe-4">Consumption (kWh)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var floor in floors)
+                        {
+                            var floorRecords = Model.Records.Where(r => r.Floor == floor).OrderByDescending(r => r.Timestamp).ToList();
+
+                            foreach (var item in floorRecords)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        @(Model.ViewMode == "Hourly" ? item.Timestamp.ToString("dd MMM yyyy HH:mm") : item.Timestamp.ToString("dd MMM yyyy"))
+                                    </td>
+                                    <td><span class="badge bg-secondary">@item.Floor</span></td>
+                                    <td>@item.MeterName</td>
+                                    <td class="text-end fw-bold text-primary pe-4">@item.Usage_kWh.ToString("N2")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning shadow-sm border-0 mt-4 text-center">
+            No data available for the selected filters.
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var chartData = @Html.Raw(Model.ChartDataJson);
+            for (var floor in chartData) {
+                var containerId = '#chart-' + floor.replace(/\s+/g, '');
+                var data = chartData[floor];
+
+                var options = {
+                    series: data.series,
+                    chart: {
+                        type: 'area',      
+                        height: 350,
+                        stacked: true,    
+                        toolbar: { show: true },
+                        fontFamily: 'Plus Jakarta Sans, sans-serif'
+                    },
+                    colors: ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0', '#3F51B5', '#546E7A', '#D4526E'],
+                    dataLabels: {
+                        enabled: false
+                    },
+                    stroke: {
+                        curve: 'smooth',
+                        width: 2
+                    },
+                    fill: {
+                        type: 'gradient',
+                        gradient: { opacityFrom: 0.7, opacityTo: 0.2 }
+                    },
+                    legend: {
+                        position: 'top',
+                        horizontalAlign: 'left'
+                    },
+                    xaxis: {
+                        categories: data.categories,
+                        type: 'category',
+                        labels: {
+                            style: { colors: '#6c757d' }
+                        }
+                    },
+                    yaxis: {
+                        labels: {
+                            formatter: function(value) {
+                                return value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " kWh";
+                            },
+                            style: { colors: '#6c757d' }
+                        }
+                    },
+                    tooltip: {
+                        theme: 'light',
+                        y: {
+                            formatter: function(val) {
+                                return val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kWh";
+                            }
+                        }
+                    }
+                };
+                var chart = new ApexCharts(document.querySelector(containerId), options);
+                chart.render();
+            }
+        });
+    </script>
+}

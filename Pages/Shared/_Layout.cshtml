@@ -4,8 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] · CILeanSixSigma</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -18,10 +19,12 @@
                     <span class="brand-dot"></span>
                     <span>CI<span class="brand-muted">LeanSixSigma</span></span>
                 </a>
+
                 <button class="nav-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Toggle navigation">
                     <span></span>
                     <span></span>
                 </button>
+
                 <div class="collapse nav-collapse" id="mainNav">
                     <ul class="nav-menu">
                         <li><a asp-page="/Index">Dashboard</a></li>
@@ -29,7 +32,9 @@
                         <li><a asp-page="/Participants/Roadmap">Roadmap</a></li>
                         <li><a asp-page="/Training/Index">Training</a></li>
                         <li><a asp-page="/Training/Enrollments">Progress</a></li>
+                        <li><a asp-page="/Electricity/Index">Electricity</a></li>
                     </ul>
+
                     <div class="nav-user">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
@@ -38,6 +43,7 @@
                                 <strong>@User.Identity.Name</strong>
                                 <small>@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</small>
                             </span>
+
                             <form asp-page="/Account/Logout" method="post" class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
@@ -63,11 +69,13 @@
             </div>
         </nav>
     </header>
+
     <div class="page-shell">
         <main role="main">
             @RenderBody()
         </main>
     </div>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)

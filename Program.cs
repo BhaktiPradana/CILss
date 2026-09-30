@@ -20,6 +20,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Account/Register");
     options.Conventions.AllowAnonymousToPage("/Error");
     options.Conventions.AllowAnonymousToPage("/Privacy");
+    options.Conventions.AllowAnonymousToPage("/Electricity/Index"); 
 });
 
 builder.Services.AddAuthorization(options =>
@@ -48,23 +49,23 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
 builder.Services.AddScoped<IParticipantExportService, ParticipantExportService>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<KwhRepository>();
 
 var app = builder.Build();
+
 app.UsePathBase("/ci-hub");
+
 if (!app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage(); // Aktifkan sementara untuk melacak root-cause error 500
+    app.UseDeveloperExceptionPage();
     // app.UseExceptionHandler("/Error");
     // app.UseHsts();
-    // app.UseHttpsRedirection(); // Matikan karena IIS berjalan via HTTP murni port 80
-}
-
+    // app.UseHttpsRedirection(); 
+} 
 app.UseStaticFiles();
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapRazorPages();
 
 app.MapGet("/Participants/Export/CILeanSixSigma_Participants.xlsx", async (HttpContext context, IParticipantExportService exportService, CancellationToken ct) =>
