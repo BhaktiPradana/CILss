@@ -178,6 +178,23 @@ BEGIN
     );
 END
 
+IF OBJECT_ID(N'dbo.MachineImprovements', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.MachineImprovements (
+        Id int IDENTITY(1,1) NOT NULL CONSTRAINT PK_MachineImprovements PRIMARY KEY,
+        MachCode nvarchar(50) NOT NULL CONSTRAINT FK_MachineImprovements_Machines REFERENCES dbo.MasterMachines(MachCode),
+        ImprovementTitle nvarchar(250) NOT NULL,
+        Description nvarchar(1000) NULL,
+        ImplementationDate date NOT NULL,
+        BaselineKwhPerDay decimal(18,2) NOT NULL DEFAULT 0,
+        TargetKwhPerDay decimal(18,2) NOT NULL DEFAULT 0,
+        ActualKwhPerDay decimal(18,2) NULL,
+        Status nvarchar(30) NOT NULL DEFAULT 'In Progress',
+        CreatedBy nvarchar(160) NULL,
+        CreatedAt datetime2(0) NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+
 IF NOT EXISTS (SELECT 1 FROM dbo.MasterDBs)
 BEGIN
     INSERT INTO dbo.MasterDBs (DBName) VALUES
