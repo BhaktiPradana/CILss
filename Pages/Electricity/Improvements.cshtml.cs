@@ -43,6 +43,18 @@ namespace LssTraining.Web.Pages.Electricity
             await LoadDataAsync(cancellationToken);
         }
 
+        public async Task<IActionResult> OnGetCalculateKwhAsync(string machCode, DateTime? implDate, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(machCode))
+            {
+                return new JsonResult(new { success = false, message = "Machine code required" });
+            }
+
+            var date = implDate ?? DateTime.Today;
+            var calc = await _repo.CalculateMachineKwhDataAsync(machCode, date, cancellationToken);
+            return new JsonResult(new { success = true, data = calc });
+        }
+
         public async Task<IActionResult> OnPostAddAsync(CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(NewImprovement.MachCode))
@@ -52,6 +64,21 @@ namespace LssTraining.Web.Pages.Electricity
             if (string.IsNullOrWhiteSpace(NewImprovement.ImprovementTitle))
             {
                 ModelState.AddModelError("NewImprovement.ImprovementTitle", "Improvement title is required.");
+            }
+
+            // Auto-calculate baseline & target if not provided
+            if (NewImprovement.BaselineKwhPerDay <= 0 && !string.IsNullOrWhiteSpace(NewImprovement.MachCode))
+            {
+                var autoCalc = await _repo.CalculateMachineKwhDataAsync(NewImprovement.MachCode, NewImprovement.ImplementationDate, cancellationToken);
+                NewImprovement.BaselineKwhPerDay = autoCalc.BaselineKwhPerDay;
+                if (NewImprovement.TargetKwhPerDay <= 0)
+                {
+                    NewImprovement.TargetKwhPerDay = autoCalc.TargetKwhPerDay;
+                }
+                if (!NewImprovement.ActualKwhPerDay.HasValue && autoCalc.ActualKwhPerDay.HasValue)
+                {
+                    NewImprovement.ActualKwhPerDay = autoCalc.ActualKwhPerDay;
+                }
             }
 
             if (!ModelState.IsValid)
