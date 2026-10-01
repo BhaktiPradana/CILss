@@ -182,7 +182,7 @@ IF OBJECT_ID(N'dbo.MachineImprovements', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.MachineImprovements (
         Id int IDENTITY(1,1) NOT NULL CONSTRAINT PK_MachineImprovements PRIMARY KEY,
-        MachCode nvarchar(50) NOT NULL CONSTRAINT FK_MachineImprovements_Machines REFERENCES dbo.MasterMachines(MachCode),
+        MachCode nvarchar(50) NOT NULL,
         ImprovementTitle nvarchar(250) NOT NULL,
         Description nvarchar(1000) NULL,
         ImplementationDate date NOT NULL,
