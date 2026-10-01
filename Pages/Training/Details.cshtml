@@ -81,28 +81,28 @@ else
     <div class="row g-3 mb-4">
         <div class="col-sm-6 col-md-3">
             <div class="p-3 bg-white border rounded-3 shadow-sm h-100">
-                <span class="text-muted small fw-semibold text-uppercase d-block mb-1">Total Terdaftar</span>
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1">Total Enrolled</span>
                 <div class="d-flex align-items-baseline gap-2">
                     <span class="fs-3 fw-bold text-dark">@Model.Graduates.Count</span>
-                    <small class="text-muted">peserta</small>
+                    <small class="text-muted">participants</small>
                 </div>
             </div>
         </div>
         <div class="col-sm-6 col-md-3">
             <div class="p-3 bg-white border rounded-3 shadow-sm h-100 border-start border-4 border-warning">
-                <span class="text-warning small fw-semibold text-uppercase d-block mb-1">Dalam Masa Training</span>
+                <span class="text-warning small fw-semibold text-uppercase d-block mb-1">In Training</span>
                 <div class="d-flex align-items-baseline gap-2">
                     <span class="fs-3 fw-bold text-warning">@Model.InTrainingParticipants.Count</span>
-                    <small class="text-muted">sedang proses modul</small>
+                    <small class="text-muted">in module progress</small>
                 </div>
             </div>
         </div>
         <div class="col-sm-6 col-md-3">
             <div class="p-3 bg-white border rounded-3 shadow-sm h-100 border-start border-4 border-primary">
-                <span class="text-primary small fw-semibold text-uppercase d-block mb-1">Selesai Training</span>
+                <span class="text-primary small fw-semibold text-uppercase d-block mb-1">Completed Training</span>
                 <div class="d-flex align-items-baseline gap-2">
                     <span class="fs-3 fw-bold text-primary">@Model.CompletedTrainingParticipants.Count</span>
-                    <small class="text-muted">modul lengkap</small>
+                    <small class="text-muted">modules completed</small>
                 </div>
             </div>
         </div>
@@ -111,7 +111,7 @@ else
                 <span class="text-success small fw-semibold text-uppercase d-block mb-1">Certified</span>
                 <div class="d-flex align-items-baseline gap-2">
                     <span class="fs-3 fw-bold text-success">@Model.CertifiedParticipants.Count</span>
-                    <small class="text-muted">lulus sertifikasi</small>
+                    <small class="text-muted">certified graduates</small>
                 </div>
             </div>
         </div>
@@ -119,8 +119,8 @@ else
 
     <!-- Filter Buttons -->
     <div class="d-flex gap-2 mb-4 flex-wrap align-items-center" id="participantSectionFilter">
-        <span class="text-muted small fw-bold me-1">TAMPILKAN:</span>
-        <button type="button" class="btn btn-sm btn-dark active filter-btn" data-target="all">Semua Peserta (@Model.Graduates.Count)</button>
+        <span class="text-muted small fw-bold me-1">SHOW:</span>
+        <button type="button" class="btn btn-sm btn-dark active filter-btn" data-target="all">All Participants (@Model.Graduates.Count)</button>
         <button type="button" class="btn btn-sm btn-outline-success filter-btn" data-target="certified-section">
             <span class="d-inline-block rounded-circle bg-success me-1" style="width:7px;height:7px;"></span>
             Certified (@Model.CertifiedParticipants.Count)
@@ -131,7 +131,7 @@ else
         </button>
         <button type="button" class="btn btn-sm btn-outline-warning filter-btn" data-target="intraining-section">
             <span class="d-inline-block rounded-circle bg-warning me-1" style="width:7px;height:7px;"></span>
-            Dalam Masa Training (@Model.InTrainingParticipants.Count)
+            In Training (@Model.InTrainingParticipants.Count)
         </button>
     </div>
 
@@ -145,9 +145,9 @@ else
                         <path d="M2.5.5A.5.5 0 0 1 3 1v10.5A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5V1a.5.5 0 0 1 1 0v10.5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5V1a.5.5 0 0 1 .5-.5z"/>
                         <path d="M8 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm0 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
                     </svg>
-                    <span>Peserta Certified (@Model.CertifiedParticipants.Count)</span>
+                    <span>Certified Participants (@Model.CertifiedParticipants.Count)</span>
                 </h2>
-                <p class="text-muted small mb-0 mt-1">Daftar peserta yang telah menyelesaikan seluruh modul kurikulum dan resmi memperoleh predikat kelulusan sertifikasi.</p>
+                <p class="text-muted small mb-0 mt-1">List of participants who have completed all curriculum modules and officially earned certification.</p>
             </div>
             <span class="badge bg-success fs-6 px-3 py-2">@Model.CertifiedParticipants.Count Certified</span>
         </div>
@@ -155,8 +155,8 @@ else
         @if (!Model.CertifiedParticipants.Any())
         {
             <div class="empty-state small py-4 text-center">
-                <p class="text-muted mb-1">Belum ada peserta dengan status Certified pada program @Model.Program.Name.</p>
-                <small class="text-muted">Peserta yang telah menyelesaikan seluruh modul dapat diberikan sertifikasi melalui halaman Edit Peserta.</small>
+                <p class="text-muted mb-1">No participants with Certified status in @Model.Program.Name yet.</p>
+                <small class="text-muted">Participants who have completed all modules can be certified via the Edit Participant page.</small>
             </div>
         }
         else
@@ -166,18 +166,18 @@ else
                     <thead class="table-light">
                         <tr>
                             <th style="width: 130px;">Employee ID</th>
-                            <th>Nama Peserta</th>
-                            <th>Departemen & Jabatan</th>
-                            <th style="width: 180px;">Status Modul</th>
+                            <th>Participant Name</th>
+                            <th>Department & Position</th>
+                            <th style="width: 180px;">Module Status</th>
                             @if (Model.Program.IsGreenBelt)
                             {
                                 <th style="width: 130px;">DMAIC Phase</th>
                             }
-                            <th style="width: 150px;">Tanggal Sertifikasi</th>
+                            <th style="width: 150px;">Certification Date</th>
                             <th style="width: 130px;">Status</th>
                             @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
                             {
-                                <th style="width: 110px;" class="text-end">Aksi</th>
+                                <th style="width: 110px;" class="text-end">Action</th>
                             }
                         </tr>
                     </thead>
@@ -198,7 +198,7 @@ else
                                 </td>
                                 <td>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                        ✓ @grad.CompletedModulesCount/@grad.TotalModulesCount Selesai (Kurang 0)
+                                        ✓ @grad.CompletedModulesCount/@grad.TotalModulesCount Complete (0 Remaining)
                                     </span>
                                 </td>
                                 @if (Model.Program.IsGreenBelt)
@@ -221,7 +221,7 @@ else
                                 @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
                                 {
                                     <td class="text-end">
-                                        <a asp-page="/Participants/Edit" asp-route-id="@grad.ParticipantId" class="btn btn-sm btn-outline-secondary">Detail</a>
+                                        <a asp-page="/Participants/Edit" asp-route-id="@grad.ParticipantId" class="btn btn-sm btn-outline-secondary">Details</a>
                                     </td>
                                 }
                             </tr>
@@ -236,23 +236,23 @@ else
     <section class="panel mb-4 border-start border-4 border-primary participant-block" id="completed-section">
         <div class="panel-heading bg-light bg-opacity-50">
             <div>
-                <p class="eyebrow mb-1 text-primary fw-bold">LIST PESERTA · SELESAI TRAINING</p>
+                <p class="eyebrow mb-1 text-primary fw-bold">PARTICIPANT LIST · COMPLETED TRAINING</p>
                 <h2 class="h4 mb-0 text-primary d-flex align-items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="text-primary" viewBox="0 0 16 16">
                         <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
                         <path d="M10.97 4.97a.75.75 0 0 1 1.071 1.05l-3.992 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.235.235 0 0 1 .02-.022z"/>
                     </svg>
-                    <span>Peserta Selesai Training / Completed (@Model.CompletedTrainingParticipants.Count)</span>
+                    <span>Participants Completed Training / Completed (@Model.CompletedTrainingParticipants.Count)</span>
                 </h2>
-                <p class="text-muted small mb-0 mt-1">Peserta yang telah menuntaskan 100% modul kurikulum yang ditetapkan, siap untuk verifikasi sertifikasi atau fase DMAIC lanjutan.</p>
+                <p class="text-muted small mb-0 mt-1">Participants who have completed 100% of the assigned curriculum modules, ready for certification verification or advanced DMAIC phases.</p>
             </div>
-            <span class="badge bg-primary fs-6 px-3 py-2">@Model.CompletedTrainingParticipants.Count Selesai</span>
+            <span class="badge bg-primary fs-6 px-3 py-2">@Model.CompletedTrainingParticipants.Count Completed</span>
         </div>
 
         @if (!Model.CompletedTrainingParticipants.Any())
         {
             <div class="empty-state small py-4 text-center">
-                <p class="text-muted mb-0">Belum ada peserta yang berstatus Selesai Training (tanpa sertifikasi) untuk @Model.Program.Name.</p>
+                <p class="text-muted mb-0">No participants currently with Completed Training status (without certification) for @Model.Program.Name.</p>
             </div>
         }
         else
@@ -262,18 +262,18 @@ else
                     <thead class="table-light">
                         <tr>
                             <th style="width: 130px;">Employee ID</th>
-                            <th>Nama Peserta</th>
-                            <th>Departemen & Jabatan</th>
-                            <th style="width: 220px;">Status Modul</th>
+                            <th>Participant Name</th>
+                            <th>Department & Position</th>
+                            <th style="width: 220px;">Module Status</th>
                             @if (Model.Program.IsGreenBelt)
                             {
                                 <th style="width: 130px;">DMAIC Phase</th>
                             }
-                            <th style="width: 140px;">Tgl Enrolled</th>
+                            <th style="width: 140px;">Enrolled Date</th>
                             <th style="width: 130px;">Status</th>
                             @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
                             {
-                                <th style="width: 110px;" class="text-end">Aksi</th>
+                                <th style="width: 110px;" class="text-end">Action</th>
                             }
                         </tr>
                     </thead>
@@ -296,9 +296,9 @@ else
                                     <div class="d-flex flex-column gap-1">
                                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1">
                                             <span>✓</span>
-                                            <span>Semua Modul Selesai (@comp.CompletedModulesCount/@comp.TotalModulesCount)</span>
+                                            <span>All Modules Completed (@comp.CompletedModulesCount/@comp.TotalModulesCount)</span>
                                         </span>
-                                        <small class="text-success fw-semibold">Kurang 0 modul (Lengkap)</small>
+                                        <small class="text-success fw-semibold">0 modules remaining (Complete)</small>
                                     </div>
                                 </td>
                                 @if (Model.Program.IsGreenBelt)
@@ -316,7 +316,7 @@ else
                                 @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
                                 {
                                     <td class="text-end">
-                                        <a asp-page="/Participants/Edit" asp-route-id="@comp.ParticipantId" class="btn btn-sm btn-outline-primary">Detail / Sertifikasi</a>
+                                        <a asp-page="/Participants/Edit" asp-route-id="@comp.ParticipantId" class="btn btn-sm btn-outline-primary">Details / Certify</a>
                                     </td>
                                 }
                             </tr>
@@ -331,23 +331,23 @@ else
     <section class="panel mb-4 border-start border-4 border-warning participant-block" id="intraining-section">
         <div class="panel-heading bg-light bg-opacity-50">
             <div>
-                <p class="eyebrow mb-1 text-warning fw-bold">LIST PESERTA · DALAM MASA TRAINING</p>
+                <p class="eyebrow mb-1 text-warning fw-bold">PARTICIPANT LIST · IN TRAINING</p>
                 <h2 class="h4 mb-0 text-dark d-flex align-items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="text-warning" viewBox="0 0 16 16">
                         <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
                         <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
                     </svg>
-                    <span>Peserta Dalam Masa Training / In Progress (@Model.InTrainingParticipants.Count)</span>
+                    <span>Participants In Training / In Progress (@Model.InTrainingParticipants.Count)</span>
                 </h2>
-                <p class="text-muted small mb-0 mt-1">Peserta yang sedang aktif menempuh modul kurikulum dan belum menyelesaikan seluruh modul yang ditetapkan.</p>
+                <p class="text-muted small mb-0 mt-1">Participants who are actively taking curriculum modules and have not completed all assigned modules.</p>
             </div>
-            <span class="badge bg-warning text-dark fs-6 px-3 py-2">@Model.InTrainingParticipants.Count Dalam Proses</span>
+            <span class="badge bg-warning text-dark fs-6 px-3 py-2">@Model.InTrainingParticipants.Count In Progress</span>
         </div>
 
         @if (!Model.InTrainingParticipants.Any())
         {
             <div class="empty-state small py-4 text-center">
-                <p class="text-muted mb-0">Tidak ada peserta yang sedang dalam masa training untuk @Model.Program.Name.</p>
+                <p class="text-muted mb-0">No participants currently in training for @Model.Program.Name.</p>
             </div>
         }
         else
@@ -357,18 +357,18 @@ else
                     <thead class="table-light">
                         <tr>
                             <th style="width: 130px;">Employee ID</th>
-                            <th>Nama Peserta</th>
-                            <th>Departemen & Jabatan</th>
-                            <th style="width: 250px;">Status Modul (Sampai & Kurang)</th>
+                            <th>Participant Name</th>
+                            <th>Department & Position</th>
+                            <th style="width: 250px;">Module Status (Progress & Remaining)</th>
                             @if (Model.Program.IsGreenBelt)
                             {
                                 <th style="width: 130px;">DMAIC Phase</th>
                             }
-                            <th style="width: 140px;">Tgl Enrolled</th>
+                            <th style="width: 140px;">Enrolled Date</th>
                             <th style="width: 130px;">Status</th>
                             @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
                             {
-                                <th style="width: 110px;" class="text-end">Aksi</th>
+                                <th style="width: 110px;" class="text-end">Action</th>
                             }
                         </tr>
                     </thead>
@@ -392,10 +392,10 @@ else
                                     <div class="d-flex flex-column gap-1">
                                         <div class="d-flex align-items-center justify-content-between">
                                             <span class="fw-bold text-dark small">
-                                                Sampai Modul @part.CompletedModulesCount dari @part.TotalModulesCount
+                                                Module @part.CompletedModulesCount of @part.TotalModulesCount
                                             </span>
                                             <span class="badge bg-warning text-dark border">
-                                                Kurang @part.RemainingModulesCount modul
+                                                @part.RemainingModulesCount module(s) remaining
                                             </span>
                                         </div>
                                         <div class="progress" style="height: 6px;">
@@ -418,7 +418,7 @@ else
                                 @if (User.IsInRole("Admin") || User.IsInRole("Trainer"))
                                 {
                                     <td class="text-end">
-                                        <a asp-page="/Participants/Edit" asp-route-id="@part.ParticipantId" class="btn btn-sm btn-outline-secondary">Kelola</a>
+                                        <a asp-page="/Participants/Edit" asp-route-id="@part.ParticipantId" class="btn btn-sm btn-outline-secondary">Manage</a>
                                     </td>
                                 }
                             </tr>

@@ -40,8 +40,12 @@ namespace LssTraining.Web.Pages.Electricity
         public List<SelectListItem> DbOptions { get; set; } = new();
         public string MachinesJson { get; set; } = "[]";
 
-        public async Task OnGetAsync()
+        public async Task OnGetAsync(string? machCode = null)
         {
+            if (!string.IsNullOrWhiteSpace(machCode))
+            {
+                SelectedMachCode = machCode;
+            }
             await LoadFormData();
         }
 

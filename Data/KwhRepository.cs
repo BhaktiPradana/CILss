@@ -72,7 +72,7 @@ namespace LssTraining.Web.Data
 
             query += " ORDER BY LogDate DESC, MeterName ASC";
 
-            // PERBAIKAN 3: Casting ke SqlConnection
+            // FIX 3: Cast to SqlConnection
             using (var conn = (SqlConnection)_connectionFactory.CreateConnection())
             using (var cmd = new SqlCommand(query, conn))
             {

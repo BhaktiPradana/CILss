@@ -140,7 +140,7 @@ public sealed class ParticipantRepository(IDbConnectionFactory connectionFactory
 
         try
         {
-            // Kolom Email dan @Email telah dihilangkan di sini
+            // Email column and @Email have been removed here
             var id = await connection.ExecuteScalarAsync<int>(new CommandDefinition("""
                 INSERT INTO Participants (EmployeeId, FullName, Department, Position, StatusPhase, IsActive)
                 OUTPUT INSERTED.Id
@@ -169,7 +169,7 @@ public sealed class ParticipantRepository(IDbConnectionFactory connectionFactory
 
         try
         {
-            // Kolom Email = @Email telah dihilangkan di sini
+            // Email = @Email column has been removed here
             await connection.ExecuteAsync(new CommandDefinition("""
                 UPDATE Participants
                 SET EmployeeId = @EmployeeId,

@@ -22,6 +22,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Privacy");
     options.Conventions.AllowAnonymousToPage("/Electricity/Index"); 
     options.Conventions.AllowAnonymousToPage("/Electricity/DbMapping");
+    options.Conventions.AllowAnonymousToPage("/Electricity/DbMappingAdd");
 });
 
 builder.Services.AddAuthorization(options =>

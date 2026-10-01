@@ -17,7 +17,7 @@
                     </a>
                     <div>
                         <h2 class="mb-0 fw-bold">Add DB Machine Mapping</h2>
-                        <p class="text-muted small mb-0">Hubungkan Mesin ke Distribution Board (DB) Panel Listrik</p>
+                        <p class="text-muted small mb-0">Connect Machine to Electrical Distribution Board (DB) Panel</p>
                     </div>
                 </div>
             </div>
@@ -72,7 +72,7 @@
                                 DB Connection (Primary) <span class="text-danger">*</span>
                             </label>
                             <select asp-for="DbPrimary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm" required></select>
-                            <div class="form-text">Panel utama pasokan listrik mesin.</div>
+                            <div class="form-text">Primary electrical supply panel for the machine.</div>
                         </div>
 
                         <!-- Sub DB Name -->
@@ -81,7 +81,7 @@
                                 Sub DB Name <span class="text-muted fw-normal">(SubDBName - Optional)</span>
                             </label>
                             <select asp-for="SubDBName" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
-                            <div class="form-text">Sub-panel / Sub-board penghubung mesin.</div>
+                            <div class="form-text">Interconnecting sub-panel or sub-board for the machine.</div>
                         </div>
 
                         <!-- DB Connection Secondary -->
@@ -90,7 +90,7 @@
                                 DB Connection Secondary <span class="text-muted fw-normal">(Optional)</span>
                             </label>
                             <select asp-for="DbSecondary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
-                            <div class="form-text">Panel sekunder / cadangan pasokan listrik (opsional).</div>
+                            <div class="form-text">Secondary or backup electrical supply panel (optional).</div>
                         </div>
 
                         <!-- DB Connection Tertiary -->
@@ -99,7 +99,7 @@
                                 DB Connection Tertiary <span class="text-muted fw-normal">(Optional)</span>
                             </label>
                             <select asp-for="DbTertiary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
-                            <div class="form-text">Panel ketiga / tambahan pasokan listrik (opsional).</div>
+                            <div class="form-text">Tertiary or auxiliary electrical supply panel (optional).</div>
                         </div>
 
                         <!-- Remarks -->
@@ -107,8 +107,8 @@
                             <label asp-for="Remarks" class="form-label fw-bold">
                                 Remarks <span class="text-muted fw-normal">(Optional)</span>
                             </label>
-                            <input asp-for="Remarks" class="form-control form-control-lg shadow-sm" placeholder="Catatan tambahan lokasi / koneksi" />
-                            <div class="form-text">Catatan opsional untuk koneksi mesin.</div>
+                            <input asp-for="Remarks" class="form-control form-control-lg shadow-sm" placeholder="Additional location / connection remarks" />
+                            <div class="form-text">Optional remarks for the machine connection.</div>
                         </div>
 
                         <!-- Submit and Cancel Buttons -->

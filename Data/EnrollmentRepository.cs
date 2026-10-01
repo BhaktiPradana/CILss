@@ -364,7 +364,7 @@ public sealed class EnrollmentRepository(IDbConnectionFactory connectionFactory)
 
                     if (isGreenBelt)
                     {
-                        // Bagian ini sebelumnya memicu error GENERATE_SERIES saat Add New Participant
+                        // This part previously triggered a GENERATE_SERIES error during Add New Participant
                         await connection.ExecuteAsync(new CommandDefinition("""
                             INSERT INTO GreenBeltReviews (EnrollmentId, ReviewNumber)
                             SELECT @EnrollmentId, value

@@ -29,12 +29,12 @@ public sealed class Enrollment
     public bool IsInTraining => !IsCertified && !IsCompletedTraining;
 
     public string ModuleProgressSummary => TotalModulesCount == 0
-        ? "0 Modul"
+        ? "0 Modules"
         : CompletedModulesCount == 0
-            ? $"Modul 0/{TotalModulesCount} (Kurang {RemainingModulesCount} modul)"
+            ? $"Module 0/{TotalModulesCount} ({RemainingModulesCount} module(s) remaining)"
             : IsCompletedTraining
-                ? $"Lengkap ({CompletedModulesCount}/{TotalModulesCount} Modul · Kurang 0 modul)"
-                : $"Sampai Modul {CompletedModulesCount} dari {TotalModulesCount} (Kurang {RemainingModulesCount} modul)";
+                ? $"Complete ({CompletedModulesCount}/{TotalModulesCount} Modules · 0 remaining)"
+                : $"Module {CompletedModulesCount} of {TotalModulesCount} ({RemainingModulesCount} module(s) remaining)";
 }
 
 public sealed class ModuleProgress
@@ -75,12 +75,12 @@ public sealed class ParticipantProgramProgress
     public bool IsCertified => Status == "Certified" || CertifiedAt.HasValue;
 
     public string ModuleProgressSummary => TotalModulesCount == 0
-        ? "0 Modul"
+        ? "0 Modules"
         : CompletedModulesCount == 0
-            ? $"Modul 0/{TotalModulesCount} (Kurang {RemainingModulesCount} modul)"
+            ? $"Module 0/{TotalModulesCount} ({RemainingModulesCount} module(s) remaining)"
             : IsAllModulesCompleted
-                ? $"Lengkap ({CompletedModulesCount}/{TotalModulesCount} Modul · Kurang 0 modul)"
-                : $"Sampai Modul {CompletedModulesCount} dari {TotalModulesCount} (Kurang {RemainingModulesCount} modul)";
+                ? $"Complete ({CompletedModulesCount}/{TotalModulesCount} Modules · 0 remaining)"
+                : $"Module {CompletedModulesCount} of {TotalModulesCount} ({RemainingModulesCount} module(s) remaining)";
 
     public bool CanCertify(string? statusPhase)
     {
@@ -123,10 +123,10 @@ public sealed class ProgramGraduateItem
     public bool IsInTraining => !IsCertified && !IsCompletedTraining;
 
     public string ModuleProgressSummary => TotalModulesCount == 0
-        ? "0 Modul"
+        ? "0 Modules"
         : CompletedModulesCount == 0
-            ? $"Modul 0/{TotalModulesCount} (Kurang {RemainingModulesCount} modul)"
+            ? $"Module 0/{TotalModulesCount} ({RemainingModulesCount} module(s) remaining)"
             : IsCompletedTraining
-                ? $"Lengkap ({CompletedModulesCount}/{TotalModulesCount} Modul · Kurang 0 modul)"
-                : $"Sampai Modul {CompletedModulesCount} dari {TotalModulesCount} (Kurang {RemainingModulesCount} modul)";
+                ? $"Complete ({CompletedModulesCount}/{TotalModulesCount} Modules · 0 remaining)"
+                : $"Module {CompletedModulesCount} of {TotalModulesCount} ({RemainingModulesCount} module(s) remaining)";
 }

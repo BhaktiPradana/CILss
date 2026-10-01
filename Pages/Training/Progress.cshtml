@@ -85,27 +85,27 @@ else
     <div class="card border-0 shadow-sm rounded-3 mb-4 p-3 bg-white border-start border-4 @(Model.Enrollment.Status == "Certified" ? "border-success" : completedMods == totalMods && totalMods > 0 ? "border-primary" : "border-warning")">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
-                <span class="text-muted small fw-bold text-uppercase d-block mb-1">Status Pelatihan & Modul</span>
+                <span class="text-muted small fw-bold text-uppercase d-block mb-1">Training & Module Status</span>
                 <h3 class="h5 mb-1 fw-bold">
                     @if (Model.Enrollment.Status == "Certified")
                     {
-                        <span class="text-success">Certified · Semua Modul Selesai (@completedMods/@totalMods Modul)</span>
+                        <span class="text-success">Certified · All Modules Completed (@completedMods/@totalMods Modules)</span>
                     }
                     else if (completedMods == totalMods && totalMods > 0)
                     {
-                        <span class="text-primary">Completed Training · Semua Modul Selesai (@completedMods/@totalMods Modul · Kurang 0 Modul)</span>
+                        <span class="text-primary">Completed Training · All Modules Completed (@completedMods/@totalMods Modules · 0 Modules Remaining)</span>
                     }
                     else
                     {
-                        <span class="text-dark">Sudah Sampai Modul @completedMods dari @totalMods</span>
-                        <span class="badge bg-warning text-dark ms-2">Kurang @remainingMods modul lagi</span>
+                        <span class="text-dark">Completed Module @completedMods of @totalMods</span>
+                        <span class="badge bg-warning text-dark ms-2">@remainingMods modules remaining</span>
                     }
                 </h3>
-                <small class="text-muted">Total @Model.Progress.Sum(m => m.ActualHours).ToString("0.#") jam dari target @Model.Progress.Sum(m => m.TargetHours).ToString("0.#") jam terlaksana</small>
+                <small class="text-muted">Total @Model.Progress.Sum(m => m.ActualHours).ToString("0.#") hrs of target @Model.Progress.Sum(m => m.TargetHours).ToString("0.#") hrs completed</small>
             </div>
             <div style="min-width: 200px; max-width: 280px; width: 100%;">
                 <div class="d-flex justify-content-between small fw-semibold mb-1">
-                    <span>Kemajuan Modul</span>
+                    <span>Module Progress</span>
                     <span>@pctMods%</span>
                 </div>
                 <div class="progress" style="height: 8px;">

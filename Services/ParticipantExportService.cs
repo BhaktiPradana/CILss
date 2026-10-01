@@ -157,15 +157,15 @@ public sealed class ParticipantExportService(IDbConnectionFactory connectionFact
                 var certDates = pEnrollments
                     .Where(e => e.Status == "Certified")
                     .Select(e => e.CertifiedAt.HasValue ? e.CertifiedAt.Value.ToString("dd/MM/yyyy") : "Yes");
-                statusDesc = "Certified (" + string.Join(", ", certDates) + ") · Modul Lengkap (" + compModsCount + "/" + totalModsCount + ")";
+                statusDesc = "Certified (" + string.Join(", ", certDates) + ") · Modules Complete (" + compModsCount + "/" + totalModsCount + ")";
             }
             else if (pEnrollments.Any(e => e.Status == "Completed") || (totalModsCount > 0 && compModsCount >= totalModsCount))
             {
-                statusDesc = "Completed Training · Modul Lengkap (" + compModsCount + "/" + totalModsCount + " · Kurang 0)";
+                statusDesc = "Completed Training · Modules Complete (" + compModsCount + "/" + totalModsCount + " · 0 Remaining)";
             }
             else if (pEnrollments.Count > 0)
             {
-                statusDesc = "In Training · Sampai Modul " + compModsCount + "/" + totalModsCount + " (Kurang " + remainingModsCount + " modul)";
+                statusDesc = "In Training · Module " + compModsCount + "/" + totalModsCount + " (" + remainingModsCount + " module(s) remaining)";
             }
 
             sheet.Cell(row, 1).Value = num++;

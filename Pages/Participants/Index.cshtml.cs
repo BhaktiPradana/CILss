@@ -29,7 +29,7 @@ public class IndexModel(IParticipantRepository repository, ILogger<IndexModel> l
             logger.LogWarning(exception, "Failed to load participants from database.");
             Items = new List<Participant>();
             TotalPages = 1;
-            TempData["Error"] = "Tidak dapat terhubung ke database. Silakan coba beberapa saat lagi.";
+            TempData["Error"] = "Unable to connect to the database. Please try again later.";
         }
     }
 

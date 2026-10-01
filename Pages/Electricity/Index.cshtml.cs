@@ -66,7 +66,7 @@ namespace LssTraining.Web.Pages.Electricity
                     else if (upperName.Contains("LOT238")) lotName = "Lot 238";
                     else if (upperName.Contains("LOT292")) lotName = "Lot 292";
 
-                    // Ekstrak Lantai
+                    // Extract Floor
                     if (upperName.Contains("LT1") || upperName.Contains("LT 1")) floorName = "LT 1";
                     else if (upperName.Contains("LT2") || upperName.Contains("LT 2")) floorName = "LT 2";
                     else if (upperName.Contains("LT3") || upperName.Contains("LT 3")) floorName = "LT 3";

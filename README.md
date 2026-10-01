@@ -1,38 +1,39 @@
 # CILeanSixSigma
 
-Aplikasi web internal untuk mencatat dan memantau training Lean Six Sigma: White Belt, Yellow Belt, Green Belt + TOC, dan Black Belt.
+Internal web application for tracking and monitoring Lean Six Sigma training: White Belt, Yellow Belt, Green Belt + TOC, and Black Belt.
 
-## Prasyarat
+## Prerequisites
 
-- .NET SDK 9.0 atau lebih baru
+- .NET SDK 9.0 or later
 - SQL Server Express (tested on SQL Server 2022 Express)
-- Instance SQL Server: `DESKTOP-ABQLQF1\SQLEXPRESS`
+- SQL Server Instance: `DESKTOP-ABQLQF1\SQLEXPRESS`
 
-## Menyiapkan Database
+## Setting Up the Database
 
-Jalankan dari folder repository menggunakan Windows Authentication:
+Run from the repository folder using Windows Authentication:
 
 ```bash
 sqlcmd -S "DESKTOP-ABQLQF1\SQLEXPRESS" -E -i database/schema.sql
 ```
 
-Script idempotent membuat database `LssTraining`, seluruh tabel, program, dan modul awal. Connection string dapat diubah melalui `LssTraining.Web/appsettings.json` atau environment variable/user secrets.
+The idempotent script creates the `LssTraining` database, all tables, programs, and initial modules. The connection string can be modified via `appsettings.json` or environment variables/user secrets.
 
-## Menjalankan Aplikasi
+## Running the Application
 
 ```bash
 dotnet run --project LssTraining.Web
 ```
 
-Buka URL yang dicetak oleh aplikasi (default HTTP `http://localhost:5277`).
+Open the URL printed by the application (default HTTP `http://localhost:5277`).
 
-## Fitur
+## Features
 
-- Dashboard KPI, empat training pathway, grafik completion, dan aktivitas terbaru
-- Autentikasi cookie berbasis username/password dengan role Admin/Trainer
-- CRUD peserta dengan dropdown Status Phase DMAIC (Define, Measure, Analyze, Improve, Control)
-- Visual roadmap interaktif dan matriks status review R0–R5
-- Import CSV massal peserta
-- Master program dan kurikulum modul dengan target durasi
-- Progress enrollment dan tracking jam aktual vs target
-- Flag TOC pada enrollment Green Belt
+- KPI Dashboard, four training pathways, completion charts, and recent activity logs
+- Cookie authentication based on username/password with Admin/Trainer roles
+- Participant CRUD with DMAIC Status Phase dropdown (Define, Measure, Analyze, Improve, Control)
+- Interactive visual roadmap and R0–R5 review status matrix
+- Bulk participant CSV import
+- Program and module curriculum master management with target duration
+- Enrollment progress and actual vs. target hours tracking
+- TOC flag for Green Belt enrollments
+

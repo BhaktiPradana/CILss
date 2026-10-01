@@ -103,6 +103,31 @@ namespace LssTraining.Web.Data
             return result;
         }
 
+        public async Task<List<Machine>> GetUnmappedMachinesAsync()
+        {
+            var result = new List<Machine>();
+            string query = @"
+                SELECT m.MachCode, m.MachName 
+                FROM MasterMachines m
+                LEFT JOIN MasterMachineConnections c ON m.MachCode = c.MachCode
+                WHERE c.MachCode IS NULL
+                ORDER BY m.MachName";
+
+            using var conn = (SqlConnection)_connectionFactory.CreateConnection();
+            using var cmd = new SqlCommand(query, conn);
+            await conn.OpenAsync();
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.Add(new Machine
+                {
+                    MachCode = reader.GetString(0),
+                    MachName = reader.GetString(1)
+                });
+            }
+            return result;
+        }
+
         // ── DB-Machine Connections (from MasterMachineConnections) ─────
 
         public async Task<List<DbMachineMapping>> GetMappingsByBoardNameAsync(string boardName)

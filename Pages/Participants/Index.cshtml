@@ -145,19 +145,19 @@
                                         @if (item.EnrollmentStatus == "Certified")
                                         {
                                             <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                                Certified (Lengkap)
+                                                Certified (Complete)
                                             </span>
                                         }
                                         else if (item.CompletedModulesCount >= item.TotalModulesCount)
                                         {
                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                                Lengkap (@item.CompletedModulesCount/@item.TotalModulesCount Modul)
+                                                Complete (@item.CompletedModulesCount/@item.TotalModulesCount Modules)
                                             </span>
                                         }
                                         else
                                         {
                                             <span class="badge bg-warning-subtle text-dark border border-warning-subtle">
-                                                Sampai Modul @item.CompletedModulesCount/@item.TotalModulesCount (Kurang @item.RemainingModulesCount)
+                                                Module @item.CompletedModulesCount/@item.TotalModulesCount (@item.RemainingModulesCount remaining)
                                             </span>
                                         }
                                     </small>

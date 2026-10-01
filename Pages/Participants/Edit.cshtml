@@ -224,25 +224,25 @@
 
                 <div class="alert alert-light border d-flex justify-content-between align-items-center mb-3 py-2 px-3 flex-wrap gap-2">
                     <div>
-                        <span class="text-muted small fw-bold text-uppercase d-block">Status Training & Modul</span>
+                        <span class="text-muted small fw-bold text-uppercase d-block">Training & Module Status</span>
                         <span class="fw-bold @(isCertified ? "text-success" : progress.IsAllModulesCompleted ? "text-primary" : "text-dark")">
                             @if (isCertified)
                             {
-                                <span>Certified · Semua Modul Selesai (@progress.CompletedModulesCount/@progress.TotalModulesCount Modul · Kurang 0 Modul)</span>
+                                <span>Certified · All Modules Completed (@progress.CompletedModulesCount/@progress.TotalModulesCount Modules · 0 Remaining)</span>
                             }
                             else if (progress.IsAllModulesCompleted)
                             {
-                                <span>Completed Training · Semua Modul Selesai (@progress.CompletedModulesCount/@progress.TotalModulesCount Modul · Kurang 0 Modul)</span>
+                                <span>Completed Training · All Modules Completed (@progress.CompletedModulesCount/@progress.TotalModulesCount Modules · 0 Remaining)</span>
                             }
                             else
                             {
-                                <span>Sudah Sampai Modul @progress.CompletedModulesCount dari @progress.TotalModulesCount (Kurang @progress.RemainingModulesCount modul)</span>
+                                <span>Reached Module @progress.CompletedModulesCount of @progress.TotalModulesCount (@progress.RemainingModulesCount module(s) remaining)</span>
                             }
                         </span>
                     </div>
                     <div>
                         <span class="badge @(isCertified ? "bg-success" : progress.IsAllModulesCompleted ? "bg-primary" : "bg-warning text-dark")">
-                            @(isCertified ? "Certified" : progress.IsAllModulesCompleted ? "Completed Training" : "Dalam Masa Training")
+                            @(isCertified ? "Certified" : progress.IsAllModulesCompleted ? "Completed Training" : "In Training")
                         </span>
                     </div>
                 </div>
@@ -306,7 +306,7 @@
                             }
                             else
                             {
-                                <p class="text-success small fw-bold mb-0">Complete! All curriculum modules have been completed (Kurang 0 modul).</p>
+                                <p class="text-success small fw-bold mb-0">Complete! All curriculum modules have been completed (0 remaining).</p>
                             }
                         </div>
                     </div>
@@ -378,7 +378,7 @@
                                 }
                                 else
                                 {
-                                    <p class="mb-0 text-muted small">Certification Criteria: All curriculum modules must be completed (currently: <strong>@progress.CompletedModulesCount/@progress.TotalModulesCount</strong> · Kurang <strong>@progress.RemainingModulesCount</strong> modul)@(progress.IsGreenBelt ? $" and DMAIC Phase must reach Control (currently: {(string.IsNullOrWhiteSpace(Model.Input.StatusPhase) ? "Not started" : Model.Input.StatusPhase)})" : "").</p>
+                                    <p class="mb-0 text-muted small">Certification Criteria: All curriculum modules must be completed (currently: <strong>@progress.CompletedModulesCount/@progress.TotalModulesCount</strong> · <strong>@progress.RemainingModulesCount</strong> module(s) remaining)@(progress.IsGreenBelt ? $" and DMAIC Phase must reach Control (currently: {(string.IsNullOrWhiteSpace(Model.Input.StatusPhase) ? "Not started" : Model.Input.StatusPhase)})" : "").</p>
                                 }
                             </div>
                             <div>
