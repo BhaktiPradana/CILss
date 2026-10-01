@@ -23,6 +23,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Electricity/Index"); 
     options.Conventions.AllowAnonymousToPage("/Electricity/DbMapping");
     options.Conventions.AllowAnonymousToPage("/Electricity/DbMappingAdd");
+    options.Conventions.AllowAnonymousToPage("/Electricity/Improvements");
 });
 
 builder.Services.AddAuthorization(options =>
@@ -53,6 +54,7 @@ builder.Services.AddScoped<IParticipantExportService, ParticipantExportService>(
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<KwhRepository>();
 builder.Services.AddScoped<DistributionBoardRepository>();
+builder.Services.AddScoped<ImprovementRepository>();
 
 var app = builder.Build();
 

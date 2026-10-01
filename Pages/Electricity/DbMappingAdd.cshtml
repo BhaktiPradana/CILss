@@ -66,40 +66,31 @@
                             Distribution Board Connections
                         </h5>
 
-                        <!-- DB Connection Primary -->
+                        <!-- DB Connection Primary (From SQL MasterDBs) -->
                         <div class="mb-3">
                             <label asp-for="DbPrimary" class="form-label fw-bold">
                                 DB Connection (Primary) <span class="text-danger">*</span>
                             </label>
                             <select asp-for="DbPrimary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm" required></select>
-                            <div class="form-text">Primary electrical supply panel for the machine.</div>
+                            <div class="form-text">Primary electrical supply panel (from Master DBs PME list).</div>
                         </div>
 
-                        <!-- Sub DB Name -->
-                        <div class="mb-3">
-                            <label asp-for="SubDBName" class="form-label fw-bold">
-                                Sub DB Name <span class="text-muted fw-normal">(SubDBName - Optional)</span>
-                            </label>
-                            <select asp-for="SubDBName" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
-                            <div class="form-text">Interconnecting sub-panel or sub-board for the machine.</div>
-                        </div>
-
-                        <!-- DB Connection Secondary -->
+                        <!-- DB Connection Secondary (Manual Input) -->
                         <div class="mb-3">
                             <label asp-for="DbSecondary" class="form-label fw-bold">
-                                DB Connection Secondary <span class="text-muted fw-normal">(Optional)</span>
+                                DB Connection Secondary <span class="text-muted fw-normal">(Manual Input - Optional)</span>
                             </label>
-                            <select asp-for="DbSecondary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
-                            <div class="form-text">Secondary or backup electrical supply panel (optional).</div>
+                            <input asp-for="DbSecondary" class="form-control form-control-lg shadow-sm" placeholder="e.g. MCB-01, Sub-DB Line A" />
+                            <div class="form-text">Internal Sub-DB, MCB, or secondary connection (manual text input).</div>
                         </div>
 
-                        <!-- DB Connection Tertiary -->
+                        <!-- DB Connection Tertiary (Manual Input) -->
                         <div class="mb-3">
                             <label asp-for="DbTertiary" class="form-label fw-bold">
-                                DB Connection Tertiary <span class="text-muted fw-normal">(Optional)</span>
+                                DB Connection Tertiary <span class="text-muted fw-normal">(Manual Input - Optional)</span>
                             </label>
-                            <select asp-for="DbTertiary" asp-items="Model.DbOptions" class="form-select form-select-lg shadow-sm"></select>
-                            <div class="form-text">Tertiary or auxiliary electrical supply panel (optional).</div>
+                            <input asp-for="DbTertiary" class="form-control form-control-lg shadow-sm" placeholder="e.g. Sub-MCB Aux, Local Isolator" />
+                            <div class="form-text">Auxiliary sub-panel or tertiary connection (manual text input).</div>
                         </div>
 
                         <!-- Remarks -->

@@ -65,7 +65,7 @@ namespace LssTraining.Web.Pages.Electricity
                 return Page();
             }
 
-            await _dbRepo.SaveMappingAsync(SelectedMachCode, DbPrimary, SubDBName, Remarks, DbPrimary, DbSecondary, DbTertiary);
+            await _dbRepo.SaveMappingAsync(SelectedMachCode, DbPrimary, DbSecondary, Remarks, DbPrimary, DbSecondary, DbTertiary);
             return RedirectToPage("/Electricity/DbMapping");
         }
 
