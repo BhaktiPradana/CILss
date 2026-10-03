@@ -5,6 +5,17 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
 	<ItemGroup>
+		<Compile Remove="Analyzer\**" />
+		<Compile Remove="CapacitySimulatorAPI\**" />
+		<Compile Remove="DatabaseSyncApp\**" />
+		<Content Remove="Analyzer\**" />
+		<Content Remove="CapacitySimulatorAPI\**" />
+		<Content Remove="DatabaseSyncApp\**" />
+		<None Remove="Analyzer\**" />
+		<None Remove="CapacitySimulatorAPI\**" />
+		<None Remove="DatabaseSyncApp\**" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
 		<PackageReference Include="ClosedXML" Version="0.104.2" />
 		<PackageReference Include="Dapper" Version="2.1.35" />
