@@ -49,6 +49,215 @@
         </div>
     </div>
 
+    <!-- Simulation Engine -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h4 class="fw-bold text-dark mb-0">Run Capacity Simulation</h4>
+                    <p class="text-muted small">Input parameters to calculate required vs available hours.</p>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <form method="post" asp-page-handler="Simulate" id="simForm">
+                        <div id="demands-container">
+                            @for(int i = 0; i < Math.Max(1, Model.Input.Demands?.Count ?? 1); i++)
+                            {
+                                var demand = Model.Input.Demands != null && Model.Input.Demands.Count > i ? Model.Input.Demands[i] : new LssTraining.Web.Models.SimulationDemand();
+                                <div class="row g-3 align-items-end demand-row mb-3">
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-medium">Product Group</label>
+                                        <select name="Input.Demands[@i].ProductGroupCode" class="form-select" required>
+                                            <option value="">-- Select Product Group --</option>
+                                            @if(Model.ProductGroups != null)
+                                            {
+                                                foreach (var pg in Model.ProductGroups)
+                                                {
+                                                    if (demand.ProductGroupCode == pg.ProductGroupCode) {
+                                                        <option value="@pg.ProductGroupCode" selected>@pg.ProductGroupCode - @pg.ProductGroupName</option>
+                                                    } else {
+                                                        <option value="@pg.ProductGroupCode">@pg.ProductGroupCode - @pg.ProductGroupName</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-medium">Demand (Units)</label>
+                                        <input name="Input.Demands[@i].DemandQuantity" type="number" class="form-control" min="1" value="@(demand.DemandQuantity > 0 ? demand.DemandQuantity : 10000)" required />
+                                    </div>
+                                    <div class="col-md-2">
+                                        @if(i == 0) {
+                                            <button type="button" class="btn btn-outline-success w-100 fw-bold shadow-sm" onclick="addDemandRow()">+ Add</button>
+                                        } else {
+                                            <button type="button" class="btn btn-outline-danger w-100 fw-bold shadow-sm" onclick="removeDemandRow(this)">- Remove</button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <div class="row g-3 align-items-end mt-2 pt-3 border-top">
+                            <div class="col-md-4">
+                                <label asp-for="Input.OvertimeLimitPercent" class="form-label fw-medium">Max Overtime (%)</label>
+                                <div class="input-group">
+                                    <input asp-for="Input.OvertimeLimitPercent" type="number" class="form-control" step="0.1" min="0" max="100" required />
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-8 text-end">
+                                <button type="submit" class="btn btn-dark fw-bold shadow-sm px-5">Run Simulation</button>
+                            </div>
+                        </div>
+                    </form>
+
+<script>
+    let rowIdx = @(Math.Max(1, Model.Input.Demands?.Count ?? 1));
+    function addDemandRow() {
+        const container = document.getElementById('demands-container');
+        const firstRow = container.querySelector('.demand-row').cloneNode(true);
+        
+        firstRow.querySelector('select').name = `Input.Demands[${rowIdx}].ProductGroupCode`;
+        firstRow.querySelector('select').value = '';
+        firstRow.querySelector('input').name = `Input.Demands[${rowIdx}].DemandQuantity`;
+        firstRow.querySelector('input').value = '10000';
+        
+        const btn = firstRow.querySelector('button');
+        btn.className = 'btn btn-outline-danger w-100 fw-bold shadow-sm';
+        btn.textContent = '- Remove';
+        btn.onclick = function() { removeDemandRow(this); };
+        
+        container.appendChild(firstRow);
+        rowIdx++;
+    }
+    
+    function removeDemandRow(btn) {
+        btn.closest('.demand-row').remove();
+        // Re-index remaining rows to ensure model binding works
+        const rows = document.querySelectorAll('.demand-row');
+        rows.forEach((row, index) => {
+            row.querySelector('select').name = `Input.Demands[${index}].ProductGroupCode`;
+            row.querySelector('input').name = `Input.Demands[${index}].DemandQuantity`;
+        });
+        rowIdx = rows.length;
+    }
+</script>
+
+                    @if (Model.Result != null)
+                    {
+                        <hr class="my-4" />
+                        <div class="p-4 rounded-4 @(Model.Result.IsCapacityMet && Model.Result.Bottlenecks.Count == 0 ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
+                            <div class="row">
+                                <div class="col-md-3 border-end border-dark-subtle">
+                                    <div class="text-muted small fw-bold text-uppercase">Total Bottlenecks</div>
+                                    <h4 class="fw-bold @(Model.Result.Bottlenecks.Count == 0 ? "text-success" : "text-danger")">@Model.Result.Bottlenecks.Count</h4>
+                                </div>
+                                <div class="col-md-3 border-end border-dark-subtle">
+                                    <div class="text-muted small fw-bold text-uppercase">Required Hours</div>
+                                    <h4 class="fw-bold">@Model.Result.RequiredHours.ToString("N0") h</h4>
+                                </div>
+                                <div class="col-md-3 border-end border-dark-subtle">
+                                    <div class="text-muted small fw-bold text-uppercase">Available Hours (Inc OT)</div>
+                                    <h4 class="fw-bold">@Model.Result.TotalAvailableHours.ToString("N0") h</h4>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-muted small fw-bold text-uppercase">Shortage / Surplus</div>
+                                    <h4 class="fw-bold @(Model.Result.IsCapacityMet && Model.Result.Bottlenecks.Count == 0 ? "text-success" : "text-danger")">
+                                        @(Model.Result.ShortageOrSurplus > 0 ? "+" : "")@Model.Result.ShortageOrSurplus.ToString("N0") h
+                                    </h4>
+                                </div>
+                            </div>
+                            <div class="alert @(Model.Result.IsCapacityMet && Model.Result.Bottlenecks.Count == 0 ? "alert-success" : "alert-danger") mt-3 mb-4 border-0 fw-medium">
+                                @Model.Result.Recommendation
+                            </div>
+                            
+                            @if (Model.Result.MachineResults != null && Model.Result.MachineResults.Count > 0)
+                            {
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-bar-chart-fill me-2"></i>Machine Capacity Utilization (Area Chart)</h6>
+                                    <div class="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
+                                        <canvas id="capacityChart" height="100"></canvas>
+                                    </div>
+                                </div>
+                            }
+                            
+                            @if (Model.Result.Bottlenecks.Count > 0)
+                            {
+                                <div class="mt-4">
+                                    <h6 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Bottleneck Machines</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered border-danger mb-0">
+                                            <thead class="table-danger">
+                                                <tr>
+                                                    <th>Machine</th>
+                                                    <th>Area</th>
+                                                    <th class="text-end">Required Hrs</th>
+                                                    <th class="text-end">Available Hrs</th>
+                                                    <th class="text-end">Shortage</th>
+                                                    <th class="text-end">Utilization</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var b in Model.Result.Bottlenecks.OrderByDescending(x => x.UtilizationPercent))
+                                                {
+                                                    <tr>
+                                                        <td><strong>@b.MachCode</strong> - @b.MachName</td>
+                                                        <td>@b.Area</td>
+                                                        <td class="text-end">@b.RequiredHours.ToString("N1")</td>
+                                                        <td class="text-end">@b.TotalAvailableHours.ToString("N1")</td>
+                                                        <td class="text-end text-danger fw-bold">@b.ShortageOrSurplus.ToString("N1")</td>
+                                                        <td class="text-end text-danger fw-bold">@b.UtilizationPercent.ToString("N0")%</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
+                            
+                            @if (Model.Result.ManpowerResults != null && Model.Result.ManpowerResults.Count > 0)
+                            {
+                                <div class="mt-4">
+                                    <h6 class="fw-bold text-primary mb-3"><i class="bi bi-people-fill me-2"></i>Required Manpower (Headcount)</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered border-primary mb-0">
+                                            <thead class="table-primary">
+                                                <tr>
+                                                    <th>Process Code</th>
+                                                    <th>Process Name</th>
+                                                    <th class="text-end">Total Labor Hrs</th>
+                                                    <th class="text-end">Headcount (0% OT)</th>
+                                                    <th class="text-end">Headcount (Max OT)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var mp in Model.Result.ManpowerResults.OrderByDescending(x => x.TotalLaborHoursRequired))
+                                                {
+                                                    <tr>
+                                                        <td><strong>@mp.ProcCode</strong></td>
+                                                        <td>@mp.ProcName</td>
+                                                        <td class="text-end">@mp.TotalLaborHoursRequired.ToString("N1")</td>
+                                                        <td class="text-end fw-bold">@mp.HeadcountZeroOvertime</td>
+                                                        <td class="text-end fw-bold text-success">@mp.HeadcountWithOvertime</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                            <tfoot class="table-light fw-bold">
+                                                <tr>
+                                                    <td colspan="3" class="text-end">TOTAL REQUIRED HEADCOUNT</td>
+                                                    <td class="text-end">@Model.Result.TotalHeadcountZeroOvertime</td>
+                                                    <td class="text-end text-success">@Model.Result.TotalHeadcountWithOvertime</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-4">
         <!-- Labor Capacity Table -->
         <div class="col-lg-6">
@@ -135,3 +344,91 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    @if (Model.Result != null && Model.Result.MachineResults != null && Model.Result.MachineResults.Count > 0)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const ctx = document.getElementById('capacityChart');
+                if (ctx) {
+                    const rawData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Result.MachineResults.OrderByDescending(x => x.RequiredHours)));
+                    
+                    const labels = rawData.map(d => d.MachCode);
+                    const reqHours = rawData.map(d => d.RequiredHours);
+                    const normalHrs = rawData.map(d => d.AvailableNormalHours);
+                    const maxHrs = rawData.map(d => d.TotalAvailableHours);
+
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    type: 'bar',
+                                    label: 'Required Hours (Load)',
+                                    data: reqHours,
+                                    backgroundColor: 'rgba(220, 53, 69, 0.8)', // Bootstrap Danger Red
+                                    borderColor: 'rgba(220, 53, 69, 1)',
+                                    borderWidth: 1,
+                                    order: 2,
+                                    barPercentage: 0.6
+                                },
+                                {
+                                    type: 'line',
+                                    label: 'Max Capacity (with OT)',
+                                    data: maxHrs,
+                                    borderColor: 'rgba(25, 135, 84, 1)', // Bootstrap Success Green
+                                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4,
+                                    order: 1
+                                },
+                                {
+                                    type: 'line',
+                                    label: 'Normal Capacity',
+                                    data: normalHrs,
+                                    borderColor: 'rgba(13, 110, 253, 1)', // Bootstrap Primary Blue
+                                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4,
+                                    order: 3
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            },
+                            plugins: {
+                                tooltip: { 
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.dataset.label + ': ' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' hrs';
+                                        }
+                                    }
+                                },
+                                legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'Hours', font: { weight: 'bold' } }
+                                },
+                                x: {
+                                    title: { display: true, text: 'Machine Code', font: { weight: 'bold' } },
+                                    grid: { display: false }
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        </script>
+    }
+}

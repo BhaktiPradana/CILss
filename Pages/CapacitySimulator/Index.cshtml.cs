@@ -20,11 +20,37 @@ namespace LssTraining.Web.Pages.CapacitySimulator
             _repository = repository;
         }
 
+        [Microsoft.AspNetCore.Mvc.BindProperty]
+        public SimulationInput Input { get; set; } = new SimulationInput 
+        { 
+            Demands = new List<SimulationDemand> { new SimulationDemand { DemandQuantity = 10000 } },
+            OvertimeLimitPercent = 10 
+        };
+
+        public SimulationResult Result { get; set; }
+        public IEnumerable<ProductGroup> ProductGroups { get; set; } = new List<ProductGroup>();
+
         public async Task OnGetAsync()
+        {
+            await LoadDataAsync();
+        }
+
+        public async Task<Microsoft.AspNetCore.Mvc.IActionResult> OnPostSimulateAsync()
+        {
+            await LoadDataAsync();
+            if (ModelState.IsValid)
+            {
+                Result = await _repository.RunSimulationAsync(Input, Summary.TotalEmployees);
+            }
+            return Page();
+        }
+
+        private async Task LoadDataAsync()
         {
             Summary = await _repository.GetSummaryAsync();
             ManpowerList = await _repository.GetManpowerBySectionAsync();
             ProcessAreaList = await _repository.GetProcessAreasAsync();
+            ProductGroups = await _repository.GetProductGroupsAsync();
         }
     }
 }
