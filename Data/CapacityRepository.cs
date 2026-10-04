@@ -219,18 +219,19 @@ namespace LssTraining.Web.Data
                     {
                         machResult.MachName = machInfo.MachName;
                         machResult.Area = machInfo.Area;
-                        machResult.AvailableNormalHours = machInfo.AvailableHours_X != null ? (decimal)machInfo.AvailableHours_X : 8m;
+                        // Use DB available hours if present, otherwise default to shift hours. Assuming DB hours are per day.
+                        machResult.AvailableNormalHours = machInfo.AvailableHours_X != null ? ((decimal)machInfo.AvailableHours_X * input.WorkingDays) : input.AvailableMachineHours;
                     }
                     else
                     {
                         machResult.MachName = "Unknown Machine";
-                        machResult.AvailableNormalHours = 8m;
+                        machResult.AvailableNormalHours = input.AvailableMachineHours;
                     }
                 } 
                 catch 
                 {
                     machResult.MachName = "Mock Machine " + machCode;
-                    machResult.AvailableNormalHours = 8m;
+                    machResult.AvailableNormalHours = input.AvailableMachineHours;
                 }
 
                 machResult.AvailableOvertimeHours = machResult.AvailableNormalHours * (input.OvertimeLimitPercent / 100m);
@@ -249,6 +250,7 @@ namespace LssTraining.Web.Data
             }
 
             // 5. Build Manpower Results
+            decimal totalLaborHours = 0;
             foreach (var kvp in processLaborHours)
             {
                 var mp = new ProcessManpowerResult
@@ -258,22 +260,44 @@ namespace LssTraining.Web.Data
                     TotalLaborHoursRequired = kvp.Value
                 };
                 
-                decimal availablePerPersonWithOT = 8m * (1m + input.OvertimeLimitPercent / 100m);
+                decimal availablePerPersonZeroOT = input.AvailableHoursPerPerson;
+                decimal availablePerPersonWithOT = input.AvailableHoursPerPerson * (1m + input.OvertimeLimitPercent / 100m);
+                
+                mp.HeadcountZeroOvertime = mp.TotalLaborHoursRequired > 0 ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonZeroOT) : 0;
                 mp.HeadcountWithOvertime = mp.TotalLaborHoursRequired > 0 ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonWithOT) : 0;
                 
+                totalLaborHours += mp.TotalLaborHoursRequired;
                 result.ManpowerResults.Add(mp);
             }
 
-            result.TotalHeadcountZeroOvertime = result.ManpowerResults.Sum(x => x.HeadcountZeroOvertime);
-            result.TotalHeadcountWithOvertime = result.ManpowerResults.Sum(x => x.HeadcountWithOvertime);
+            // Calculate global theoretical headcount based on total labor hours (assuming cross-training/line balancing)
+            decimal globalAvailableZeroOT = input.AvailableHoursPerPerson;
+            decimal globalAvailableWithOT = input.AvailableHoursPerPerson * (1m + input.OvertimeLimitPercent / 100m);
+            
+            result.TotalHeadcountZeroOvertime = totalLaborHours > 0 ? (int)System.Math.Ceiling(totalLaborHours / globalAvailableZeroOT) : 0;
+            result.TotalHeadcountWithOvertime = totalLaborHours > 0 ? (int)System.Math.Ceiling(totalLaborHours / globalAvailableWithOT) : 0;
 
             if (result.IsCapacityMet && result.Bottlenecks.Count == 0)
             {
-                result.Recommendation = $"Current capacity is SUFFICIENT. You need {result.TotalHeadcountWithOvertime} headcount (with {input.OvertimeLimitPercent}% OT allowed) or {result.TotalHeadcountZeroOvertime} headcount (Zero OT).";
+                if (result.TotalHeadcountZeroOvertime == result.TotalHeadcountWithOvertime || input.OvertimeLimitPercent == 0)
+                {
+                    result.Recommendation = $"Current capacity is SUFFICIENT. You need {result.TotalHeadcountZeroOvertime} headcount (No OT required).";
+                }
+                else
+                {
+                    result.Recommendation = $"Current capacity is SUFFICIENT. You need {result.TotalHeadcountWithOvertime} headcount (with {input.OvertimeLimitPercent}% OT allowed) or {result.TotalHeadcountZeroOvertime} headcount (Zero OT).";
+                }
             }
             else
             {
-                result.Recommendation = $"CAPACITY SHORTAGE detected. Found {result.Bottlenecks.Count} bottleneck machines. Required Headcount: {result.TotalHeadcountWithOvertime} (with OT) or {result.TotalHeadcountZeroOvertime} (Zero OT).";
+                if (result.TotalHeadcountZeroOvertime == result.TotalHeadcountWithOvertime || input.OvertimeLimitPercent == 0)
+                {
+                    result.Recommendation = $"CAPACITY SHORTAGE detected. Found {result.Bottlenecks.Count} bottleneck machines. Required Headcount: {result.TotalHeadcountZeroOvertime} (No OT required for labor).";
+                }
+                else
+                {
+                    result.Recommendation = $"CAPACITY SHORTAGE detected. Found {result.Bottlenecks.Count} bottleneck machines. Required Headcount: {result.TotalHeadcountWithOvertime} (with OT) or {result.TotalHeadcountZeroOvertime} (Zero OT).";
+                }
             }
 
             return result;

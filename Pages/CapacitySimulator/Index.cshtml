@@ -96,15 +96,26 @@
                             }
                         </div>
                         <div class="row g-3 align-items-end mt-2 pt-3 border-top">
-                            <div class="col-md-4">
-                                <label asp-for="Input.OvertimeLimitPercent" class="form-label fw-medium">Max Overtime (%)</label>
+                            <div class="col-md-3">
+                                <label asp-for="Input.ShiftSystem" class="form-label fw-medium">Work Days</label>
+                                <select asp-for="Input.ShiftSystem" class="form-select" required>
+                                    <option value="5-2">5-2 (5 Days)</option>
+                                    <option value="6-1">6-1 (6 Days)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label asp-for="Input.ShiftsPerDay" class="form-label fw-medium">Shifts/Day</label>
+                                <input asp-for="Input.ShiftsPerDay" type="number" class="form-control" min="1" max="3" required />
+                            </div>
+                            <div class="col-md-3">
+                                <label asp-for="Input.OvertimeLimitPercent" class="form-label fw-medium">Max OT (%)</label>
                                 <div class="input-group">
                                     <input asp-for="Input.OvertimeLimitPercent" type="number" class="form-control" step="0.1" min="0" max="100" required />
                                     <span class="input-group-text">%</span>
                                 </div>
                             </div>
-                            <div class="col-md-8 text-end">
-                                <button type="submit" class="btn btn-dark fw-bold shadow-sm px-5">Run Simulation</button>
+                            <div class="col-md-3 text-end">
+                                <button type="submit" class="btn btn-dark fw-bold shadow-sm w-100">Run Simulation</button>
                             </div>
                         </div>
                     </form>
@@ -152,16 +163,16 @@
                                 </div>
                                 <div class="col-md-3 border-end border-dark-subtle">
                                     <div class="text-muted small fw-bold text-uppercase">Required Hours</div>
-                                    <h4 class="fw-bold">@Model.Result.RequiredHours.ToString("N0") h</h4>
+                                    <h4 class="fw-bold">@Model.Result.RequiredHours.ToString("N1") h</h4>
                                 </div>
                                 <div class="col-md-3 border-end border-dark-subtle">
                                     <div class="text-muted small fw-bold text-uppercase">Available Hours (Inc OT)</div>
-                                    <h4 class="fw-bold">@Model.Result.TotalAvailableHours.ToString("N0") h</h4>
+                                    <h4 class="fw-bold">@Model.Result.TotalAvailableHours.ToString("N1") h</h4>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="text-muted small fw-bold text-uppercase">Shortage / Surplus</div>
                                     <h4 class="fw-bold @(Model.Result.IsCapacityMet && Model.Result.Bottlenecks.Count == 0 ? "text-success" : "text-danger")">
-                                        @(Model.Result.ShortageOrSurplus > 0 ? "+" : "")@Model.Result.ShortageOrSurplus.ToString("N0") h
+                                        @(Model.Result.ShortageOrSurplus > 0 ? "+" : "")@Model.Result.ShortageOrSurplus.ToString("N1") h
                                     </h4>
                                 </div>
                             </div>

@@ -67,6 +67,13 @@ namespace LssTraining.Web.Models
     {
         public List<SimulationDemand> Demands { get; set; } = new List<SimulationDemand>();
         public decimal OvertimeLimitPercent { get; set; }
+        public string ShiftSystem { get; set; } = "5-2"; // 5-2 or 6-1
+        public int ShiftsPerDay { get; set; } = 3;
+        
+        public int WorkingDays => ShiftSystem == "6-1" ? 6 : 5;
+        public decimal NormalHoursPerShift => 7.25m;
+        public decimal AvailableHoursPerPerson => WorkingDays * NormalHoursPerShift;
+        public decimal AvailableMachineHours => WorkingDays * ShiftsPerDay * NormalHoursPerShift;
     }
 
     public class ProcessManpowerResult
@@ -74,7 +81,7 @@ namespace LssTraining.Web.Models
         public string ProcCode { get; set; }
         public string ProcName { get; set; }
         public decimal TotalLaborHoursRequired { get; set; }
-        public int HeadcountZeroOvertime => TotalLaborHoursRequired > 0 ? (int)System.Math.Ceiling(TotalLaborHoursRequired / 8m) : 0;
+        public int HeadcountZeroOvertime { get; set; }
         public int HeadcountWithOvertime { get; set; }
     }
 
