@@ -4,7 +4,7 @@ namespace LssTraining.Web.Models
 
     public class CapacitySummary
     {
-        public int TotalProducts { get; set; }
+        public int TotalDevices { get; set; }
         public int TotalProcesses { get; set; }
         public int TotalEmployees { get; set; }
     }
@@ -21,10 +21,10 @@ namespace LssTraining.Web.Models
         public int ProcessCount { get; set; }
     }
 
-    public class ProductGroup
+    public class DeviceGroup
     {
-        public string ProductGroupCode { get; set; }
-        public string ProductGroupName { get; set; }
+        public string DeviceGroupCode { get; set; }
+        public string DeviceGroupName { get; set; }
     }
 
     // --- NEW ENTITIES FOR SMART ROUTING SIMULATOR ---
@@ -32,7 +32,7 @@ namespace LssTraining.Web.Models
     public class Device
     {
         public string DeviceCode { get; set; }
-        public string ProductGroupCode { get; set; }
+        public string DeviceGroupCode { get; set; }
     }
 
     public class DeviceProcess
@@ -59,7 +59,7 @@ namespace LssTraining.Web.Models
 
     public class SimulationDemand
     {
-        public string ProductGroupCode { get; set; }
+        public string DeviceGroupCode { get; set; }
         public int DemandQuantity { get; set; }
     }
 

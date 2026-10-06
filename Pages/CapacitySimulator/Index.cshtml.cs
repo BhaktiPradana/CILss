@@ -28,7 +28,7 @@ namespace LssTraining.Web.Pages.CapacitySimulator
         };
 
         public SimulationResult Result { get; set; }
-        public IEnumerable<ProductGroup> ProductGroups { get; set; } = new List<ProductGroup>();
+        public IEnumerable<DeviceGroup> DeviceGroups { get; set; } = new List<DeviceGroup>();
 
         public async Task OnGetAsync()
         {
@@ -50,7 +50,7 @@ namespace LssTraining.Web.Pages.CapacitySimulator
             Summary = await _repository.GetSummaryAsync();
             ManpowerList = await _repository.GetManpowerBySectionAsync();
             ProcessAreaList = await _repository.GetProcessAreasAsync();
-            ProductGroups = await _repository.GetProductGroupsAsync();
+            DeviceGroups = await _repository.GetDeviceGroupsAsync();
         }
     }
 }

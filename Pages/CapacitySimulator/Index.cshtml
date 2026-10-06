@@ -26,8 +26,8 @@
         <div class="col-md-4">
             <div class="card border-0 shadow-sm rounded-4 h-100" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white;">
                 <div class="card-body p-4">
-                    <h5 class="fw-normal mb-3 text-white-50">Total Products</h5>
-                    <h2 class="fw-bold mb-0">@Model.Summary.TotalProducts</h2>
+                    <h5 class="fw-normal mb-3 text-white-50">Total Devices</h5>
+                    <h2 class="fw-bold mb-0">@Model.Summary.TotalDevices</h2>
                 </div>
             </div>
         </div>
@@ -65,17 +65,17 @@
                                 var demand = Model.Input.Demands != null && Model.Input.Demands.Count > i ? Model.Input.Demands[i] : new LssTraining.Web.Models.SimulationDemand();
                                 <div class="row g-3 align-items-end demand-row mb-3">
                                     <div class="col-md-5">
-                                        <label class="form-label fw-medium">Product Group</label>
-                                        <select name="Input.Demands[@i].ProductGroupCode" class="form-select" required>
-                                            <option value="">-- Select Product Group --</option>
-                                            @if(Model.ProductGroups != null)
+                                        <label class="form-label fw-medium">Device Group</label>
+                                        <select name="Input.Demands[@i].DeviceGroupCode" class="form-select" required>
+                                            <option value="">-- Select Device Group --</option>
+                                            @if(Model.DeviceGroups != null)
                                             {
-                                                foreach (var pg in Model.ProductGroups)
+                                                foreach (var pg in Model.DeviceGroups)
                                                 {
-                                                    if (demand.ProductGroupCode == pg.ProductGroupCode) {
-                                                        <option value="@pg.ProductGroupCode" selected>@pg.ProductGroupCode - @pg.ProductGroupName</option>
+                                                    if (demand.DeviceGroupCode == pg.DeviceGroupCode) {
+                                                        <option value="@pg.DeviceGroupCode" selected>@pg.DeviceGroupCode - @pg.DeviceGroupName</option>
                                                     } else {
-                                                        <option value="@pg.ProductGroupCode">@pg.ProductGroupCode - @pg.ProductGroupName</option>
+                                                        <option value="@pg.DeviceGroupCode">@pg.DeviceGroupCode - @pg.DeviceGroupName</option>
                                                     }
                                                 }
                                             }
@@ -126,7 +126,7 @@
         const container = document.getElementById('demands-container');
         const firstRow = container.querySelector('.demand-row').cloneNode(true);
         
-        firstRow.querySelector('select').name = `Input.Demands[${rowIdx}].ProductGroupCode`;
+        firstRow.querySelector('select').name = `Input.Demands[${rowIdx}].DeviceGroupCode`;
         firstRow.querySelector('select').value = '';
         firstRow.querySelector('input').name = `Input.Demands[${rowIdx}].DemandQuantity`;
         firstRow.querySelector('input').value = '10000';
@@ -145,7 +145,7 @@
         // Re-index remaining rows to ensure model binding works
         const rows = document.querySelectorAll('.demand-row');
         rows.forEach((row, index) => {
-            row.querySelector('select').name = `Input.Demands[${index}].ProductGroupCode`;
+            row.querySelector('select').name = `Input.Demands[${index}].DeviceGroupCode`;
             row.querySelector('input').name = `Input.Demands[${index}].DemandQuantity`;
         });
         rowIdx = rows.length;

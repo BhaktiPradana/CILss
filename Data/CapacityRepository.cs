@@ -1,6 +1,7 @@
 using Dapper;
 using LssTraining.Web.Models;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace LssTraining.Web.Data
@@ -22,7 +23,7 @@ namespace LssTraining.Web.Data
             try
             {
                 // Mengambil jumlah total dari masing-masing tabel master
-                summary.TotalProducts = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Product");
+                summary.TotalDevices = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Product");
                 summary.TotalProcesses = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Process");
                 summary.TotalEmployees = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Employee");
             }
@@ -73,16 +74,16 @@ namespace LssTraining.Web.Data
             }
         }
 
-        public async Task<IEnumerable<ProductGroup>> GetProductGroupsAsync()
+        public async Task<IEnumerable<DeviceGroup>> GetDeviceGroupsAsync()
         {
             using var connection = _connectionFactory.CreateConnection();
             try
             {
-                return await connection.QueryAsync<ProductGroup>("SELECT ProductGroupCode, ProductGroupName FROM CI_ProductGroup ORDER BY ProductGroupName");
+                return await connection.QueryAsync<DeviceGroup>("SELECT DeviceGroupCode, DeviceGroupName FROM CI_ProductGroup ORDER BY DeviceGroupName");
             }
             catch
             {
-                return new List<ProductGroup> { new ProductGroup { ProductGroupCode = "DEMO", ProductGroupName = "Demo Product" } };
+                return new List<DeviceGroup> { new DeviceGroup { DeviceGroupCode = "DEMO", DeviceGroupName = "Demo Product" } };
             }
         }
 
@@ -97,22 +98,22 @@ namespace LssTraining.Web.Data
 
             foreach (var demandInput in input.Demands)
             {
-                if (string.IsNullOrWhiteSpace(demandInput.ProductGroupCode) || demandInput.DemandQuantity <= 0)
+                if (string.IsNullOrWhiteSpace(demandInput.DeviceGroupCode) || demandInput.DemandQuantity <= 0)
                     continue;
 
                 // 1. Get all Devices in this Product Family
                 var devices = new List<string>();
                 try 
                 {
-                    var sqlDevices = "SELECT ProductCode FROM MQS_MProduct WHERE ProductCode LIKE @ProductGroupCode + '%' OR @ProductGroupCode = 'ALL'";
-                    devices = (await connection.QueryAsync<string>(sqlDevices, new { ProductGroupCode = demandInput.ProductGroupCode })).AsList();
+                    var sqlDevices = "SELECT DeviceCode FROM MQS_MProduct WHERE DeviceCode LIKE @DeviceGroupCode + '%' OR @DeviceGroupCode = 'ALL'";
+                    devices = (await connection.QueryAsync<string>(sqlDevices, new { DeviceGroupCode = demandInput.DeviceGroupCode })).AsList();
                 } 
                 catch { }
 
                 if (devices.Count == 0) 
                 {
                     // Fallback to mock devices if DB not available
-                    devices = new List<string> { demandInput.ProductGroupCode + "-01", demandInput.ProductGroupCode + "-02", demandInput.ProductGroupCode + "-03" };
+                    devices = new List<string> { demandInput.DeviceGroupCode + "-01", demandInput.DeviceGroupCode + "-02", demandInput.DeviceGroupCode + "-03" };
                 }
 
                 // 2. Split Demand evenly across devices
@@ -270,12 +271,9 @@ namespace LssTraining.Web.Data
                 result.ManpowerResults.Add(mp);
             }
 
-            // Calculate global theoretical headcount based on total labor hours (assuming cross-training/line balancing)
-            decimal globalAvailableZeroOT = input.AvailableHoursPerPerson;
-            decimal globalAvailableWithOT = input.AvailableHoursPerPerson * (1m + input.OvertimeLimitPercent / 100m);
-            
-            result.TotalHeadcountZeroOvertime = totalLaborHours > 0 ? (int)System.Math.Ceiling(totalLaborHours / globalAvailableZeroOT) : 0;
-            result.TotalHeadcountWithOvertime = totalLaborHours > 0 ? (int)System.Math.Ceiling(totalLaborHours / globalAvailableWithOT) : 0;
+            // Calculate total headcount based on the sum of individual process requirements (no cross-training assumed)
+            result.TotalHeadcountZeroOvertime = result.ManpowerResults.Sum(x => x.HeadcountZeroOvertime);
+            result.TotalHeadcountWithOvertime = result.ManpowerResults.Sum(x => x.HeadcountWithOvertime);
 
             if (result.IsCapacityMet && result.Bottlenecks.Count == 0)
             {
