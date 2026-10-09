@@ -12,10 +12,66 @@ public partial class Form1 : Form
     private readonly string sourceConnStr = "Server=ETCRESSQL02;Database=BTMTime;User Id=BTM_IT_RO;Password=ITreadonly!;";
     private readonly string destConnStr = "Server=BTMSQL01\\DIGITMONT_DEV;Database=CI_LSS;User Id=CI_Hub_User;Password=CiHubB4tam@excelitas;";
 
+    private NotifyIcon notifyIcon;
+    private ContextMenuStrip contextMenu;
+    private bool allowExit = false;
+
     public Form1()
     {
         InitializeComponent();
+        InitializeTrayIcon();
         LogMessage("System Ready. Awaiting user command...");
+    }
+
+    private void InitializeTrayIcon()
+    {
+        if (components == null)
+        {
+            components = new System.ComponentModel.Container();
+        }
+
+        contextMenu = new ContextMenuStrip(components);
+        var openMenuItem = new ToolStripMenuItem("Open", null, (s, e) => RestoreWindow());
+        var exitMenuItem = new ToolStripMenuItem("Exit", null, (s, e) => { allowExit = true; Application.Exit(); });
+        contextMenu.Items.Add(openMenuItem);
+        contextMenu.Items.Add(exitMenuItem);
+
+        notifyIcon = new NotifyIcon(components);
+        notifyIcon.Icon = SystemIcons.Application;
+        notifyIcon.ContextMenuStrip = contextMenu;
+        notifyIcon.Text = "CI Capacity - Data Sync Hub";
+        notifyIcon.Visible = true;
+        notifyIcon.DoubleClick += (s, e) => RestoreWindow();
+        
+        this.Resize += Form1_Resize;
+        this.FormClosing += Form1_FormClosing;
+    }
+
+    private void RestoreWindow()
+    {
+        this.Show();
+        this.WindowState = FormWindowState.Normal;
+        this.BringToFront();
+    }
+
+    private void Form1_Resize(object sender, EventArgs e)
+    {
+        if (this.WindowState == FormWindowState.Minimized)
+        {
+            this.Hide();
+            notifyIcon.ShowBalloonTip(2000, "Database Sync App", "Application is minimized to the system tray. Double-click the icon to restore.", ToolTipIcon.Info);
+        }
+    }
+
+    private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+    {
+        if (!allowExit)
+        {
+            e.Cancel = true;
+            this.WindowState = FormWindowState.Minimized;
+            this.Hide();
+            notifyIcon.ShowBalloonTip(2000, "Database Sync App", "Application is minimized to the system tray. Right-click the icon to exit.", ToolTipIcon.Info);
+        }
     }
 
     // Method to draw a subtle 3D shadow/border around controls
