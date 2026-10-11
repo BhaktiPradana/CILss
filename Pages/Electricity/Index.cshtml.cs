@@ -42,7 +42,10 @@ namespace LssTraining.Web.Pages.Electricity
             MeterOptions = new List<SelectListItem> { new SelectListItem("All Distribution Boards", "") };
             foreach (var m in meters)
             {
-                MeterOptions.Add(new SelectListItem(m, m));
+                if (DetermineFloorGroup(m) != null)
+                {
+                    MeterOptions.Add(new SelectListItem(m, m));
+                }
             }
 
             var actualEndDate = ViewMode == "Hourly" ? EndDate.Date.AddDays(1).AddSeconds(-1) : EndDate;
@@ -56,10 +59,18 @@ namespace LssTraining.Web.Pages.Electricity
             }
             if (Records != null && Records.Any())
             {
+                var validRecords = new List<KwhRecord>();
                 foreach (var rec in Records)
                 {
-                    rec.Floor = DetermineFloorGroup(rec.MeterName);
+                    var floor = DetermineFloorGroup(rec.MeterName);
+                    if (floor != null)
+                    {
+                        rec.Floor = floor;
+                        validRecords.Add(rec);
+                    }
                 }
+                Records = validRecords;
+
                 var floorGroups = Records.GroupBy(r => r.Floor).OrderBy(g => g.Key).ToList();
                 var chartDataDict = new Dictionary<string, object>();
 
@@ -89,9 +100,9 @@ namespace LssTraining.Web.Pages.Electricity
             }
         }
 
-        private string DetermineFloorGroup(string meterName)
+        private string? DetermineFloorGroup(string meterName)
         {
-            if (string.IsNullOrWhiteSpace(meterName)) return "Other Buildings / Floors";
+            if (string.IsNullOrWhiteSpace(meterName)) return null;
             string m = meterName.Trim();
 
             var b207Overall = new[] { "PM DB SSB1T", "PM DB SSB2TA", "PM DB SSB2TB", "PM DB SSB3TA", "PM DB SSB3TB" };
@@ -147,25 +158,7 @@ namespace LssTraining.Web.Pages.Electricity
             var b238 = new[] { "PM_LOT238.PM_MAIN Voltage A-B (V)" };
             if (b238.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 238";
 
-            // Fallback for unlisted meters to still classify them generally if possible
-            string upperName = m.ToUpper();
-            string lotName = "Unknown Lot";
-            string floorName = "Unknown Floor";
-
-            if (upperName.Contains("LOT207")) lotName = "Lot 207";
-            else if (upperName.Contains("LOT209")) lotName = "Lot 209";
-            else if (upperName.Contains("LOT238")) lotName = "Lot 238";
-            else if (upperName.Contains("LOT292")) lotName = "Lot 292";
-
-            if (upperName.Contains("LT1") || upperName.Contains("LT 1")) floorName = "LT 1";
-            else if (upperName.Contains("LT2") || upperName.Contains("LT 2")) floorName = "LT 2";
-            else if (upperName.Contains("LT3") || upperName.Contains("LT 3")) floorName = "LT 3";
-            else if (upperName.Contains("LT4") || upperName.Contains("LT 4")) floorName = "LT 4";
-
-            if (lotName != "Unknown Lot" && floorName != "Unknown Floor")
-                return $"{lotName} {floorName}";
-
-            return "Other Buildings / Floors";
+            return null;
         }
     }
 }
