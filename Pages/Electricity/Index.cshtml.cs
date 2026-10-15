@@ -21,10 +21,13 @@ namespace LssTraining.Web.Pages.Electricity
         }
 
         [BindProperty(SupportsGet = true)]
-        public DateTime StartDate { get; set; } = DateTime.Today.AddDays(-7);
+        public string? Building { get; set; }
 
         [BindProperty(SupportsGet = true)]
-        public DateTime EndDate { get; set; } = DateTime.Today;
+        public string? Floor { get; set; }
+
+        [BindProperty(SupportsGet = true)]
+        public string? SearchTerm { get; set; }
 
         [BindProperty(SupportsGet = true)]
         public string? SelectedMeter { get; set; }
@@ -32,133 +35,274 @@ namespace LssTraining.Web.Pages.Electricity
         [BindProperty(SupportsGet = true)]
         public string ViewMode { get; set; } = "Daily";
 
-        public List<SelectListItem> MeterOptions { get; set; } = new List<SelectListItem>();
-        public List<KwhRecord> Records { get; set; } = new List<KwhRecord>();
+        [BindProperty(SupportsGet = true)]
+        public DateTime StartDate { get; set; } = DateTime.Today.AddDays(-7);
+
+        [BindProperty(SupportsGet = true)]
+        public DateTime EndDate { get; set; } = DateTime.Today;
+
+        public List<SelectListItem> BuildingOptions { get; set; } = new();
+        public List<SelectListItem> FloorOptions { get; set; } = new();
+        public List<SelectListItem> MeterOptions { get; set; } = new();
+
+        public List<ElectricityCardDto> Cards { get; set; } = new();
+        public Dictionary<string, List<ElectricityCardDto>> CardsByFloor { get; set; } = new();
+        public ElectricityDashboardSummary Summary { get; set; } = new();
+        public List<KwhRecord> Records { get; set; } = new();
         public string ChartDataJson { get; set; } = "{}";
+        public bool HasDatabaseError { get; set; }
 
         public async Task OnGetAsync()
         {
-            var meters = await _kwhRepo.GetMeterNamesAsync();
-            MeterOptions = new List<SelectListItem> { new SelectListItem("All Distribution Boards", "") };
-            foreach (var m in meters)
+            // Normalize dates
+            if (StartDate > EndDate)
             {
-                if (DetermineFloorGroup(m) != null)
-                {
-                    MeterOptions.Add(new SelectListItem(m, m));
-                }
+                var temp = StartDate;
+                StartDate = EndDate;
+                EndDate = temp;
             }
 
+            // 1. Build Filter Options
+            BuildingOptions = new List<SelectListItem>
+            {
+                new("All Buildings", ""),
+                new(ElectricityCatalog.Building207, ElectricityCatalog.Building207),
+                new(ElectricityCatalog.Building209, ElectricityCatalog.Building209),
+                new(ElectricityCatalog.Building238, ElectricityCatalog.Building238)
+            };
+
+            var validFloors = ElectricityCatalog.GetFloors(Building);
+            FloorOptions = new List<SelectListItem> { new("All Floors & Areas", "") };
+            foreach (var f in validFloors)
+            {
+                FloorOptions.Add(new SelectListItem(f, f));
+            }
+
+            // Reset Floor if not valid for selected building
+            if (!string.IsNullOrEmpty(Floor) && !validFloors.Contains(Floor, StringComparer.OrdinalIgnoreCase))
+            {
+                Floor = null;
+            }
+
+            // Distribution Board Options
+            var allDbNames = ElectricityCatalog.AllMeters.Select(m => m.MeterName).ToList();
+            MeterOptions = new List<SelectListItem> { new("All Distribution Boards", "") };
+            var filteredMeters = ElectricityCatalog.AllMeters
+                .Where(m => string.IsNullOrEmpty(Building) || m.Building.Equals(Building, StringComparison.OrdinalIgnoreCase))
+                .Where(m => string.IsNullOrEmpty(Floor) || m.Floor.Equals(Floor, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(m => m.SortOrder);
+
+            foreach (var m in filteredMeters)
+            {
+                MeterOptions.Add(new SelectListItem($"{m.CardTitle} ({m.Floor})", m.MeterName));
+            }
+
+            // 2. Fetch Data from Repository
             var actualEndDate = ViewMode == "Hourly" ? EndDate.Date.AddDays(1).AddSeconds(-1) : EndDate;
-            if (ViewMode == "Hourly")
+            try
             {
-                Records = await _kwhRepo.GetHourlyDataAsync(StartDate, actualEndDate, SelectedMeter);
-            }
-            else
-            {
-                Records = await _kwhRepo.GetDailyDataAsync(StartDate, actualEndDate, SelectedMeter);
-            }
-            if (Records != null && Records.Any())
-            {
-                var validRecords = new List<KwhRecord>();
-                foreach (var rec in Records)
+                if (ViewMode == "Hourly")
                 {
-                    var floor = DetermineFloorGroup(rec.MeterName);
-                    if (floor != null)
-                    {
-                        rec.Floor = floor;
-                        validRecords.Add(rec);
-                    }
+                    Records = await _kwhRepo.GetHourlyDataAsync(StartDate, actualEndDate, SelectedMeter);
                 }
-                Records = validRecords;
-
-                var floorGroups = Records.GroupBy(r => r.Floor).OrderBy(g => g.Key).ToList();
-                var chartDataDict = new Dictionary<string, object>();
-
-                foreach (var floorGroup in floorGroups)
+                else
                 {
-                    var timestamps = floorGroup.Select(r => r.Timestamp).Distinct().OrderBy(t => t).ToList();
-                    var categories = timestamps.Select(t => ViewMode == "Hourly" ? t.ToString("dd MMM HH:mm") : t.ToString("dd MMM yyyy")).ToList();
-
-                    var seriesList = new List<object>();
-                    var dbGroups = floorGroup.GroupBy(r => r.MeterName).ToList();
-
-                    foreach (var db in dbGroups)
-                    {
-                        var dataPoints = new List<decimal>();
-                        var dbDict = db.ToDictionary(r => r.Timestamp, r => r.Usage_kWh);
-                        foreach (var ts in timestamps)
-                        {
-                            dataPoints.Add(dbDict.ContainsKey(ts) ? dbDict[ts] : 0);
-                        }
-                        var cleanName = db.Key.Contains(".") ? db.Key.Substring(db.Key.IndexOf('.') + 1) : db.Key;
-                        seriesList.Add(new { name = cleanName, data = dataPoints });
-                    }
-
-                    chartDataDict.Add(floorGroup.Key, new { categories = categories, series = seriesList });
+                    Records = await _kwhRepo.GetDailyDataAsync(StartDate, actualEndDate, SelectedMeter);
                 }
-                ChartDataJson = JsonSerializer.Serialize(chartDataDict);
             }
+            catch
+            {
+                HasDatabaseError = true;
+                Records = new List<KwhRecord>();
+            }
+
+            // If database returns empty or is unreachable, generate preview data
+            if (Records == null || Records.Count == 0)
+            {
+                HasDatabaseError = true;
+                Records = KwhRepository.GeneratePreviewData(StartDate, actualEndDate, ViewMode);
+            }
+
+            // Ensure every record has proper Building & Floor classification
+            foreach (var rec in Records)
+            {
+                var resolved = ElectricityCatalog.ResolveMeter(rec.MeterName);
+                rec.Floor = resolved.Floor;
+            }
+
+            // 3. Filter Target Catalog for Cards
+            var catalogQuery = ElectricityCatalog.AllMeters.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(Building))
+            {
+                catalogQuery = catalogQuery.Where(m => m.Building.Equals(Building, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(Floor))
+            {
+                catalogQuery = catalogQuery.Where(m => m.Floor.Equals(Floor, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(SelectedMeter))
+            {
+                catalogQuery = catalogQuery.Where(m => m.MeterName.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                string term = SearchTerm.Trim();
+                catalogQuery = catalogQuery.Where(m =>
+                    m.CardTitle.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    m.MeterName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    m.Subtitle.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    m.Floor.Contains(term, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var targetCatalog = catalogQuery.OrderBy(m => m.SortOrder).ToList();
+
+            // Calculate day span for daily average
+            int daysCount = Math.Max(1, (int)(EndDate.Date - StartDate.Date).TotalDays + 1);
+
+            // Group records by MeterName (trimmed, case-insensitive)
+            var recordsByMeter = Records
+                .GroupBy(r => r.MeterName.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            Cards = new List<ElectricityCardDto>();
+
+            foreach (var def in targetCatalog)
+            {
+                string cleanKey = def.MeterName.Trim();
+                recordsByMeter.TryGetValue(cleanKey, out var matching);
+
+                // Fallback search if exact key wasn't found
+                if (matching == null)
+                {
+                    matching = Records.Where(r =>
+                        r.MeterName.Trim().Equals(cleanKey, StringComparison.OrdinalIgnoreCase) ||
+                        r.MeterName.Contains(def.CardTitle, StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+
+                decimal totalUsage = matching != null ? matching.Sum(r => r.Usage_kWh) : 0m;
+                decimal avgDaily = daysCount > 0 ? totalUsage / daysCount : 0m;
+                var latestRec = matching?.OrderByDescending(r => r.Timestamp).FirstOrDefault();
+                decimal latestVal = latestRec?.Usage_kWh ?? 0m;
+                decimal peakVal = matching != null && matching.Any() ? matching.Max(r => r.Usage_kWh) : 0m;
+                var sparkline = matching != null
+                    ? matching.OrderBy(r => r.Timestamp).Select(r => r.Usage_kWh).TakeLast(8).ToList()
+                    : new List<decimal>();
+
+                Cards.Add(new ElectricityCardDto
+                {
+                    MeterName = def.MeterName,
+                    CardTitle = def.CardTitle,
+                    Subtitle = def.Subtitle,
+                    Building = def.Building,
+                    Floor = def.Floor,
+                    PanelType = def.PanelType,
+                    Unit = def.Unit,
+                    TotalUsage = Math.Round(totalUsage, 2),
+                    AverageDaily = Math.Round(avgDaily, 2),
+                    LatestUsage = Math.Round(latestVal, 2),
+                    PeakUsage = Math.Round(peakVal, 2),
+                    LatestTimestamp = latestRec?.Timestamp,
+                    HasData = matching != null && matching.Any(),
+                    DataPointsCount = matching?.Count ?? 0,
+                    Sparkline = sparkline
+                });
+            }
+
+            // Group cards by Floor/Section
+            CardsByFloor = Cards
+                .GroupBy(c => c.Floor)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // 4. Overall Summary Calculations
+            var kwhCards = Cards.Where(c => c.Unit == "kWh").ToList();
+            var totalKwh = kwhCards.Sum(c => c.TotalUsage);
+            var activeCount = Cards.Count(c => c.HasData && c.TotalUsage > 0);
+            var peakCard = kwhCards.OrderByDescending(c => c.TotalUsage).FirstOrDefault();
+
+            Summary = new ElectricityDashboardSummary
+            {
+                TotalKwh = Math.Round(totalKwh, 1),
+                TotalCards = Cards.Count,
+                ActiveCards = activeCount,
+                AverageDailyKwh = Math.Round(totalKwh / daysCount, 1),
+                PeakMeterName = peakCard?.CardTitle ?? "-",
+                PeakUsage = peakCard?.TotalUsage ?? 0m
+            };
+
+            // 5. Build ApexCharts Series Data
+            BuildChartJson();
         }
 
-        private string? DetermineFloorGroup(string meterName)
+        private void BuildChartJson()
         {
-            if (string.IsNullOrWhiteSpace(meterName)) return null;
-            string m = meterName.Trim();
+            if (Records == null || Records.Count == 0)
+            {
+                ChartDataJson = "{}";
+                return;
+            }
 
-            var b207Overall = new[] { "PM DB SSB1T", "PM DB SSB2TA", "PM DB SSB2TB", "PM DB SSB3TA", "PM DB SSB3TB" };
-            if (b207Overall.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Overall Building 207";
+            // Filter records to relevant cards
+            var activeMeterNames = new HashSet<string>(Cards.Select(c => c.MeterName.Trim()), StringComparer.OrdinalIgnoreCase);
+            var filteredRecs = Records.Where(r => activeMeterNames.Contains(r.MeterName.Trim())).ToList();
 
-            var b209Overall = new[] { "PM SSB1TA", "PM SSB1TB", "PM SSB2TA", "PM SSB2TB", "PM SSB3TB" };
-            if (b209Overall.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Overall Building 209";
+            if (!filteredRecs.Any())
+            {
+                filteredRecs = Records;
+            }
 
-            var b207Det1 = new[] { "DB Testing 1st Floor", "DB AC Testing", "DB SMT ( GL )", "Reflow #1", "Reflow #2", "DB Reflow #3", "Washing", "AC SMT (GL)", "Compressor SMT", "DETECTION 1ST FLOOR Real Energy Into the Load", "WAREHOUSE", "AC_C10K", "C10K_1", "C10K_2", "L-L250A" };
-            if (b207Det1.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 207, Detection 1st floor";
+            var timestamps = filteredRecs.Select(r => r.Timestamp).Distinct().OrderBy(t => t).ToList();
+            var categories = timestamps.Select(t => ViewMode == "Hourly" ? t.ToString("dd MMM HH:mm") : t.ToString("dd MMM yyyy")).ToList();
 
-            var b207Det2 = new[] { "2Z4", "2ZA", "AC AHU 2-1", "AC AHU 2-2", "DB_FFU_LT2", "DB JOGAN", "DB_LVP", "DB_NCR1", "DB_NCR2", "DB_PHASE 6", "DB_NEW POLARIS", "DB_POL 10 11", "DB_POL 13-14", "DB_POL 15-17", "DB_POL18-20", "DB_PYRO 1.6", "DB_SAWING", "DB_T1", "DB_AC_OFFICE_DETECTION", "PM_DB_OFFICE_DETECTION", "DB_P1", "DB_P2", "DB4", "DB_MIELE", "AC IRD", "CHILLER_1-4", "DB L3", "DB_REALIBILITY", "VACUMP" };
-            if (b207Det2.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 207, Detection 2nd floor";
+            // If a single meter is selected or filtered, display only that meter
+            // Otherwise, pick up to top 8 highest consumers for clean readability
+            var meterGroups = filteredRecs.GroupBy(r => r.MeterName.Trim(), StringComparer.OrdinalIgnoreCase).ToList();
 
-            var b207Det3 = new[] { "3Z1 ( ex SMD )", "3Z1A (ex-Testing)", "AC 3rd Floor", "LIGHTING FTC", "WORKSHOP", "DB_REALIBILITY" };
-            if (b207Det3.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 207, Detection 3rd floor";
+            if (meterGroups.Count > 8 && string.IsNullOrEmpty(SelectedMeter))
+            {
+                meterGroups = meterGroups
+                    .OrderByDescending(g => g.Sum(r => r.Usage_kWh))
+                    .Take(8)
+                    .ToList();
+            }
 
-            var b207DetSL = new[] { "AC SL", "Lighting Hydra", "DB SL200A", "HYD #1", "HYD #2", "HYD #3", "HYD #4", "DB A", "DB UV", "DB_H", "DB_PHASE 1", "DB_PHASE 2", "AC 250A LSM", "CNC" };
-            if (b207DetSL.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 207, Detection Special Lighting floor";
+            var seriesList = new List<object>();
 
-            var b209Det1 = new[] { 
-                "PM_LOT209_LT1.PM_AC_CL2 Real Energy Into the Load", "PM_LOT209_LT1.PM_CHILLER Real Energy Into the Load", "PM_LOT209_LT1.PM_DB_CHILLER Real Energy Into the Load", 
-                "PM_LOT209_LT1.PM_DBCanteen Real Energy Into the Load", "PM_LOT209_LT1.PM_DBRO Real Energy Into the Load", "PM_LOT209_LT1.PM_MDB400A Real Energy Into the Load", 
-                "PM_LOT209_LT1.PM_ULTRASONIC1 Real Energy Into the Load", "PM_LOT209_LT1.PM_ULTRASONIC2 Real Energy Into the Load", "PM_LOT209_LT1.PM_ULTRASONIC3 Real Energy Into the Load", 
-                "PM_LOT209_LT1.PM_ULTRASONIC4 Real Energy Into the Load", "PM_LOT209_LT1.PM_WWTP Real Energy Into the Load", "PM_LOT209_LT1.PMDB_AC320A Real Energy Into the Load", 
-                "PM_LOT209_LT1.PMDB_COATING Real Energy Into the Load", "PM_LOT209_LT1.PMDB_COMPRESSOR Real Energy Into the Load", "PM_LOT209_LT1.PMDB_LGHTNG Real Energy Into the Load", 
-                "PM_LOT209_LT1.PMDB_LIGHTING_2 Real Energy Into the Load", "PM_LOT209_LT1.PMDB_MC1 Real Energy Into the Load", "PM_LOT209_LT1.PMDB_MC2 Real Energy Into the Load", 
-                "PM_LOT209_LT1.PMDB_MC3 Real Energy Into the Load", "PM_LOT209_LT1.PMDB_POWER_100A Real Energy Into the Load", "PM_LOT209_LT1.PMDB_POWER_EXHAUST Real Energy Into the Load", 
-                "PM_LOT209_LT1.PMMDB_320A Real Energy Into the Load", "Total SSB Lt# 1 209 Real Energy Into the Load" 
+            foreach (var mg in meterGroups)
+            {
+                var dict = mg.GroupBy(r => r.Timestamp).ToDictionary(g => g.Key, g => g.Sum(r => r.Usage_kWh));
+                var data = new List<decimal>();
+                foreach (var ts in timestamps)
+                {
+                    data.Add(dict.TryGetValue(ts, out var val) ? val : 0m);
+                }
+
+                var resolved = ElectricityCatalog.ResolveMeter(mg.Key);
+                string seriesName = resolved.CardTitle;
+                if (!string.IsNullOrEmpty(resolved.Floor))
+                {
+                    seriesName += $" ({resolved.Floor})";
+                }
+
+                seriesList.Add(new
+                {
+                    name = seriesName,
+                    data = data
+                });
+            }
+
+            var chartPayload = new
+            {
+                categories = categories,
+                series = seriesList,
+                unit = Cards.FirstOrDefault()?.Unit ?? "kWh"
             };
-            if (b209Det1.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 209 1st floor";
 
-            var b209Det2 = new[] {
-                "PM_LOT209_LT2.PM_ASTROFURNACE2 Real Energy Into the Load", "PM_LOT209_LT2.PM_ASTROFURNACE4 Real Energy Into the Load", "PM_LOT209_LT2.PM_CAMCOFURNACE7 Real Energy Into the Load", 
-                "PM_LOT209_LT2.PM_CAMCOFURNACE8 Real Energy Into the Load", "PM_LOT209_LT2.PM_CHILLER13 Real Energy Into the Load", "PM_LOT209_LT2.PM_LOT209_EXHAUST2_LT2 Real Energy Into the Load", 
-                "PM_LOT209_LT2.PM_NIPLATING Real Energy Into the Load", "PM_LOT209_LT2.PMDB_AGING1 Real Energy Into the Load", "PM_LOT209_LT2.PMDB_AGING2 Real Energy Into the Load", 
-                "PM_LOT209_LT2.PMDB_ASTRO Real Energy Into the Load", "PM_LOT209_LT2.PMDB1_250A Real Energy Into the Load", "PM_LOT209_LT2.PMDB1_320A Real Energy Into the Load", 
-                "PM_LOT209_LT2.PMDB2_320A Real Energy Into the Load", "PM_LOT209_LT2.PMDB2_500A Real Energy Into the Load", "PM_LOT209_LT2.PMDB3_320A Real Energy Into the Load", 
-                "PM_LOT209_LT2.PMDB3_500A Real Energy Into the Load", "PM_LOT209_LT2.PMDB4_LIGHTING Real Energy Into the Load", "PM_LOT209_LT2.PMPANEL_EXHAUST Real Energy Into the Load", 
-                "Total SSB Lt# 2 209 Real Energy Into the Load"
-            };
-            if (b209Det2.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 209 2nd floor";
-
-            var b209Det3 = new[] {
-                "PM_LOT209_LT3.PM_CHILLER_ROOFTOP Real Energy Into the Load", "PM_LOT209_LT3.PMDB_COMPRESSOR_LT3 Real Energy Into the Load", "PM_LOT209_LT3.PMDB_EXHAUST_LT3 Real Energy Into the Load", 
-                "PM_LOT209_LT3.PMDB_LIGHTING_LT3 Real Energy Into the Load", "PM_LOT209_LT3.PMDB_MC_LT3 Real Energy Into the Load", "PM_LOT209_LT3.PMDB_MC2_LT3 Real Energy Into the Load", 
-                "PM_LOT209_LT3.PMDB_POWER_LT3 Real Energy Into the Load", "PM_LOT209_LT3.PMMDB_400A_LT3 Real Energy Into the Load", "PM_LOT209_LT3.PMSSB3TB Real Energy Into the Load", 
-                "PM_LOT209_LT3.MDB_200A_AC_TC Real Energy Into the Load", "PM_LOT209_LT3.L_P Real Energy Into the Load", "PM_LOT209_LT3.MC_TC Real Energy Into the Load", 
-                "PM_LOT209_LT3.P Real Energy Into the Load"
-            };
-            if (b209Det3.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 209 3rd floor";
-
-            var b238 = new[] { "PM_LOT238.PM_MAIN Voltage A-B (V)" };
-            if (b238.Any(x => m.Equals(x, StringComparison.OrdinalIgnoreCase))) return "Building 238";
-
-            return null;
+            ChartDataJson = JsonSerializer.Serialize(chartPayload);
         }
     }
 }

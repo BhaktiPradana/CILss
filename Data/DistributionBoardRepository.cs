@@ -19,33 +19,72 @@ namespace LssTraining.Web.Data
         {
             var result = new List<DistributionBoard>();
 
-            // Query from MasterDBs first
-            string query = "SELECT DBID, DBName FROM MasterDBs ORDER BY DBName";
-
-            using var conn = (SqlConnection)_connectionFactory.CreateConnection();
-            using var cmd = new SqlCommand(query, conn);
-            await conn.OpenAsync();
-            using (var reader = await cmd.ExecuteReaderAsync())
+            try
             {
-                while (await reader.ReadAsync())
+                // Query from MasterDBs first
+                string query = "SELECT DBID, DBName FROM MasterDBs ORDER BY DBName";
+
+                using var conn = (SqlConnection)_connectionFactory.CreateConnection();
+                using var cmd = new SqlCommand(query, conn);
+                await conn.OpenAsync();
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    int id = reader.GetInt32(0);
-                    string dbName = reader.GetString(1);
-                    result.Add(CreateBoardFromDbName(id, dbName));
+                    while (await reader.ReadAsync())
+                    {
+                        int id = reader.GetInt32(0);
+                        string dbName = reader.GetString(1);
+                        result.Add(CreateBoardFromDbName(id, dbName));
+                    }
+                }
+
+                // Fallback: If MasterDBs has no records, check Daily_kWh_Data for distinct MeterName
+                if (result.Count == 0)
+                {
+                    string fallbackQuery = "SELECT DISTINCT MeterName FROM Daily_kWh_Data ORDER BY MeterName";
+                    using var fallbackCmd = new SqlCommand(fallbackQuery, conn);
+                    using var fallbackReader = await fallbackCmd.ExecuteReaderAsync();
+                    int id = 1;
+                    while (await fallbackReader.ReadAsync())
+                    {
+                        string dbName = fallbackReader.GetString(0);
+                        result.Add(CreateBoardFromDbName(id++, dbName));
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback to catalog when DB is offline
+                int id = 1;
+                foreach (var meter in ElectricityCatalog.AllMeters)
+                {
+                    result.Add(new DistributionBoard
+                    {
+                        DBID = id++,
+                        DBName = meter.MeterName,
+                        Location = $"{meter.Building} - {meter.Floor}",
+                        Building = meter.Building,
+                        Floor = meter.Floor,
+                        PanelType = meter.PanelType,
+                        IsActive = true
+                    });
                 }
             }
 
-            // Fallback: If MasterDBs has no records, check Daily_kWh_Data for distinct MeterName
             if (result.Count == 0)
             {
-                string fallbackQuery = "SELECT DISTINCT MeterName FROM Daily_kWh_Data ORDER BY MeterName";
-                using var fallbackCmd = new SqlCommand(fallbackQuery, conn);
-                using var fallbackReader = await fallbackCmd.ExecuteReaderAsync();
                 int id = 1;
-                while (await fallbackReader.ReadAsync())
+                foreach (var meter in ElectricityCatalog.AllMeters)
                 {
-                    string dbName = fallbackReader.GetString(0);
-                    result.Add(CreateBoardFromDbName(id++, dbName));
+                    result.Add(new DistributionBoard
+                    {
+                        DBID = id++,
+                        DBName = meter.MeterName,
+                        Location = $"{meter.Building} - {meter.Floor}",
+                        Building = meter.Building,
+                        Floor = meter.Floor,
+                        PanelType = meter.PanelType,
+                        IsActive = true
+                    });
                 }
             }
 
@@ -88,17 +127,24 @@ namespace LssTraining.Web.Data
             var result = new List<Machine>();
             string query = "SELECT MachCode, MachName FROM MasterMachines ORDER BY MachName";
 
-            using var conn = (SqlConnection)_connectionFactory.CreateConnection();
-            using var cmd = new SqlCommand(query, conn);
-            await conn.OpenAsync();
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            try
             {
-                result.Add(new Machine
+                using var conn = (SqlConnection)_connectionFactory.CreateConnection();
+                using var cmd = new SqlCommand(query, conn);
+                await conn.OpenAsync();
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
-                    MachCode = reader.GetString(0),
-                    MachName = reader.GetString(1)
-                });
+                    result.Add(new Machine
+                    {
+                        MachCode = reader.GetString(0),
+                        MachName = reader.GetString(1)
+                    });
+                }
+            }
+            catch
+            {
+                return new List<Machine>();
             }
             return result;
         }
@@ -113,17 +159,24 @@ namespace LssTraining.Web.Data
                 WHERE c.MachCode IS NULL
                 ORDER BY m.MachName";
 
-            using var conn = (SqlConnection)_connectionFactory.CreateConnection();
-            using var cmd = new SqlCommand(query, conn);
-            await conn.OpenAsync();
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            try
             {
-                result.Add(new Machine
+                using var conn = (SqlConnection)_connectionFactory.CreateConnection();
+                using var cmd = new SqlCommand(query, conn);
+                await conn.OpenAsync();
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
-                    MachCode = reader.GetString(0),
-                    MachName = reader.GetString(1)
-                });
+                    result.Add(new Machine
+                    {
+                        MachCode = reader.GetString(0),
+                        MachName = reader.GetString(1)
+                    });
+                }
+            }
+            catch
+            {
+                return new List<Machine>();
             }
             return result;
         }
@@ -140,29 +193,36 @@ namespace LssTraining.Web.Data
                 WHERE c.DBName = @BoardName OR c.SubDBName = @BoardName
                 ORDER BY m.MachName, c.ConnectionID";
 
-            using var conn = (SqlConnection)_connectionFactory.CreateConnection();
-            using var cmd = new SqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@BoardName", boardName);
-            await conn.OpenAsync();
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            try
             {
-                string mainDb = reader.GetString(4);
-                string? subDb = reader.IsDBNull(3) ? null : reader.GetString(3);
-                string? rem = reader.IsDBNull(5) ? null : reader.GetString(5);
-
-                result.Add(new DbMachineMapping
+                using var conn = (SqlConnection)_connectionFactory.CreateConnection();
+                using var cmd = new SqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@BoardName", boardName);
+                await conn.OpenAsync();
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
-                    ConnectionID = reader.GetInt32(0),
-                    MachCode = reader.GetString(1),
-                    MachName = reader.GetString(2),
-                    SubDBName = subDb,
-                    DBName = mainDb,
-                    Remarks = rem,
-                    DbPrimary = mainDb,
-                    DbSecondary = subDb,
-                    DbTertiary = rem
-                });
+                    string mainDb = reader.GetString(4);
+                    string? subDb = reader.IsDBNull(3) ? null : reader.GetString(3);
+                    string? rem = reader.IsDBNull(5) ? null : reader.GetString(5);
+
+                    result.Add(new DbMachineMapping
+                    {
+                        ConnectionID = reader.GetInt32(0),
+                        MachCode = reader.GetString(1),
+                        MachName = reader.GetString(2),
+                        SubDBName = subDb,
+                        DBName = mainDb,
+                        Remarks = rem,
+                        DbPrimary = mainDb,
+                        DbSecondary = subDb,
+                        DbTertiary = rem
+                    });
+                }
+            }
+            catch
+            {
+                return new List<DbMachineMapping>();
             }
 
             return result;
@@ -177,28 +237,35 @@ namespace LssTraining.Web.Data
                 INNER JOIN MasterMachines m ON m.MachCode = c.MachCode
                 ORDER BY m.MachName, c.ConnectionID";
 
-            using var conn = (SqlConnection)_connectionFactory.CreateConnection();
-            using var cmd = new SqlCommand(query, conn);
-            await conn.OpenAsync();
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            try
             {
-                string mainDb = reader.GetString(4);
-                string? subDb = reader.IsDBNull(3) ? null : reader.GetString(3);
-                string? rem = reader.IsDBNull(5) ? null : reader.GetString(5);
-
-                result.Add(new DbMachineMapping
+                using var conn = (SqlConnection)_connectionFactory.CreateConnection();
+                using var cmd = new SqlCommand(query, conn);
+                await conn.OpenAsync();
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
-                    ConnectionID = reader.GetInt32(0),
-                    MachCode = reader.GetString(1),
-                    MachName = reader.GetString(2),
-                    SubDBName = subDb,
-                    DBName = mainDb,
-                    Remarks = rem,
-                    DbPrimary = mainDb,
-                    DbSecondary = subDb,
-                    DbTertiary = rem
-                });
+                    string mainDb = reader.GetString(4);
+                    string? subDb = reader.IsDBNull(3) ? null : reader.GetString(3);
+                    string? rem = reader.IsDBNull(5) ? null : reader.GetString(5);
+
+                    result.Add(new DbMachineMapping
+                    {
+                        ConnectionID = reader.GetInt32(0),
+                        MachCode = reader.GetString(1),
+                        MachName = reader.GetString(2),
+                        SubDBName = subDb,
+                        DBName = mainDb,
+                        Remarks = rem,
+                        DbPrimary = mainDb,
+                        DbSecondary = subDb,
+                        DbTertiary = rem
+                    });
+                }
+            }
+            catch
+            {
+                return new List<DbMachineMapping>();
             }
 
             return result;
@@ -206,25 +273,29 @@ namespace LssTraining.Web.Data
 
         public async Task<Dictionary<string, int>> GetMachineCountsPerBoardAsync()
         {
-            var result = new Dictionary<string, int>();
+            var dict = new Dictionary<string, int>();
             string query = @"
-                SELECT BoardName, COUNT(DISTINCT MachCode) 
-                FROM (
-                    SELECT DBName AS BoardName, MachCode FROM MasterMachineConnections WHERE DBName IS NOT NULL AND DBName <> ''
-                    UNION
-                    SELECT SubDBName AS BoardName, MachCode FROM MasterMachineConnections WHERE SubDBName IS NOT NULL AND SubDBName <> ''
-                ) AS AllConn
-                GROUP BY BoardName";
+                SELECT DBName, COUNT(DISTINCT MachCode) AS MachineCount
+                FROM MasterMachineConnections
+                GROUP BY DBName";
 
-            using var conn = (SqlConnection)_connectionFactory.CreateConnection();
-            using var cmd = new SqlCommand(query, conn);
-            await conn.OpenAsync();
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            try
             {
-                result[reader.GetString(0)] = reader.GetInt32(1);
+                using var conn = (SqlConnection)_connectionFactory.CreateConnection();
+                using var cmd = new SqlCommand(query, conn);
+                await conn.OpenAsync();
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    dict[reader.GetString(0)] = reader.GetInt32(1);
+                }
             }
-            return result;
+            catch
+            {
+                return new Dictionary<string, int>();
+            }
+
+            return dict;
         }
 
         public async Task SaveMappingAsync(string machCode, string dbName, string? subDbName = null, string? remarks = null, string? dbPrimary = null, string? dbSecondary = null, string? dbTertiary = null)
@@ -260,6 +331,9 @@ namespace LssTraining.Web.Data
             }
         }
 
+        public Task AddMappingAsync(string machCode, string mainDb, string? subDb = null, string? dbTertiary = null, string? remarks = null)
+            => SaveMappingAsync(machCode, mainDb, subDb, remarks, mainDb, subDb, dbTertiary);
+
         public async Task DeleteMappingAsync(int connectionId)
         {
             string query = "DELETE FROM MasterMachineConnections WHERE ConnectionID = @ConnectionID";
@@ -286,32 +360,17 @@ namespace LssTraining.Web.Data
 
         public static DistributionBoard CreateBoardFromDbName(int dbid, string dbName)
         {
-            var board = new DistributionBoard
+            var resolved = ElectricityCatalog.ResolveMeter(dbName);
+            return new DistributionBoard
             {
                 DBID = dbid,
                 DBName = dbName,
-                Location = dbName
+                Location = $"{resolved.Building} - {resolved.Floor}",
+                Building = resolved.Building,
+                Floor = resolved.Floor,
+                PanelType = resolved.PanelType,
+                IsActive = true
             };
-
-            string upper = dbName.ToUpper();
-            if (upper.Contains("LOT207")) board.Building = "Lot 207";
-            else if (upper.Contains("LOT209")) board.Building = "Lot 209";
-            else if (upper.Contains("LOT238")) board.Building = "Lot 238";
-            else if (upper.Contains("LOT292")) board.Building = "Lot 292";
-            else board.Building = "Other Building";
-
-            if (upper.Contains("LT1") || upper.Contains("LT 1")) board.Floor = "LT 1";
-            else if (upper.Contains("LT2") || upper.Contains("LT 2")) board.Floor = "LT 2";
-            else if (upper.Contains("LT3") || upper.Contains("LT 3")) board.Floor = "LT 3";
-            else if (upper.Contains("LT4") || upper.Contains("LT 4")) board.Floor = "LT 4";
-            else board.Floor = "General Floor";
-
-            if (upper.Contains("MDP")) board.PanelType = "MDP";
-            else if (upper.Contains("SDP")) board.PanelType = "SDP";
-            else if (upper.Contains("PMDB")) board.PanelType = "PMDB";
-            else board.PanelType = "DB";
-
-            return board;
         }
     }
 }
