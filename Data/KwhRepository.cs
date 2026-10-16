@@ -25,9 +25,26 @@ namespace LssTraining.Web.Data
                 FROM Hourly_kWh_Data
                 WHERE LogTime >= @StartDate AND LogTime <= @EndDate";
 
+            var cardItem = !string.IsNullOrEmpty(meterName) ? ElectricityCardCatalog.FindItem(meterName) : null;
+            string? altName = null;
+            if (cardItem != null)
+            {
+                if (!string.Equals(meterName, cardItem.MeterName, StringComparison.OrdinalIgnoreCase))
+                    altName = cardItem.MeterName;
+                else if (!string.Equals(meterName, cardItem.DisplayName, StringComparison.OrdinalIgnoreCase))
+                    altName = cardItem.DisplayName;
+            }
+
             if (!string.IsNullOrEmpty(meterName))
             {
-                query += " AND (MeterName = @MeterName OR LTRIM(RTRIM(MeterName)) = @MeterNameTrimmed)";
+                if (!string.IsNullOrEmpty(altName))
+                {
+                    query += " AND (MeterName = @MeterName OR LTRIM(RTRIM(MeterName)) = @MeterNameTrimmed OR MeterName = @AltName OR LTRIM(RTRIM(MeterName)) = @AltNameTrimmed)";
+                }
+                else
+                {
+                    query += " AND (MeterName = @MeterName OR LTRIM(RTRIM(MeterName)) = @MeterNameTrimmed)";
+                }
             }
 
             query += " ORDER BY LogTime DESC, MeterName ASC";
@@ -42,6 +59,11 @@ namespace LssTraining.Web.Data
                 {
                     cmd.Parameters.AddWithValue("@MeterName", meterName);
                     cmd.Parameters.AddWithValue("@MeterNameTrimmed", meterName.Trim());
+                    if (!string.IsNullOrEmpty(altName))
+                    {
+                        cmd.Parameters.AddWithValue("@AltName", altName);
+                        cmd.Parameters.AddWithValue("@AltNameTrimmed", altName.Trim());
+                    }
                 }
 
                 await conn.OpenAsync();
@@ -73,9 +95,26 @@ namespace LssTraining.Web.Data
                 FROM Daily_kWh_Data
                 WHERE LogDate >= CAST(@StartDate AS DATE) AND LogDate <= CAST(@EndDate AS DATE)";
 
+            var cardItem = !string.IsNullOrEmpty(meterName) ? ElectricityCardCatalog.FindItem(meterName) : null;
+            string? altName = null;
+            if (cardItem != null)
+            {
+                if (!string.Equals(meterName, cardItem.MeterName, StringComparison.OrdinalIgnoreCase))
+                    altName = cardItem.MeterName;
+                else if (!string.Equals(meterName, cardItem.DisplayName, StringComparison.OrdinalIgnoreCase))
+                    altName = cardItem.DisplayName;
+            }
+
             if (!string.IsNullOrEmpty(meterName))
             {
-                query += " AND (MeterName = @MeterName OR LTRIM(RTRIM(MeterName)) = @MeterNameTrimmed)";
+                if (!string.IsNullOrEmpty(altName))
+                {
+                    query += " AND (MeterName = @MeterName OR LTRIM(RTRIM(MeterName)) = @MeterNameTrimmed OR MeterName = @AltName OR LTRIM(RTRIM(MeterName)) = @AltNameTrimmed)";
+                }
+                else
+                {
+                    query += " AND (MeterName = @MeterName OR LTRIM(RTRIM(MeterName)) = @MeterNameTrimmed)";
+                }
             }
 
             query += " ORDER BY LogDate DESC, MeterName ASC";
@@ -90,6 +129,11 @@ namespace LssTraining.Web.Data
                 {
                     cmd.Parameters.AddWithValue("@MeterName", meterName);
                     cmd.Parameters.AddWithValue("@MeterNameTrimmed", meterName.Trim());
+                    if (!string.IsNullOrEmpty(altName))
+                    {
+                        cmd.Parameters.AddWithValue("@AltName", altName);
+                        cmd.Parameters.AddWithValue("@AltNameTrimmed", altName.Trim());
+                    }
                 }
 
                 await conn.OpenAsync();
@@ -131,13 +175,13 @@ namespace LssTraining.Web.Data
             }
             catch
             {
-                // Fallback to all catalog meters if DB unavailable
-                return ElectricityCatalog.AllMeters.Select(m => m.MeterName).ToList();
+                // Fallback to all 130 catalog cards if DB unavailable
+                return ElectricityCardCatalog.GetAllItems().Select(m => m.MeterName).Distinct().ToList();
             }
 
             if (meters.Count == 0)
             {
-                return ElectricityCatalog.AllMeters.Select(m => m.MeterName).ToList();
+                return ElectricityCardCatalog.GetAllItems().Select(m => m.MeterName).Distinct().ToList();
             }
 
             return meters;
@@ -147,7 +191,7 @@ namespace LssTraining.Web.Data
         {
             var list = new List<KwhRecord>();
             var rnd = new Random(42);
-            var meters = ElectricityCatalog.AllMeters;
+            var meters = ElectricityCardCatalog.GetAllItems();
 
             if (viewMode == "Hourly")
             {

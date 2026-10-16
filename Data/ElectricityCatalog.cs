@@ -1335,7 +1335,7 @@ namespace LssTraining.Web.Data
                 new ElectricityCardItem { DisplayName = "Washing", MeterName = "PM_LOT207_LT1.WASHING" },
                 new ElectricityCardItem { DisplayName = "AC SMT (GL)", MeterName = "PM_LOT207_LT1.DB_AC_GL" },
                 new ElectricityCardItem { DisplayName = "Compressor SMT", MeterName = "PM_LOT207_LT1.PM_DB_COMPRESSOR_LT1" },
-                new ElectricityCardItem { DisplayName = "DETECTION 1ST FLOOR Real Energy Into the Load", MeterName = "" },
+                new ElectricityCardItem { DisplayName = "DETECTION 1ST FLOOR Real Energy Into the Load", MeterName = "DETECTION 1ST FLOOR Real Energy Into the Load" },
                 new ElectricityCardItem { DisplayName = "WAREHOUSE", MeterName = "PM_LOT207_LT1.DB_WAREHOUSE" },
                 new ElectricityCardItem { DisplayName = "AC_C10K", MeterName = "PM_LOT207_LT1.DB_AC_C10K" },
                 new ElectricityCardItem { DisplayName = "C10K_1", MeterName = "PM_LOT207_LT1.DB_C10K_1" },
@@ -1377,7 +1377,7 @@ namespace LssTraining.Web.Data
             new ElectricityCardDefinition { Title = "Building 207 - Detection 3rd floor", Building = "Building 207", Floor = "3rd floor", Items = new List<ElectricityCardItem>
             {
                 new ElectricityCardItem { DisplayName = "3Z1 ( ex SMD )", MeterName = "PM_LOT207_LT3.DB_EXSMD" },
-                new ElectricityCardItem { DisplayName = "3Z1A (ex-Testing)", MeterName = "" },
+                new ElectricityCardItem { DisplayName = "3Z1A (ex-Testing)", MeterName = "PM_LOT207_LT3.DB_3Z1A" },
                 new ElectricityCardItem { DisplayName = "AC 3rd Floor", MeterName = "PM_LOT207_LT3.DB_AC3_3RDFLOOR" },
                 new ElectricityCardItem { DisplayName = "LIGHTING FTC", MeterName = "PM_LOT207_LT3.DB_LIGHTING_FTC" },
                 new ElectricityCardItem { DisplayName = "WORKSHOP", MeterName = "PM_LOT207_LT3.DB_WORKSHOP" },
@@ -1397,7 +1397,7 @@ namespace LssTraining.Web.Data
                 new ElectricityCardItem { DisplayName = "DB_H", MeterName = "PM_LOT207_LT3.DB_H" },
                 new ElectricityCardItem { DisplayName = "DB_PHASE 1", MeterName = "PM_LOT207_LT3.DB_PHASE1" },
                 new ElectricityCardItem { DisplayName = "DB_PHASE 2", MeterName = "PM_LOT207_LT3.DB_PHASE2" },
-                new ElectricityCardItem { DisplayName = "AC 250A LSM", MeterName = "" },
+                new ElectricityCardItem { DisplayName = "AC 250A LSM", MeterName = "PM_LOT207_LT3.DB_ACSL_3RDFLOOR" },
                 new ElectricityCardItem { DisplayName = "CNC", MeterName = "PM_LOT207_LT3.DB_CNC" },
             }},
             new ElectricityCardDefinition { Title = "Building 209 - 1st floor", Building = "Building 209", Floor = "1st floor", Items = new List<ElectricityCardItem>
@@ -1424,7 +1424,7 @@ namespace LssTraining.Web.Data
                 new ElectricityCardItem { DisplayName = "PM_LOT209_LT1.PMDB_POWER_100A", MeterName = "PM_LOT209_LT1.PMDB_POWER_100A" },
                 new ElectricityCardItem { DisplayName = "PM_LOT209_LT1.PMDB_POWER_EXHAUST", MeterName = "PM_LOT209_LT1.PMDB_POWER_EXHAUST" },
                 new ElectricityCardItem { DisplayName = "PM_LOT209_LT1.PMMDB_320A", MeterName = "PM_LOT209_LT1.MDB_320A" },
-                new ElectricityCardItem { DisplayName = "Total SSB Lt# 1 209", MeterName = "" },
+                new ElectricityCardItem { DisplayName = "Total SSB Lt# 1 209", MeterName = "Total SSB Lt# 1 209 Real Energy Into the Load" },
             }},
             new ElectricityCardDefinition { Title = "Building 209 - 2nd floor", Building = "Building 209", Floor = "2nd floor", Items = new List<ElectricityCardItem>
             {
@@ -1446,7 +1446,7 @@ namespace LssTraining.Web.Data
                 new ElectricityCardItem { DisplayName = "PM_LOT209_LT2.PMDB3_500A", MeterName = "PM_LOT209_LT2.PMDB3_500A" },
                 new ElectricityCardItem { DisplayName = "PM_LOT209_LT2.PMDB4_LIGHTING", MeterName = "PM_LOT209_LT2.PMDB4_LIGHTING" },
                 new ElectricityCardItem { DisplayName = "PM_LOT209_LT2.PMPANEL_EXHAUST", MeterName = "PM_LOT209_LT2.PMPANEL_EXHAUST" },
-                new ElectricityCardItem { DisplayName = "Total SSB Lt# 2 209", MeterName = "" },
+                new ElectricityCardItem { DisplayName = "Total SSB Lt# 2 209", MeterName = "Total SSB Lt# 2 209 Real Energy Into the Load" },
             }},
             new ElectricityCardDefinition { Title = "Building 209 - 3rd floor", Building = "Building 209", Floor = "3rd floor", Items = new List<ElectricityCardItem>
             {
@@ -1466,7 +1466,7 @@ namespace LssTraining.Web.Data
             }},
             new ElectricityCardDefinition { Title = "Building 238", Building = "Building 238", Floor = "Overall / Main", Items = new List<ElectricityCardItem>
             {
-                new ElectricityCardItem { DisplayName = "PM_LOT238.PM_MAIN", MeterName = "PM_LOT238.PM_MAIN" },
+                new ElectricityCardItem { DisplayName = "PM_LOT238.PM_MAIN Voltage A-B (V)", MeterName = "PM_LOT238.PM_MAIN" },
             }},
         };
 
@@ -1481,5 +1481,90 @@ namespace LssTraining.Web.Data
 
         public static ElectricityCardDefinition? FindCard(string title) =>
             _cards.FirstOrDefault(c => c.Title.Equals(title, StringComparison.OrdinalIgnoreCase));
+
+        public static List<string> GetBuildings()
+        {
+            return new List<string> { ElectricityCatalog.Building207, ElectricityCatalog.Building209, ElectricityCatalog.Building238 };
+        }
+
+        public static List<string> GetFloors(string? building = null)
+        {
+            var q = _cards.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(building) && !building.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                q = q.Where(c => c.Building.Equals(building, StringComparison.OrdinalIgnoreCase));
+            }
+            return q.Select(c => c.Title).Distinct().ToList();
+        }
+
+        public static List<ElectricityCardFlatItem> GetAllItems(string? building = null, string? floor = null)
+        {
+            var result = new List<ElectricityCardFlatItem>();
+            int order = 1;
+
+            var cards = _cards.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(building) && !building.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                cards = cards.Where(c => c.Building.Equals(building, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(floor) && !floor.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                cards = cards.Where(c => c.Title.Equals(floor, StringComparison.OrdinalIgnoreCase) || c.Floor.Equals(floor, StringComparison.OrdinalIgnoreCase));
+            }
+
+            foreach (var card in cards)
+            {
+                foreach (var item in card.Items)
+                {
+                    string meterKey = !string.IsNullOrWhiteSpace(item.MeterName) ? item.MeterName.Trim() : item.DisplayName.Trim();
+                    string unit = item.DisplayName.Contains("(V)") || item.DisplayName.Contains("Voltage") || meterKey.Contains("(V)") ? "V" : "kWh";
+                    string panel = item.DisplayName.Contains("SSB", StringComparison.OrdinalIgnoreCase) || card.Title.Contains("SSB", StringComparison.OrdinalIgnoreCase) ? "SSB"
+                                 : item.DisplayName.Contains("MDB", StringComparison.OrdinalIgnoreCase) ? "MDB"
+                                 : unit == "V" ? "MAIN" : "DB";
+                    string subtitle = panel == "SSB" ? "Sub-Switchboard"
+                                    : panel == "MDB" ? "Main Distribution Board"
+                                    : unit == "V" ? "Main Voltage Monitoring" : "Distribution Board";
+
+                    result.Add(new ElectricityCardFlatItem
+                    {
+                        SortOrder = order++,
+                        CardGroup = card.Title,
+                        Building = card.Building,
+                        Floor = card.Title,
+                        DisplayName = item.DisplayName.Trim(),
+                        MeterName = meterKey,
+                        Unit = unit,
+                        PanelType = panel,
+                        Subtitle = subtitle
+                    });
+                }
+            }
+
+            return result;
+        }
+
+        public static ElectricityCardFlatItem? FindItem(string meterOrDisplayName)
+        {
+            if (string.IsNullOrWhiteSpace(meterOrDisplayName)) return null;
+            var all = GetAllItems();
+            string clean = meterOrDisplayName.Trim();
+            return all.FirstOrDefault(i => i.MeterName.Equals(clean, StringComparison.OrdinalIgnoreCase))
+                ?? all.FirstOrDefault(i => i.DisplayName.Equals(clean, StringComparison.OrdinalIgnoreCase))
+                ?? all.FirstOrDefault(i => i.MeterName.Contains(clean, StringComparison.OrdinalIgnoreCase) || i.DisplayName.Contains(clean, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    public sealed class ElectricityCardFlatItem
+    {
+        public int SortOrder { get; set; }
+        public string CardGroup { get; set; } = string.Empty;
+        public string Building { get; set; } = string.Empty;
+        public string Floor { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string MeterName { get; set; } = string.Empty;
+        public string Unit { get; set; } = "kWh";
+        public string PanelType { get; set; } = "DB";
+        public string Subtitle { get; set; } = string.Empty;
     }
 }

@@ -71,8 +71,8 @@ namespace LssTraining.Web.Pages.Electricity
                 new(ElectricityCatalog.Building238, ElectricityCatalog.Building238)
             };
 
-            var validFloors = ElectricityCatalog.GetFloors(Building);
-            FloorOptions = new List<SelectListItem> { new("All Floors & Areas", "") };
+            var validFloors = ElectricityCardCatalog.GetFloors(Building);
+            FloorOptions = new List<SelectListItem> { new("All Floors & Sections", "") };
             foreach (var f in validFloors)
             {
                 FloorOptions.Add(new SelectListItem(f, f));
@@ -85,16 +85,11 @@ namespace LssTraining.Web.Pages.Electricity
             }
 
             // Distribution Board Options
-            var allDbNames = ElectricityCatalog.AllMeters.Select(m => m.MeterName).ToList();
             MeterOptions = new List<SelectListItem> { new("All Distribution Boards", "") };
-            var filteredMeters = ElectricityCatalog.AllMeters
-                .Where(m => string.IsNullOrEmpty(Building) || m.Building.Equals(Building, StringComparison.OrdinalIgnoreCase))
-                .Where(m => string.IsNullOrEmpty(Floor) || m.Floor.Equals(Floor, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(m => m.SortOrder);
-
-            foreach (var m in filteredMeters)
+            var allItemsForDropdown = ElectricityCardCatalog.GetAllItems(Building, Floor);
+            foreach (var m in allItemsForDropdown)
             {
-                MeterOptions.Add(new SelectListItem($"{m.CardTitle} ({m.Floor})", m.MeterName));
+                MeterOptions.Add(new SelectListItem($"{m.DisplayName} ({m.Floor})", m.MeterName));
             }
 
             // 2. Fetch Data from Repository
@@ -126,39 +121,40 @@ namespace LssTraining.Web.Pages.Electricity
             // Ensure every record has proper Building & Floor classification
             foreach (var rec in Records)
             {
-                var resolved = ElectricityCatalog.ResolveMeter(rec.MeterName);
-                rec.Floor = resolved.Floor;
+                var cardItem = ElectricityCardCatalog.FindItem(rec.MeterName);
+                if (cardItem != null)
+                {
+                    rec.Floor = cardItem.Floor;
+                }
+                else
+                {
+                    var resolved = ElectricityCatalog.ResolveMeter(rec.MeterName);
+                    rec.Floor = resolved.Floor;
+                }
             }
 
-            // 3. Filter Target Catalog for Cards
-            var catalogQuery = ElectricityCatalog.AllMeters.AsEnumerable();
-
-            if (!string.IsNullOrEmpty(Building))
-            {
-                catalogQuery = catalogQuery.Where(m => m.Building.Equals(Building, StringComparison.OrdinalIgnoreCase));
-            }
-
-            if (!string.IsNullOrEmpty(Floor))
-            {
-                catalogQuery = catalogQuery.Where(m => m.Floor.Equals(Floor, StringComparison.OrdinalIgnoreCase));
-            }
+            // 3. Filter Target Catalog for Cards directly from ElectricityCardCatalog (strictly 130 cards)
+            var catalogItems = ElectricityCardCatalog.GetAllItems(Building, Floor);
 
             if (!string.IsNullOrEmpty(SelectedMeter))
             {
-                catalogQuery = catalogQuery.Where(m => m.MeterName.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase));
+                catalogItems = catalogItems.Where(m =>
+                    m.MeterName.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase) ||
+                    m.DisplayName.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase)
+                ).ToList();
             }
 
             if (!string.IsNullOrWhiteSpace(SearchTerm))
             {
                 string term = SearchTerm.Trim();
-                catalogQuery = catalogQuery.Where(m =>
-                    m.CardTitle.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                catalogItems = catalogItems.Where(m =>
+                    m.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                     m.MeterName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                     m.Subtitle.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    m.Floor.Contains(term, StringComparison.OrdinalIgnoreCase));
+                    m.Floor.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    m.Building.Contains(term, StringComparison.OrdinalIgnoreCase)
+                ).ToList();
             }
-
-            var targetCatalog = catalogQuery.OrderBy(m => m.SortOrder).ToList();
 
             // Calculate day span for daily average
             int daysCount = Math.Max(1, (int)(EndDate.Date - StartDate.Date).TotalDays + 1);
@@ -170,17 +166,26 @@ namespace LssTraining.Web.Pages.Electricity
 
             Cards = new List<ElectricityCardDto>();
 
-            foreach (var def in targetCatalog)
+            foreach (var def in catalogItems)
             {
-                string cleanKey = def.MeterName.Trim();
-                recordsByMeter.TryGetValue(cleanKey, out var matching);
+                string cleanMeter = def.MeterName.Trim();
+                string cleanDisplay = def.DisplayName.Trim();
 
-                // Fallback search if exact key wasn't found
-                if (matching == null)
+                recordsByMeter.TryGetValue(cleanMeter, out var matching);
+
+                // Fallback search by DisplayName or partial match if exact meter key wasn't found
+                if (matching == null || !matching.Any())
+                {
+                    recordsByMeter.TryGetValue(cleanDisplay, out matching);
+                }
+
+                if (matching == null || !matching.Any())
                 {
                     matching = Records.Where(r =>
-                        r.MeterName.Trim().Equals(cleanKey, StringComparison.OrdinalIgnoreCase) ||
-                        r.MeterName.Contains(def.CardTitle, StringComparison.OrdinalIgnoreCase)
+                        r.MeterName.Trim().Equals(cleanMeter, StringComparison.OrdinalIgnoreCase) ||
+                        r.MeterName.Trim().Equals(cleanDisplay, StringComparison.OrdinalIgnoreCase) ||
+                        r.MeterName.Contains(cleanDisplay, StringComparison.OrdinalIgnoreCase) ||
+                        cleanDisplay.Contains(r.MeterName.Trim(), StringComparison.OrdinalIgnoreCase)
                     ).ToList();
                 }
 
@@ -196,7 +201,7 @@ namespace LssTraining.Web.Pages.Electricity
                 Cards.Add(new ElectricityCardDto
                 {
                     MeterName = def.MeterName,
-                    CardTitle = def.CardTitle,
+                    CardTitle = def.DisplayName,
                     Subtitle = def.Subtitle,
                     Building = def.Building,
                     Floor = def.Floor,
@@ -213,7 +218,7 @@ namespace LssTraining.Web.Pages.Electricity
                 });
             }
 
-            // Group cards by Floor/Section
+            // Group cards by Floor/Section, preserving catalog order
             CardsByFloor = Cards
                 .GroupBy(c => c.Floor)
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -246,9 +251,14 @@ namespace LssTraining.Web.Pages.Electricity
                 return;
             }
 
-            // Filter records to relevant cards
+            // Filter records to relevant active cards
             var activeMeterNames = new HashSet<string>(Cards.Select(c => c.MeterName.Trim()), StringComparer.OrdinalIgnoreCase);
-            var filteredRecs = Records.Where(r => activeMeterNames.Contains(r.MeterName.Trim())).ToList();
+            var activeDisplayNames = new HashSet<string>(Cards.Select(c => c.CardTitle.Trim()), StringComparer.OrdinalIgnoreCase);
+
+            var filteredRecs = Records.Where(r => 
+                activeMeterNames.Contains(r.MeterName.Trim()) || 
+                activeDisplayNames.Contains(r.MeterName.Trim())
+            ).ToList();
 
             if (!filteredRecs.Any())
             {
@@ -281,11 +291,11 @@ namespace LssTraining.Web.Pages.Electricity
                     data.Add(dict.TryGetValue(ts, out var val) ? val : 0m);
                 }
 
-                var resolved = ElectricityCatalog.ResolveMeter(mg.Key);
-                string seriesName = resolved.CardTitle;
-                if (!string.IsNullOrEmpty(resolved.Floor))
+                var cardItem = ElectricityCardCatalog.FindItem(mg.Key);
+                string seriesName = cardItem?.DisplayName ?? ElectricityCatalog.ResolveMeter(mg.Key).CardTitle;
+                if (!string.IsNullOrEmpty(cardItem?.Floor))
                 {
-                    seriesName += $" ({resolved.Floor})";
+                    seriesName += $" ({cardItem.Floor})";
                 }
 
                 seriesList.Add(new
