@@ -27,18 +27,25 @@ namespace LssTraining.Web.Pages.CapacitySimulator
             OvertimeLimitPercent = 10 
         };
 
-        public SimulationResult Result { get; set; }
+        public SimulationResult? Result { get; set; }
         public IEnumerable<DeviceGroup> DeviceGroups { get; set; } = new List<DeviceGroup>();
+        public IEnumerable<ProductDeviceItem> Devices { get; set; } = new List<ProductDeviceItem>();
 
         public async Task OnGetAsync()
         {
             await LoadDataAsync();
         }
 
+        public async Task<Microsoft.AspNetCore.Mvc.IActionResult> OnGetDevicesByGroupAsync(string? groupCode)
+        {
+            var devices = await _repository.GetDevicesAsync(groupCode);
+            return new Microsoft.AspNetCore.Mvc.JsonResult(devices);
+        }
+
         public async Task<Microsoft.AspNetCore.Mvc.IActionResult> OnPostSimulateAsync()
         {
             await LoadDataAsync();
-            if (ModelState.IsValid)
+            if (Input?.Demands != null && Input.Demands.Any(d => d.DemandQuantity > 0))
             {
                 Result = await _repository.RunSimulationAsync(Input, Summary.TotalEmployees);
             }
@@ -51,6 +58,7 @@ namespace LssTraining.Web.Pages.CapacitySimulator
             ManpowerList = await _repository.GetManpowerBySectionAsync();
             ProcessAreaList = await _repository.GetProcessAreasAsync();
             DeviceGroups = await _repository.GetDeviceGroupsAsync();
+            Devices = await _repository.GetDevicesAsync();
         }
     }
 }

@@ -79,11 +79,42 @@ namespace LssTraining.Web.Data
             using var connection = _connectionFactory.CreateConnection();
             try
             {
-                return await connection.QueryAsync<DeviceGroup>("SELECT DeviceGroupCode, DeviceGroupName FROM CI_ProductGroup ORDER BY DeviceGroupName");
+                var sql = @"
+                    SELECT pg.DeviceGroupCode, pg.DeviceGroupName
+                    FROM CI_ProductGroup pg
+                    ORDER BY pg.DeviceGroupName";
+                return await connection.QueryAsync<DeviceGroup>(sql);
             }
             catch
             {
                 return new List<DeviceGroup> { new DeviceGroup { DeviceGroupCode = "DEMO", DeviceGroupName = "Demo Product" } };
+            }
+        }
+
+        public async Task<IEnumerable<ProductDeviceItem>> GetDevicesAsync(string? deviceGroupCode = null)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            try
+            {
+                var sql = @"
+                    SELECT 
+                        p.DeviceCode,
+                        ISNULL(p.DeviceName, p.DeviceCode) AS DeviceName,
+                        p.DeviceGroupCode,
+                        ISNULL(pg.DeviceGroupName, p.DeviceGroupCode) AS DeviceGroupName,
+                        COUNT(dp.Seq) AS StepCount
+                    FROM CI_Product p
+                    LEFT JOIN CI_ProductGroup pg ON p.DeviceGroupCode = pg.DeviceGroupCode
+                    LEFT JOIN CI_DeviceProcess dp ON p.DeviceCode = dp.DeviceCode
+                    WHERE (@DeviceGroupCode IS NULL OR @DeviceGroupCode = '' OR p.DeviceGroupCode = @DeviceGroupCode)
+                    GROUP BY p.DeviceCode, p.DeviceName, p.DeviceGroupCode, pg.DeviceGroupName
+                    HAVING COUNT(dp.Seq) > 0
+                    ORDER BY p.DeviceGroupCode, p.DeviceCode";
+                return await connection.QueryAsync<ProductDeviceItem>(sql, new { DeviceGroupCode = deviceGroupCode });
+            }
+            catch
+            {
+                return new List<ProductDeviceItem>();
             }
         }
 
@@ -96,150 +127,324 @@ namespace LssTraining.Web.Data
             var processLaborHours = new Dictionary<string, decimal>();
             var processNames = new Dictionary<string, string>();
 
-            foreach (var demandInput in input.Demands)
+            // 1. Preload master cycle times & machines mapping
+            var avgProcessUph = new Dictionary<string, decimal>();
+            var processDefaultMachine = new Dictionary<string, string>();
+            var machineNames = new Dictionary<string, (string Name, string Area)>();
+
+            try
             {
-                if (string.IsNullOrWhiteSpace(demandInput.DeviceGroupCode) || demandInput.DemandQuantity <= 0)
-                    continue;
-
-                // 1. Get all Devices in this Product Family
-                var devices = new List<string>();
-                try 
+                var uphRows = await connection.QueryAsync<dynamic>(@"
+                    SELECT ProcCode, AVG(UPH) AS AvgUPH, MAX(MachCode) AS SampleMach 
+                    FROM CI_IECycleTime_Header 
+                    WHERE UPH > 0 
+                    GROUP BY ProcCode");
+                foreach (var r in uphRows)
                 {
-                    var sqlDevices = "SELECT DeviceCode FROM MQS_MProduct WHERE DeviceCode LIKE @DeviceGroupCode + '%' OR @DeviceGroupCode = 'ALL'";
-                    devices = (await connection.QueryAsync<string>(sqlDevices, new { DeviceGroupCode = demandInput.DeviceGroupCode })).AsList();
-                } 
-                catch { }
-
-                if (devices.Count == 0) 
-                {
-                    // Fallback to mock devices if DB not available
-                    devices = new List<string> { demandInput.DeviceGroupCode + "-01", demandInput.DeviceGroupCode + "-02", demandInput.DeviceGroupCode + "-03" };
+                    string p = (string)r.ProcCode;
+                    if (!string.IsNullOrEmpty(p))
+                    {
+                        avgProcessUph[p] = (decimal)r.AvgUPH;
+                        if (r.SampleMach != null)
+                            processDefaultMachine[p] = (string)r.SampleMach;
+                    }
                 }
 
-                // 2. Split Demand evenly across devices
-                int demandPerDevice = demandInput.DemandQuantity / devices.Count;
-                int remainingDemand = demandInput.DemandQuantity % devices.Count;
-
-                // 3. For each device, get routing and cycle times
-                for (int i = 0; i < devices.Count; i++)
+                var machRows = await connection.QueryAsync<dynamic>("SELECT MachCode, MachName, ISNULL(Area, 'PROD') AS Area FROM MasterMachines");
+                foreach (var m in machRows)
                 {
-                    string device = devices[i];
-                    int deviceDemand = demandPerDevice + (i == 0 ? remainingDemand : 0);
-
-                    try 
+                    string mc = (string)m.MachCode;
+                    if (!string.IsNullOrEmpty(mc))
                     {
-                        var sqlRouting = @"
-                            SELECT dp.ProcCode, p.ProcName, dp.Seq, dp.LaborHour, c.UPH, c.MachCode 
-                            FROM dmDeviceProcess dp
-                            LEFT JOIN dmProcess p ON dp.ProcCode = p.ProcCode
-                            LEFT JOIN dmIECycleTime_Header c ON dp.DeviceCode = c.DeviceCode AND dp.ProcCode = c.ProcCode
-                            WHERE dp.DeviceCode = @DeviceCode
-                            ORDER BY dp.Seq";
-                        
-                        var routing = await connection.QueryAsync<dynamic>(sqlRouting, new { DeviceCode = device });
-
-                        bool foundRouting = false;
-                        foreach (var step in routing)
-                        {
-                            foundRouting = true;
-                            
-                            // Machine hours calculation
-                            if (step.UPH != null && step.UPH > 0 && step.MachCode != null)
-                            {
-                                string machCode = step.MachCode;
-                                decimal requiredHours = deviceDemand / (decimal)step.UPH;
-                                
-                                if (!machineRequiredHours.ContainsKey(machCode))
-                                    machineRequiredHours[machCode] = 0;
-                                    
-                                machineRequiredHours[machCode] += requiredHours;
-                            }
-
-                            // Labor headcount calculation
-                            string procCode = step.ProcCode;
-                            if (procCode != null)
-                            {
-                                decimal laborHour = step.LaborHour != null ? (decimal)step.LaborHour : (step.UPH != null && step.UPH > 0 ? (1m / (decimal)step.UPH) : 0.01m); // fallback estimation
-                                decimal totalLabor = laborHour * deviceDemand;
-                                
-                                if (!processLaborHours.ContainsKey(procCode))
-                                {
-                                    processLaborHours[procCode] = 0;
-                                    processNames[procCode] = step.ProcName ?? procCode;
-                                }
-                                processLaborHours[procCode] += totalLabor;
-                            }
-                        }
-                        
-                        if (!foundRouting) throw new System.Exception("No routing found");
-                    } 
-                    catch 
-                    {
-                        // Mock routing sequence
-                        string[] mockMachines = { "DA14", "AD01", "AOI1" };
-                        string[] mockProcs = { "AA", "AD", "AOI" };
-                        string[] mockProcNames = { "ASIC ATTACH", "AMBIENT CALIBRATION", "AOI INSPECTION" };
-                        decimal[] mockUPH = { 2045m, 1500m, 3000m };
-                        
-                        for(int j=0; j<mockMachines.Length; j++) 
-                        {
-                            decimal requiredHours = deviceDemand / mockUPH[j];
-                            if (!machineRequiredHours.ContainsKey(mockMachines[j]))
-                                machineRequiredHours[mockMachines[j]] = 0;
-                            machineRequiredHours[mockMachines[j]] += requiredHours;
-
-                            if (!processLaborHours.ContainsKey(mockProcs[j]))
-                            {
-                                processLaborHours[mockProcs[j]] = 0;
-                                processNames[mockProcs[j]] = mockProcNames[j];
-                            }
-                            processLaborHours[mockProcs[j]] += requiredHours; // assume labor equals machine time for mock
-                        }
+                        machineNames[mc] = ((string)(m.MachName ?? mc), (string)m.Area);
                     }
                 }
             }
+            catch { }
 
-            // 4. Fetch available capacities for the accumulated machines
+            // 2. Process each demand input
+            foreach (var demandInput in input.Demands)
+            {
+                if (demandInput.DemandQuantity <= 0)
+                    continue;
+
+                // Determine target device
+                string targetDevice = demandInput.DeviceCode ?? string.Empty;
+                string targetGroup = demandInput.DeviceGroupCode ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(targetDevice))
+                {
+                    // If no specific device selected, find the primary master sequence device for the product family
+                    try
+                    {
+                        var sqlFindMaster = @"
+                            SELECT TOP 1 p.DeviceCode
+                            FROM CI_Product p
+                            JOIN CI_DeviceProcess dp ON p.DeviceCode = dp.DeviceCode
+                            WHERE (@DeviceGroupCode IS NULL OR @DeviceGroupCode = '' OR p.DeviceGroupCode = @DeviceGroupCode)
+                            GROUP BY p.DeviceCode
+                            ORDER BY COUNT(dp.Seq) DESC, p.DeviceCode";
+                        targetDevice = await connection.ExecuteScalarAsync<string>(sqlFindMaster, new { DeviceGroupCode = targetGroup }) ?? string.Empty;
+                    }
+                    catch { }
+                }
+
+                if (string.IsNullOrWhiteSpace(targetDevice))
+                {
+                    // Fallback to demo device
+                    targetDevice = !string.IsNullOrWhiteSpace(targetGroup) ? targetGroup + "-01" : "DEMO-DEVICE";
+                }
+
+                // Query the exact process sequence ordered by Seq ASC from latest database
+                List<dynamic> routingSteps = new List<dynamic>();
+                try
+                {
+                    var sqlRouting = @"
+                        WITH RankedCycleTimes AS (
+                            SELECT 
+                                dp.DeviceCode,
+                                ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
+                                ISNULL(p.DeviceGroupCode, @FallbackGroup) AS DeviceGroupCode,
+                                dp.Seq,
+                                dp.ProcCode,
+                                ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
+                                ISNULL(pr.Area, 'PROD') AS ProcessArea,
+                                dp.LaborHour,
+                                dp.LimitReject,
+                                c.MachCode,
+                                m.MachName,
+                                c.UPH,
+                                c.MachineTime,
+                                c.LaborTime,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY dp.Seq 
+                                    ORDER BY CASE WHEN c.UPH IS NOT NULL THEN 0 ELSE 1 END, c.UPH DESC
+                                ) AS Rn
+                            FROM CI_DeviceProcess dp
+                            LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
+                            LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
+                            LEFT JOIN CI_IECycleTime_Header c ON dp.DeviceCode = c.DeviceCode 
+                                AND (dp.ProcCode = c.ProcCode OR c.ProcCode LIKE dp.ProcCode + '%')
+                            LEFT JOIN MasterMachines m ON c.MachCode = m.MachCode
+                            WHERE dp.DeviceCode = @DeviceCode
+                        )
+                        SELECT * FROM RankedCycleTimes WHERE Rn = 1 ORDER BY Seq";
+
+                    routingSteps = (await connection.QueryAsync<dynamic>(sqlRouting, new { DeviceCode = targetDevice, FallbackGroup = targetGroup })).AsList();
+
+                    // If still no routing, inherit from another device in the same family
+                    if (routingSteps.Count == 0 && !string.IsNullOrWhiteSpace(targetGroup))
+                    {
+                        var sqlGroupRouting = @"
+                            WITH RankedGroupCycleTimes AS (
+                                SELECT 
+                                    dp.DeviceCode,
+                                    ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
+                                    ISNULL(p.DeviceGroupCode, @DeviceGroupCode) AS DeviceGroupCode,
+                                    dp.Seq,
+                                    dp.ProcCode,
+                                    ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
+                                    ISNULL(pr.Area, 'PROD') AS ProcessArea,
+                                    dp.LaborHour,
+                                    dp.LimitReject,
+                                    c.MachCode,
+                                    m.MachName,
+                                    c.UPH,
+                                    c.MachineTime,
+                                    c.LaborTime,
+                                    ROW_NUMBER() OVER (
+                                        PARTITION BY dp.Seq 
+                                        ORDER BY CASE WHEN c.UPH IS NOT NULL THEN 0 ELSE 1 END, c.UPH DESC
+                                    ) AS Rn
+                                FROM CI_Product p
+                                JOIN CI_DeviceProcess dp ON p.DeviceCode = dp.DeviceCode
+                                LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
+                                LEFT JOIN CI_IECycleTime_Header c ON dp.DeviceCode = c.DeviceCode 
+                                    AND (dp.ProcCode = c.ProcCode OR c.ProcCode LIKE dp.ProcCode + '%')
+                                LEFT JOIN MasterMachines m ON c.MachCode = m.MachCode
+                                WHERE p.DeviceGroupCode = @DeviceGroupCode
+                            )
+                            SELECT * FROM RankedGroupCycleTimes WHERE Rn = 1 ORDER BY Seq";
+                        routingSteps = (await connection.QueryAsync<dynamic>(sqlGroupRouting, new { DeviceGroupCode = targetGroup })).AsList();
+                    }
+                }
+                catch { }
+
+                if (routingSteps.Count == 0)
+                {
+                    // Fallback mock routing if database sequence is completely empty
+                    routingSteps = new List<dynamic>
+                    {
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 5, ProcCode = "LOAD", ProcName = "LOADING PO", ProcessArea = "FL-PREP", LaborHour = 1.0, LimitReject = 1.0, MachCode = (string?)null, MachName = (string?)null, UPH = (double?)null, MachineTime = (double?)null, LaborTime = (double?)null },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 10, ProcCode = "AA", ProcName = "ASIC ATTACH", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.995, MachCode = "DA14", MachName = "ASM DIE ATTACH #14", UPH = 2045.0, MachineTime = 1.76, LaborTime = 1.64 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 30, ProcCode = "WBT", ProcName = "WIRE BOND TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.995, MachCode = "WB37", MachName = "WIRE BONDER #37", UPH = 1500.0, MachineTime = 2.4, LaborTime = 2.0 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 50, ProcCode = "PWT", ProcName = "PREWELD TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.99, MachCode = "PW04", MachName = "PREWELDING #4", UPH = 3500.0, MachineTime = 1.0, LaborTime = 0.8 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 60, ProcCode = "WDT", ProcName = "WELDING TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.99, MachCode = "WD09", MachName = "WELDING SLEE #9", UPH = 1750.0, MachineTime = 2.0, LaborTime = 1.8 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 80, ProcCode = "LTT", ProcName = "LEAK TEST TPS", ProcessArea = "BL-TPS", LaborHour = 1.0, LimitReject = 0.99, MachCode = "LT07", MachName = "FUKUDA TESTER #7", UPH = 4500.0, MachineTime = 0.8, LaborTime = 0.5 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 120, ProcCode = "PKS", ProcName = "PACKING TPS SENSOR", ProcessArea = "BL-TPS", LaborHour = 1.0, LimitReject = 1.0, MachCode = (string?)null, MachName = (string?)null, UPH = (double?)null, MachineTime = (double?)null, LaborTime = (double?)null }
+                    };
+                }
+
+                result.TotalDevicesSimulated++;
+
+                int demandQty = demandInput.DemandQuantity;
+
+                foreach (var step in routingSteps)
+                {
+                    string procCode = (string)(step.ProcCode ?? "PROC");
+                    string procName = (string)(step.ProcName ?? procCode);
+                    string procArea = (string)(step.ProcessArea ?? "PROD");
+                    int seq = (int)step.Seq;
+
+                    // Classify step operation type
+                    bool isManual = procCode.StartsWith("LOAD") || 
+                                    procCode.StartsWith("VC") || 
+                                    procCode.StartsWith("VF") || 
+                                    procCode.StartsWith("VS") || 
+                                    procCode.StartsWith("QS") || 
+                                    procCode.StartsWith("AQL") || 
+                                    procCode.StartsWith("PK") ||
+                                    procCode.StartsWith("IN") ||
+                                    procCode.StartsWith("STG");
+
+                    bool isOven = procCode.StartsWith("OV");
+
+                    decimal stepUph = 0m;
+                    string machCode = string.Empty;
+                    string machName = string.Empty;
+                    decimal reqMachHours = 0m;
+                    decimal reqLaborHours = 0m;
+
+                    if (isManual)
+                    {
+                        machCode = "MANUAL-" + procArea;
+                        machName = "Manual Station (" + procArea + ")";
+                        stepUph = 300m; // standard inspection/loading units per hour
+                        reqMachHours = 0m; // Manual labor does not require machine operating hours
+
+                        // Standard labor time: 10-15 seconds per unit (approx 0.003 - 0.005 hours/unit)
+                        decimal laborSec = step.LaborTime != null && (double)step.LaborTime > 0 ? (decimal)(double)step.LaborTime : 12m;
+                        reqLaborHours = (laborSec / 3600m) * demandQty;
+                    }
+                    else if (isOven)
+                    {
+                        machCode = "OVEN-" + procArea;
+                        machName = "Curing Oven (" + procArea + ")";
+                        stepUph = 5000m; // Batch oven processing
+                        reqMachHours = demandQty / stepUph;
+                        reqLaborHours = demandQty * 0.0005m; // minimal operator interaction for batch load/unload
+                    }
+                    else
+                    {
+                        // Machine operation: extract UPH from cycle time or fallback
+                        if (step.UPH != null && (double)step.UPH > 0)
+                        {
+                            stepUph = (decimal)(double)step.UPH;
+                        }
+                        else if (avgProcessUph.ContainsKey(procCode))
+                        {
+                            stepUph = avgProcessUph[procCode];
+                        }
+                        else
+                        {
+                            stepUph = 1500m; // Default industrial semiconductor assembly UPH
+                        }
+
+                        // Determine machine code
+                        if (!string.IsNullOrWhiteSpace((string?)step.MachCode))
+                        {
+                            machCode = (string)step.MachCode;
+                            machName = (string)(step.MachName ?? machCode);
+                        }
+                        else if (processDefaultMachine.ContainsKey(procCode))
+                        {
+                            machCode = processDefaultMachine[procCode];
+                            machName = machineNames.ContainsKey(machCode) ? machineNames[machCode].Name : machCode;
+                        }
+                        else
+                        {
+                            machCode = "AUTO-" + procCode;
+                            machName = procName + " Machine (" + procArea + ")";
+                        }
+
+                        reqMachHours = stepUph > 0 ? (demandQty / stepUph) : 0m;
+
+                        // Labor hours required for this machine operation
+                        if (step.LaborTime != null && (double)step.LaborTime > 0)
+                        {
+                            reqLaborHours = ((decimal)(double)step.LaborTime / 3600m) * demandQty;
+                        }
+                        else
+                        {
+                            reqLaborHours = reqMachHours; // 1 operator per machine by default
+                        }
+
+                        // Accumulate machine hours
+                        if (!machineRequiredHours.ContainsKey(machCode))
+                            machineRequiredHours[machCode] = 0m;
+                        machineRequiredHours[machCode] += reqMachHours;
+                    }
+
+                    // Accumulate process labor hours
+                    if (!processLaborHours.ContainsKey(procCode))
+                    {
+                        processLaborHours[procCode] = 0m;
+                        processNames[procCode] = procName;
+                    }
+                    processLaborHours[procCode] += reqLaborHours;
+
+                    // Add to detailed routing step breakdown
+                    result.RoutingSteps.Add(new ProcessRoutingStep
+                    {
+                        DeviceCode = (string)(step.DeviceCode ?? targetDevice),
+                        DeviceName = (string)(step.DeviceName ?? targetDevice),
+                        DeviceGroupCode = (string)(step.DeviceGroupCode ?? targetGroup ?? string.Empty),
+                        Seq = seq,
+                        ProcCode = procCode,
+                        ProcName = procName,
+                        Area = procArea,
+                        MachCode = machCode,
+                        MachName = machName,
+                        UPH = stepUph,
+                        LaborHour = step.LaborHour != null ? (decimal)(double)step.LaborHour : 1.0m,
+                        LimitReject = step.LimitReject != null ? (decimal)(double)step.LimitReject : 1.0m,
+                        DemandUnits = demandQty,
+                        MachineHoursRequired = reqMachHours,
+                        LaborHoursRequired = reqLaborHours,
+                        IsMachineStep = !isManual
+                    });
+                }
+            }
+
+            // 3. Compute Machine Capacity Results
             foreach (var kvp in machineRequiredHours)
             {
                 string machCode = kvp.Key;
                 decimal required = kvp.Value;
-                
-                MachineCapacityResult machResult = new MachineCapacityResult
+
+                var machResult = new MachineCapacityResult
                 {
                     MachCode = machCode,
                     RequiredHours = required
                 };
 
-                try 
+                if (machineNames.ContainsKey(machCode))
                 {
-                    var sqlMach = "SELECT MachName, Area, AvailableHours_X FROM dmMachines WHERE MachCode = @MachCode";
-                    var machInfo = await connection.QueryFirstOrDefaultAsync<dynamic>(sqlMach, new { MachCode = machCode });
-                    
-                    if (machInfo != null)
-                    {
-                        machResult.MachName = machInfo.MachName;
-                        machResult.Area = machInfo.Area;
-                        // Use DB available hours if present, otherwise default to shift hours. Assuming DB hours are per day.
-                        machResult.AvailableNormalHours = machInfo.AvailableHours_X != null ? ((decimal)machInfo.AvailableHours_X * input.WorkingDays) : input.AvailableMachineHours;
-                    }
-                    else
-                    {
-                        machResult.MachName = "Unknown Machine";
-                        machResult.AvailableNormalHours = input.AvailableMachineHours;
-                    }
-                } 
-                catch 
+                    machResult.MachName = machineNames[machCode].Name;
+                    machResult.Area = machineNames[machCode].Area;
+                }
+                else
                 {
-                    machResult.MachName = "Mock Machine " + machCode;
-                    machResult.AvailableNormalHours = input.AvailableMachineHours;
+                    machResult.MachName = machCode;
+                    machResult.Area = machCode.Contains("-") ? machCode.Split('-')[1] : "PROD";
                 }
 
+                // Available normal hours based on shifts & working days
+                machResult.AvailableNormalHours = input.NormalHoursPerShift * input.WorkingDays * input.ShiftsPerDay;
                 machResult.AvailableOvertimeHours = machResult.AvailableNormalHours * (input.OvertimeLimitPercent / 100m);
 
                 result.MachineResults.Add(machResult);
-                
-                // Aggregate global hours
+
                 result.RequiredHours += machResult.RequiredHours;
                 result.AvailableNormalHours += machResult.AvailableNormalHours;
                 result.AvailableOvertimeHours += machResult.AvailableOvertimeHours;
@@ -250,52 +455,51 @@ namespace LssTraining.Web.Data
                 }
             }
 
-            // 5. Build Manpower Results
-            decimal totalLaborHours = 0;
+            // 4. Compute Manpower Headcount Results (Standard 7.25 hours/shift per operator)
+            result.OperatorHoursPerShift = input.NormalHoursPerShift;
             foreach (var kvp in processLaborHours)
             {
                 var mp = new ProcessManpowerResult
                 {
                     ProcCode = kvp.Key,
-                    ProcName = processNames[kvp.Key],
-                    TotalLaborHoursRequired = kvp.Value
+                    ProcName = processNames.ContainsKey(kvp.Key) ? processNames[kvp.Key] : kvp.Key,
+                    TotalLaborHoursRequired = kvp.Value,
+                    AvailableHoursPerPerson = input.AvailableHoursPerPerson
                 };
-                
+
                 decimal availablePerPersonZeroOT = input.AvailableHoursPerPerson;
                 decimal availablePerPersonWithOT = input.AvailableHoursPerPerson * (1m + input.OvertimeLimitPercent / 100m);
-                
-                mp.HeadcountZeroOvertime = mp.TotalLaborHoursRequired > 0 ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonZeroOT) : 0;
-                mp.HeadcountWithOvertime = mp.TotalLaborHoursRequired > 0 ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonWithOT) : 0;
-                
-                totalLaborHours += mp.TotalLaborHoursRequired;
+
+                mp.HeadcountZeroOvertime = mp.TotalLaborHoursRequired > 0 
+                    ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonZeroOT) 
+                    : 0;
+
+                mp.HeadcountWithOvertime = mp.TotalLaborHoursRequired > 0 
+                    ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonWithOT) 
+                    : 0;
+
                 result.ManpowerResults.Add(mp);
             }
 
-            // Calculate total headcount based on the sum of individual process requirements (no cross-training assumed)
             result.TotalHeadcountZeroOvertime = result.ManpowerResults.Sum(x => x.HeadcountZeroOvertime);
             result.TotalHeadcountWithOvertime = result.ManpowerResults.Sum(x => x.HeadcountWithOvertime);
 
+            // 5. Formulation of Actionable Simulation Recommendation
             if (result.IsCapacityMet && result.Bottlenecks.Count == 0)
             {
                 if (result.TotalHeadcountZeroOvertime == result.TotalHeadcountWithOvertime || input.OvertimeLimitPercent == 0)
                 {
-                    result.Recommendation = $"Current capacity is SUFFICIENT. You need {result.TotalHeadcountZeroOvertime} headcount (No OT required).";
+                    result.Recommendation = $"✅ Capacity is SUFFICIENT across all {result.RoutingSteps.Count} sequence steps. Required Headcount: {result.TotalHeadcountZeroOvertime} operators (Standard 7.25h/shift, No Overtime).";
                 }
                 else
                 {
-                    result.Recommendation = $"Current capacity is SUFFICIENT. You need {result.TotalHeadcountWithOvertime} headcount (with {input.OvertimeLimitPercent}% OT allowed) or {result.TotalHeadcountZeroOvertime} headcount (Zero OT).";
+                    result.Recommendation = $"✅ Capacity is SUFFICIENT. Required Headcount: {result.TotalHeadcountWithOvertime} operators (with {input.OvertimeLimitPercent}% Overtime) or {result.TotalHeadcountZeroOvertime} operators (Zero OT).";
                 }
             }
             else
             {
-                if (result.TotalHeadcountZeroOvertime == result.TotalHeadcountWithOvertime || input.OvertimeLimitPercent == 0)
-                {
-                    result.Recommendation = $"CAPACITY SHORTAGE detected. Found {result.Bottlenecks.Count} bottleneck machines. Required Headcount: {result.TotalHeadcountZeroOvertime} (No OT required for labor).";
-                }
-                else
-                {
-                    result.Recommendation = $"CAPACITY SHORTAGE detected. Found {result.Bottlenecks.Count} bottleneck machines. Required Headcount: {result.TotalHeadcountWithOvertime} (with OT) or {result.TotalHeadcountZeroOvertime} (Zero OT).";
-                }
+                var topBottlenecks = string.Join(", ", result.Bottlenecks.OrderByDescending(b => b.UtilizationPercent).Take(3).Select(b => $"{b.MachCode} ({b.UtilizationPercent:N0}%)"));
+                result.Recommendation = $"⚠️ CAPACITY SHORTAGE detected on {result.Bottlenecks.Count} bottleneck machines: {topBottlenecks}. Required Headcount: {result.TotalHeadcountZeroOvertime} operators (No OT) or {result.TotalHeadcountWithOvertime} operators (with {input.OvertimeLimitPercent}% OT).";
             }
 
             return result;

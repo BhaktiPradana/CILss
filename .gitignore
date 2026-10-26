@@ -483,3 +483,7 @@ $RECYCLE.BIN/
 R e l a t i o n D B . t x t  
  
 RelationDB.txt
+
+# Database backup files
+CI-LSS
+*.bak

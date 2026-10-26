@@ -67,8 +67,16 @@ if (!app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
     // app.UseExceptionHandler("/Error");
     // app.UseHsts();
-    // app.UseHttpsRedirection(); 
-} 
+}
+
+var defaultCulture = new System.Globalization.CultureInfo("en-US");
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(defaultCulture),
+    SupportedCultures = new[] { defaultCulture },
+    SupportedUICultures = new[] { defaultCulture }
+});
+
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();

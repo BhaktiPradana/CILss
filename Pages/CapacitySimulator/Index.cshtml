@@ -63,90 +63,245 @@
                             @for(int i = 0; i < Math.Max(1, Model.Input.Demands?.Count ?? 1); i++)
                             {
                                 var demand = Model.Input.Demands != null && Model.Input.Demands.Count > i ? Model.Input.Demands[i] : new LssTraining.Web.Models.SimulationDemand();
-                                <div class="row g-3 align-items-end demand-row mb-3">
-                                    <div class="col-md-5">
-                                        <label class="form-label fw-medium">Device Group</label>
-                                        <select name="Input.Demands[@i].DeviceGroupCode" class="form-select" required>
-                                            <option value="">-- Select Device Group --</option>
+                                var isDeviceMode = demand.SelectionType == "Device";
+                                <div class="row g-2 align-items-end demand-row mb-3 p-3 bg-light rounded-3 border">
+                                    <div class="col-md-2">
+                                        <label class="form-label fw-medium small mb-1">Target Mode</label>
+                                        <select name="Input.Demands[@i].SelectionType" class="form-select form-select-sm selection-type-select" onchange="onSelectionTypeChange(this)">
+                                            @if (isDeviceMode)
+                                            {
+                                                <option value="Family">Product Family</option>
+                                                <option value="Device" selected>Specific Device</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="Family" selected>Product Family</option>
+                                                <option value="Device">Specific Device</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 family-group-col" style="@(isDeviceMode ? "display:none;" : "")">
+                                        <label class="form-label fw-medium small mb-1">Product Family</label>
+                                        <select name="Input.Demands[@i].DeviceGroupCode" class="form-select form-select-sm family-select" onchange="onFamilyChange(this)">
+                                            <option value="">-- Select Product Family --</option>
                                             @if(Model.DeviceGroups != null)
                                             {
                                                 foreach (var pg in Model.DeviceGroups)
                                                 {
-                                                    if (demand.DeviceGroupCode == pg.DeviceGroupCode) {
+                                                    if (demand.DeviceGroupCode == pg.DeviceGroupCode)
+                                                    {
                                                         <option value="@pg.DeviceGroupCode" selected>@pg.DeviceGroupCode - @pg.DeviceGroupName</option>
-                                                    } else {
+                                                    }
+                                                    else
+                                                    {
                                                         <option value="@pg.DeviceGroupCode">@pg.DeviceGroupCode - @pg.DeviceGroupName</option>
                                                     }
                                                 }
                                             }
                                         </select>
                                     </div>
-                                    <div class="col-md-5">
-                                        <label class="form-label fw-medium">Demand (Units)</label>
-                                        <input name="Input.Demands[@i].DemandQuantity" type="number" class="form-control" min="1" value="@(demand.DemandQuantity > 0 ? demand.DemandQuantity : 10000)" required />
+                                    <div class="col-md-4 device-filter-col" style="@(isDeviceMode ? "display:none;" : "")">
+                                        <label class="form-label fw-medium small mb-1">Device in Family <span class="text-muted">(Optional)</span></label>
+                                        <select name="Input.Demands[@i].DeviceCode" class="form-select form-select-sm family-device-select">
+                                            <option value="">-- Family Master Sequence --</option>
+                                            @if (Model.Devices != null)
+                                            {
+                                                foreach (var d in Model.Devices.Where(x => string.IsNullOrEmpty(demand.DeviceGroupCode) || x.DeviceGroupCode == demand.DeviceGroupCode))
+                                                {
+                                                    if (demand.DeviceCode == d.DeviceCode)
+                                                    {
+                                                        <option value="@d.DeviceCode" data-group="@d.DeviceGroupCode" selected>@d.DeviceCode - @d.DeviceName (@d.StepCount steps)</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@d.DeviceCode" data-group="@d.DeviceGroupCode">@d.DeviceCode - @d.DeviceName (@d.StepCount steps)</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-7 direct-device-col" style="@(isDeviceMode ? "" : "display:none;")">
+                                        <label class="form-label fw-medium small mb-1">Specific Device from Master Database</label>
+                                        <select class="form-select form-select-sm direct-device-select" onchange="onDirectDeviceChange(this)">
+                                            <option value="">-- Choose Specific Device --</option>
+                                            @if (Model.Devices != null)
+                                            {
+                                                foreach (var d in Model.Devices)
+                                                {
+                                                    if (demand.DeviceCode == d.DeviceCode)
+                                                    {
+                                                        <option value="@d.DeviceCode" data-group="@d.DeviceGroupCode" selected>@d.DeviceCode - @d.DeviceName [@d.DeviceGroupCode] (@d.StepCount steps)</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@d.DeviceCode" data-group="@d.DeviceGroupCode">@d.DeviceCode - @d.DeviceName [@d.DeviceGroupCode] (@d.StepCount steps)</option>
+                                                    }
+                                                }
+                                            }
+                                        </select>
                                     </div>
                                     <div class="col-md-2">
+                                        <label class="form-label fw-medium small mb-1">Demand (Units)</label>
+                                        <input name="Input.Demands[@i].DemandQuantity" type="number" class="form-control form-control-sm" min="1" value="@(demand.DemandQuantity > 0 ? demand.DemandQuantity : 10000)" required />
+                                    </div>
+                                    <div class="col-md-1">
                                         @if(i == 0) {
-                                            <button type="button" class="btn btn-outline-success w-100 fw-bold shadow-sm" onclick="addDemandRow()">+ Add</button>
+                                            <button type="button" class="btn btn-outline-success btn-sm w-100 fw-bold shadow-sm" onclick="addDemandRow()">+ Add</button>
                                         } else {
-                                            <button type="button" class="btn btn-outline-danger w-100 fw-bold shadow-sm" onclick="removeDemandRow(this)">- Remove</button>
+                                            <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold shadow-sm" onclick="removeDemandRow(this)">- Del</button>
                                         }
                                     </div>
                                 </div>
                             }
                         </div>
                         <div class="row g-3 align-items-end mt-2 pt-3 border-top">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label asp-for="Input.ShiftSystem" class="form-label fw-medium">Work Days</label>
                                 <select asp-for="Input.ShiftSystem" class="form-select" required>
                                     <option value="5-2">5-2 (5 Days)</option>
                                     <option value="6-1">6-1 (6 Days)</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
-                                <label asp-for="Input.ShiftsPerDay" class="form-label fw-medium">Shifts/Day</label>
+                            <div class="col-md-2">
+                                <label asp-for="Input.ShiftsPerDay" class="form-label fw-medium">Shifts / Day</label>
                                 <input asp-for="Input.ShiftsPerDay" type="number" class="form-control" min="1" max="3" required />
                             </div>
                             <div class="col-md-3">
+                                <label class="form-label fw-medium">
+                                    Operator Hours / Shift
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">7.25h Std</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control bg-light" value="7.25" readonly />
+                                    <span class="input-group-text bg-light text-muted">hrs/shift</span>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
                                 <label asp-for="Input.OvertimeLimitPercent" class="form-label fw-medium">Max OT (%)</label>
                                 <div class="input-group">
-                                    <input asp-for="Input.OvertimeLimitPercent" type="number" class="form-control" step="0.1" min="0" max="100" required />
+                                    <input name="Input.OvertimeLimitPercent" type="number" class="form-control" step="0.1" min="0" max="100" value="@Model.Input.OvertimeLimitPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)" required />
                                     <span class="input-group-text">%</span>
                                 </div>
                             </div>
                             <div class="col-md-3 text-end">
-                                <button type="submit" class="btn btn-dark fw-bold shadow-sm w-100">Run Simulation</button>
+                                <button type="submit" class="btn btn-dark fw-bold shadow-sm w-100 py-2">Run Simulation</button>
                             </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mt-2 text-muted small">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-info-circle text-primary" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.896.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                            </svg>
+                            <span>Standar kapasitas jam kerja operator: <strong>7.25 jam per shift</strong> (Kapasitas normal: @(Model.Input.WorkingDays * Model.Input.NormalHoursPerShift) jam kerja per operator/minggu tanpa lembur).</span>
                         </div>
                     </form>
 
 <script>
+    const allDeviceData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Devices ?? Enumerable.Empty<LssTraining.Web.Models.ProductDeviceItem>()));
+
+    function onSelectionTypeChange(selectElem) {
+        const row = selectElem.closest('.demand-row');
+        const isDevice = selectElem.value === 'Device';
+        const familyCol = row.querySelector('.family-group-col');
+        const deviceFilterCol = row.querySelector('.device-filter-col');
+        const directDeviceCol = row.querySelector('.direct-device-col');
+        const familySelect = row.querySelector('.family-select');
+        const familyDeviceSelect = row.querySelector('.family-device-select');
+        const directDeviceSelect = row.querySelector('.direct-device-select');
+
+        if (isDevice) {
+            familyCol.style.display = 'none';
+            deviceFilterCol.style.display = 'none';
+            directDeviceCol.style.display = '';
+            familySelect.required = false;
+            // Transfer selected value if any
+            if (directDeviceSelect.value) {
+                familyDeviceSelect.value = directDeviceSelect.value;
+            }
+        } else {
+            familyCol.style.display = '';
+            deviceFilterCol.style.display = '';
+            directDeviceCol.style.display = 'none';
+            familySelect.required = true;
+        }
+    }
+
+    function onFamilyChange(familySelect) {
+        const row = familySelect.closest('.demand-row');
+        const groupCode = familySelect.value;
+        const deviceSelect = row.querySelector('.family-device-select');
+
+        deviceSelect.innerHTML = '<option value="">-- Family Master Sequence --</option>';
+        if (groupCode && allDeviceData) {
+            const filtered = allDeviceData.filter(d => (d.DeviceGroupCode || d.deviceGroupCode) === groupCode);
+            filtered.forEach(d => {
+                const code = d.DeviceCode || d.deviceCode;
+                const name = d.DeviceName || d.deviceName;
+                const steps = d.StepCount || d.stepCount;
+                const opt = document.createElement('option');
+                opt.value = code;
+                opt.textContent = `${code} - ${name} (${steps} steps)`;
+                deviceSelect.appendChild(opt);
+            });
+        }
+    }
+
+    function onDirectDeviceChange(directSelect) {
+        const row = directSelect.closest('.demand-row');
+        const familyDeviceSelect = row.querySelector('.family-device-select');
+        const familySelect = row.querySelector('.family-select');
+        const selectedCode = directSelect.value;
+
+        // Sync hidden input for DeviceCode
+        familyDeviceSelect.value = selectedCode;
+        if (selectedCode && allDeviceData) {
+            const found = allDeviceData.find(d => (d.DeviceCode || d.deviceCode) === selectedCode);
+            if (found && familySelect) {
+                familySelect.value = found.DeviceGroupCode || found.deviceGroupCode;
+            }
+        }
+    }
+
     let rowIdx = @(Math.Max(1, Model.Input.Demands?.Count ?? 1));
     function addDemandRow() {
         const container = document.getElementById('demands-container');
         const firstRow = container.querySelector('.demand-row').cloneNode(true);
-        
-        firstRow.querySelector('select').name = `Input.Demands[${rowIdx}].DeviceGroupCode`;
-        firstRow.querySelector('select').value = '';
-        firstRow.querySelector('input').name = `Input.Demands[${rowIdx}].DemandQuantity`;
-        firstRow.querySelector('input').value = '10000';
-        
+
+        firstRow.querySelector('.selection-type-select').name = `Input.Demands[${rowIdx}].SelectionType`;
+        firstRow.querySelector('.selection-type-select').value = 'Family';
+
+        firstRow.querySelector('.family-select').name = `Input.Demands[${rowIdx}].DeviceGroupCode`;
+        firstRow.querySelector('.family-select').value = '';
+
+        firstRow.querySelector('.family-device-select').name = `Input.Demands[${rowIdx}].DeviceCode`;
+        firstRow.querySelector('.family-device-select').value = '';
+
+        firstRow.querySelector('.direct-device-select').value = '';
+        firstRow.querySelector('.family-group-col').style.display = '';
+        firstRow.querySelector('.device-filter-col').style.display = '';
+        firstRow.querySelector('.direct-device-col').style.display = 'none';
+
+        const qtyInput = firstRow.querySelector('input[type="number"]');
+        qtyInput.name = `Input.Demands[${rowIdx}].DemandQuantity`;
+        qtyInput.value = '10000';
+
         const btn = firstRow.querySelector('button');
-        btn.className = 'btn btn-outline-danger w-100 fw-bold shadow-sm';
-        btn.textContent = '- Remove';
+        btn.className = 'btn btn-outline-danger btn-sm w-100 fw-bold shadow-sm';
+        btn.textContent = '- Del';
         btn.onclick = function() { removeDemandRow(this); };
-        
+
         container.appendChild(firstRow);
         rowIdx++;
     }
-    
+
     function removeDemandRow(btn) {
         btn.closest('.demand-row').remove();
-        // Re-index remaining rows to ensure model binding works
         const rows = document.querySelectorAll('.demand-row');
         rows.forEach((row, index) => {
-            row.querySelector('select').name = `Input.Demands[${index}].DeviceGroupCode`;
-            row.querySelector('input').name = `Input.Demands[${index}].DemandQuantity`;
+            row.querySelector('.selection-type-select').name = `Input.Demands[${index}].SelectionType`;
+            row.querySelector('.family-select').name = `Input.Demands[${index}].DeviceGroupCode`;
+            row.querySelector('.family-device-select').name = `Input.Demands[${index}].DeviceCode`;
+            row.querySelector('input[type="number"]').name = `Input.Demands[${index}].DemandQuantity`;
         });
         rowIdx = rows.length;
     }
@@ -227,7 +382,15 @@
                             @if (Model.Result.ManpowerResults != null && Model.Result.ManpowerResults.Count > 0)
                             {
                                 <div class="mt-4">
-                                    <h6 class="fw-bold text-primary mb-3"><i class="bi bi-people-fill me-2"></i>Required Manpower (Headcount)</h6>
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                        <div>
+                                            <h6 class="fw-bold text-primary mb-0"><i class="bi bi-people-fill me-2"></i>Required Manpower (Headcount)</h6>
+                                            <small class="text-muted">Dihitung berdasarkan standar <strong>7.25 jam kerja/shift</strong> per operator (@(Model.Input.WorkingDays * Model.Input.NormalHoursPerShift) jam normal/minggu).</small>
+                                        </div>
+                                        <span class="badge bg-light text-dark border px-3 py-2 shadow-sm">
+                                            <i class="bi bi-person-check text-primary me-1"></i> Standar Operator: <strong>7.25 jam/shift</strong> &bull; Total Labor: <strong>@Model.Result.TotalLaborHoursRequired.ToString("N1") jam</strong>
+                                        </span>
+                                    </div>
                                     <div class="table-responsive">
                                         <table class="table table-sm table-bordered border-primary mb-0">
                                             <thead class="table-primary">
@@ -236,7 +399,7 @@
                                                     <th>Process Name</th>
                                                     <th class="text-end">Total Labor Hrs</th>
                                                     <th class="text-end">Headcount (0% OT)</th>
-                                                    <th class="text-end">Headcount (Max OT)</th>
+                                                    <th class="text-end">Headcount (Max @Model.Input.OvertimeLimitPercent% OT)</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -245,7 +408,7 @@
                                                     <tr>
                                                         <td><strong>@mp.ProcCode</strong></td>
                                                         <td>@mp.ProcName</td>
-                                                        <td class="text-end">@mp.TotalLaborHoursRequired.ToString("N1")</td>
+                                                        <td class="text-end">@mp.TotalLaborHoursRequired.ToString("N1") h</td>
                                                         <td class="text-end fw-bold">@mp.HeadcountZeroOvertime</td>
                                                         <td class="text-end fw-bold text-success">@mp.HeadcountWithOvertime</td>
                                                     </tr>
@@ -253,11 +416,91 @@
                                             </tbody>
                                             <tfoot class="table-light fw-bold">
                                                 <tr>
-                                                    <td colspan="3" class="text-end">TOTAL REQUIRED HEADCOUNT</td>
-                                                    <td class="text-end">@Model.Result.TotalHeadcountZeroOvertime</td>
-                                                    <td class="text-end text-success">@Model.Result.TotalHeadcountWithOvertime</td>
+                                                    <td colspan="2" class="text-end">TOTAL REQUIRED:</td>
+                                                    <td class="text-end">@Model.Result.TotalLaborHoursRequired.ToString("N1") h</td>
+                                                    <td class="text-end text-primary fs-6">@Model.Result.TotalHeadcountZeroOvertime</td>
+                                                    <td class="text-end text-success fs-6">@Model.Result.TotalHeadcountWithOvertime</td>
                                                 </tr>
                                             </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
+
+                            @if (Model.Result.RoutingSteps != null && Model.Result.RoutingSteps.Count > 0)
+                            {
+                                <div class="mt-4">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">
+                                                <i class="bi bi-diagram-3-fill me-2 text-primary"></i>Verified Production Routing Sequence
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-2">@Model.Result.RoutingSteps.Count Steps in Database</span>
+                                            </h6>
+                                            <small class="text-muted">Urutan sequence proses produksi, alokasi mesin, dan estimasi waktu siklus (UPH) berdasarkan data database terbaru.</small>
+                                        </div>
+                                        <span class="badge bg-light text-dark border px-3 py-2 shadow-sm">
+                                            Total Devices Simulated: <strong>@Model.Result.TotalDevicesSimulated</strong>
+                                        </span>
+                                    </div>
+                                    <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover table-bordered align-middle mb-0">
+                                            <thead class="table-light sticky-top shadow-sm">
+                                                <tr>
+                                                    <th style="width: 50px;" class="text-center">Seq</th>
+                                                    <th>Device</th>
+                                                    <th>Process Code</th>
+                                                    <th>Process Name</th>
+                                                    <th>Area</th>
+                                                    <th>Assigned Machine</th>
+                                                    <th class="text-end">Speed (UPH)</th>
+                                                    <th class="text-end">Demand</th>
+                                                    <th class="text-end">Machine Hours</th>
+                                                    <th class="text-end">Labor Hours</th>
+                                                    <th class="text-center">Type</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var step in Model.Result.RoutingSteps.OrderBy(x => x.DeviceCode).ThenBy(x => x.Seq))
+                                                {
+                                                    <tr>
+                                                        <td class="text-center fw-bold text-muted">@step.Seq</td>
+                                                        <td>
+                                                            <strong class="text-primary">@step.DeviceCode</strong>
+                                                            <div class="text-muted small">@step.DeviceName</div>
+                                                        </td>
+                                                        <td><span class="badge bg-secondary">@step.ProcCode</span></td>
+                                                        <td class="fw-medium">@step.ProcName</td>
+                                                        <td><span class="badge bg-light text-dark border">@step.Area</span></td>
+                                                        <td>
+                                                            @if (step.IsMachineStep)
+                                                            {
+                                                                <strong>@step.MachCode</strong>
+                                                                <small class="text-muted d-block">@step.MachName</small>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="text-muted fst-italic">Manual Station</span>
+                                                            }
+                                                        </td>
+                                                        <td class="text-end">@(step.UPH > 0 ? step.UPH.ToString("N0") + " /h" : "-")</td>
+                                                        <td class="text-end">@step.DemandUnits.ToString("N0")</td>
+                                                        <td class="text-end fw-bold @(step.MachineHoursRequired > 0 ? "text-dark" : "text-muted")">
+                                                            @(step.MachineHoursRequired > 0 ? step.MachineHoursRequired.ToString("N1") + " h" : "-")
+                                                        </td>
+                                                        <td class="text-end text-primary fw-medium">@step.LaborHoursRequired.ToString("N1") h</td>
+                                                        <td class="text-center">
+                                                            @if (step.IsMachineStep)
+                                                            {
+                                                                <span class="badge bg-info-subtle text-info border border-info-subtle">Machine</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Manual</span>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
                                         </table>
                                     </div>
                                 </div>
