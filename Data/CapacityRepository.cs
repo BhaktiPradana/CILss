@@ -22,14 +22,21 @@ namespace LssTraining.Web.Data
             
             try
             {
-                // Mengambil jumlah total dari masing-masing tabel master
-                summary.TotalDevices = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Product");
-                summary.TotalProcesses = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Process");
+                // Mengambil jumlah total dari masing-masing tabel master (prioritas CI_SQ01)
+                summary.TotalDevices = await connection.ExecuteScalarAsync<int>("SELECT COUNT(DISTINCT DeviceCode) FROM CI_SQ01");
+                summary.TotalProcesses = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_SQ01");
                 summary.TotalEmployees = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Employee");
             }
             catch 
             {
-                // Jika tabel belum di-create, return 0 (tidak error)
+                // Fallback jika tabel CI_SQ01 belum di-create
+                try
+                {
+                    summary.TotalDevices = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Product");
+                    summary.TotalProcesses = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Process");
+                    summary.TotalEmployees = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Employee");
+                }
+                catch { }
             }
             return summary;
         }
@@ -102,13 +109,13 @@ namespace LssTraining.Web.Data
                         ISNULL(p.DeviceName, p.DeviceCode) AS DeviceName,
                         p.DeviceGroupCode,
                         ISNULL(pg.DeviceGroupName, p.DeviceGroupCode) AS DeviceGroupName,
-                        COUNT(dp.Seq) AS StepCount
+                        COUNT(sq.Seq) AS StepCount
                     FROM CI_Product p
                     LEFT JOIN CI_ProductGroup pg ON p.DeviceGroupCode = pg.DeviceGroupCode
-                    LEFT JOIN CI_DeviceProcess dp ON p.DeviceCode = dp.DeviceCode
+                    LEFT JOIN CI_SQ01 sq ON p.DeviceCode = sq.DeviceCode
                     WHERE (@DeviceGroupCode IS NULL OR @DeviceGroupCode = '' OR p.DeviceGroupCode = @DeviceGroupCode)
                     GROUP BY p.DeviceCode, p.DeviceName, p.DeviceGroupCode, pg.DeviceGroupName
-                    HAVING COUNT(dp.Seq) > 0
+                    HAVING COUNT(sq.Seq) > 0
                     ORDER BY p.DeviceGroupCode, p.DeviceCode";
                 return await connection.QueryAsync<ProductDeviceItem>(sql, new { DeviceGroupCode = deviceGroupCode });
             }
@@ -180,10 +187,10 @@ namespace LssTraining.Web.Data
                         var sqlFindMaster = @"
                             SELECT TOP 1 p.DeviceCode
                             FROM CI_Product p
-                            JOIN CI_DeviceProcess dp ON p.DeviceCode = dp.DeviceCode
+                            JOIN CI_SQ01 sq ON p.DeviceCode = sq.DeviceCode
                             WHERE (@DeviceGroupCode IS NULL OR @DeviceGroupCode = '' OR p.DeviceGroupCode = @DeviceGroupCode)
                             GROUP BY p.DeviceCode
-                            ORDER BY COUNT(dp.Seq) DESC, p.DeviceCode";
+                            ORDER BY COUNT(sq.Seq) DESC, p.DeviceCode";
                         targetDevice = await connection.ExecuteScalarAsync<string>(sqlFindMaster, new { DeviceGroupCode = targetGroup }) ?? string.Empty;
                     }
                     catch { }
@@ -195,40 +202,25 @@ namespace LssTraining.Web.Data
                     targetDevice = !string.IsNullOrWhiteSpace(targetGroup) ? targetGroup + "-01" : "DEMO-DEVICE";
                 }
 
-                // Query the exact process sequence ordered by Seq ASC from latest database
+                // Query the exact process sequence ordered by Seq ASC from dbo.CI_SQ01
                 List<dynamic> routingSteps = new List<dynamic>();
                 try
                 {
                     var sqlRouting = @"
-                        WITH RankedCycleTimes AS (
-                            SELECT 
-                                dp.DeviceCode,
-                                ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
-                                ISNULL(p.DeviceGroupCode, @FallbackGroup) AS DeviceGroupCode,
-                                dp.Seq,
-                                dp.ProcCode,
-                                ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
-                                ISNULL(pr.Area, 'PROD') AS ProcessArea,
-                                dp.LaborHour,
-                                dp.LimitReject,
-                                c.MachCode,
-                                m.MachName,
-                                c.UPH,
-                                c.MachineTime,
-                                c.LaborTime,
-                                ROW_NUMBER() OVER (
-                                    PARTITION BY dp.Seq 
-                                    ORDER BY CASE WHEN c.UPH IS NOT NULL THEN 0 ELSE 1 END, c.UPH DESC
-                                ) AS Rn
-                            FROM CI_DeviceProcess dp
-                            LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
-                            LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
-                            LEFT JOIN CI_IECycleTime_Header c ON dp.DeviceCode = c.DeviceCode 
-                                AND (dp.ProcCode = c.ProcCode OR c.ProcCode LIKE dp.ProcCode + '%')
-                            LEFT JOIN MasterMachines m ON c.MachCode = m.MachCode
-                            WHERE dp.DeviceCode = @DeviceCode
-                        )
-                        SELECT * FROM RankedCycleTimes WHERE Rn = 1 ORDER BY Seq";
+                        SELECT 
+                            sq.DeviceCode,
+                            ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName,
+                            ISNULL(p.DeviceGroupCode, @FallbackGroup) AS DeviceGroupCode,
+                            sq.Seq,
+                            CAST(sq.Seq AS NVARCHAR(50)) AS ProcCode,
+                            ISNULL(sq.Description, 'Seq ' + CAST(sq.Seq AS NVARCHAR(10))) AS ProcName,
+                            'PROD' AS ProcessArea,
+                            ISNULL(sq.LaborHour, 0) AS LaborHour,
+                            ISNULL(sq.MachineHour, 0) AS MachineHour
+                        FROM CI_SQ01 sq
+                        LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                        WHERE sq.DeviceCode = @DeviceCode
+                        ORDER BY sq.Seq ASC";
 
                     routingSteps = (await connection.QueryAsync<dynamic>(sqlRouting, new { DeviceCode = targetDevice, FallbackGroup = targetGroup })).AsList();
 
@@ -236,35 +228,20 @@ namespace LssTraining.Web.Data
                     if (routingSteps.Count == 0 && !string.IsNullOrWhiteSpace(targetGroup))
                     {
                         var sqlGroupRouting = @"
-                            WITH RankedGroupCycleTimes AS (
-                                SELECT 
-                                    dp.DeviceCode,
-                                    ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
-                                    ISNULL(p.DeviceGroupCode, @DeviceGroupCode) AS DeviceGroupCode,
-                                    dp.Seq,
-                                    dp.ProcCode,
-                                    ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
-                                    ISNULL(pr.Area, 'PROD') AS ProcessArea,
-                                    dp.LaborHour,
-                                    dp.LimitReject,
-                                    c.MachCode,
-                                    m.MachName,
-                                    c.UPH,
-                                    c.MachineTime,
-                                    c.LaborTime,
-                                    ROW_NUMBER() OVER (
-                                        PARTITION BY dp.Seq 
-                                        ORDER BY CASE WHEN c.UPH IS NOT NULL THEN 0 ELSE 1 END, c.UPH DESC
-                                    ) AS Rn
-                                FROM CI_Product p
-                                JOIN CI_DeviceProcess dp ON p.DeviceCode = dp.DeviceCode
-                                LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
-                                LEFT JOIN CI_IECycleTime_Header c ON dp.DeviceCode = c.DeviceCode 
-                                    AND (dp.ProcCode = c.ProcCode OR c.ProcCode LIKE dp.ProcCode + '%')
-                                LEFT JOIN MasterMachines m ON c.MachCode = m.MachCode
-                                WHERE p.DeviceGroupCode = @DeviceGroupCode
-                            )
-                            SELECT * FROM RankedGroupCycleTimes WHERE Rn = 1 ORDER BY Seq";
+                            SELECT 
+                                sq.DeviceCode,
+                                ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName,
+                                ISNULL(p.DeviceGroupCode, @DeviceGroupCode) AS DeviceGroupCode,
+                                sq.Seq,
+                                CAST(sq.Seq AS NVARCHAR(50)) AS ProcCode,
+                                ISNULL(sq.Description, 'Seq ' + CAST(sq.Seq AS NVARCHAR(10))) AS ProcName,
+                                'PROD' AS ProcessArea,
+                                ISNULL(sq.LaborHour, 0) AS LaborHour,
+                                ISNULL(sq.MachineHour, 0) AS MachineHour
+                            FROM CI_Product p
+                            JOIN CI_SQ01 sq ON p.DeviceCode = sq.DeviceCode
+                            WHERE p.DeviceGroupCode = @DeviceGroupCode
+                            ORDER BY sq.Seq ASC";
                         routingSteps = (await connection.QueryAsync<dynamic>(sqlGroupRouting, new { DeviceGroupCode = targetGroup })).AsList();
                     }
                 }
@@ -275,13 +252,13 @@ namespace LssTraining.Web.Data
                     // Fallback mock routing if database sequence is completely empty
                     routingSteps = new List<dynamic>
                     {
-                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 5, ProcCode = "LOAD", ProcName = "LOADING PO", ProcessArea = "FL-PREP", LaborHour = 1.0, LimitReject = 1.0, MachCode = (string?)null, MachName = (string?)null, UPH = (double?)null, MachineTime = (double?)null, LaborTime = (double?)null },
-                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 10, ProcCode = "AA", ProcName = "ASIC ATTACH", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.995, MachCode = "DA14", MachName = "ASM DIE ATTACH #14", UPH = 2045.0, MachineTime = 1.76, LaborTime = 1.64 },
-                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 30, ProcCode = "WBT", ProcName = "WIRE BOND TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.995, MachCode = "WB37", MachName = "WIRE BONDER #37", UPH = 1500.0, MachineTime = 2.4, LaborTime = 2.0 },
-                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 50, ProcCode = "PWT", ProcName = "PREWELD TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.99, MachCode = "PW04", MachName = "PREWELDING #4", UPH = 3500.0, MachineTime = 1.0, LaborTime = 0.8 },
-                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 60, ProcCode = "WDT", ProcName = "WELDING TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, LimitReject = 0.99, MachCode = "WD09", MachName = "WELDING SLEE #9", UPH = 1750.0, MachineTime = 2.0, LaborTime = 1.8 },
-                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 80, ProcCode = "LTT", ProcName = "LEAK TEST TPS", ProcessArea = "BL-TPS", LaborHour = 1.0, LimitReject = 0.99, MachCode = "LT07", MachName = "FUKUDA TESTER #7", UPH = 4500.0, MachineTime = 0.8, LaborTime = 0.5 },
-                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 120, ProcCode = "PKS", ProcName = "PACKING TPS SENSOR", ProcessArea = "BL-TPS", LaborHour = 1.0, LimitReject = 1.0, MachCode = (string?)null, MachName = (string?)null, UPH = (double?)null, MachineTime = (double?)null, LaborTime = (double?)null }
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 5, ProcCode = "LOAD", ProcName = "LOADING PO", ProcessArea = "FL-PREP", LaborHour = 1.0, MachineHour = 0.0 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 10, ProcCode = "AA", ProcName = "ASIC ATTACH", ProcessArea = "FL-TPS", LaborHour = 1.0, MachineHour = 0.00048 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 30, ProcCode = "WBT", ProcName = "WIRE BOND TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, MachineHour = 0.00067 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 50, ProcCode = "PWT", ProcName = "PREWELD TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, MachineHour = 0.00028 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 60, ProcCode = "WDT", ProcName = "WELDING TPS", ProcessArea = "FL-TPS", LaborHour = 1.0, MachineHour = 0.00057 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 80, ProcCode = "LTT", ProcName = "LEAK TEST TPS", ProcessArea = "BL-TPS", LaborHour = 1.0, MachineHour = 0.00022 },
+                        new { DeviceCode = targetDevice, DeviceName = "Demo " + targetDevice, DeviceGroupCode = targetGroup, Seq = 120, ProcCode = "PKS", ProcName = "PACKING TPS SENSOR", ProcessArea = "BL-TPS", LaborHour = 1.0, MachineHour = 0.0 }
                     };
                 }
 
@@ -291,107 +268,48 @@ namespace LssTraining.Web.Data
 
                 foreach (var step in routingSteps)
                 {
-                    string procCode = (string)(step.ProcCode ?? "PROC");
-                    string procName = (string)(step.ProcName ?? procCode);
-                    string procArea = (string)(step.ProcessArea ?? "PROD");
                     int seq = (int)step.Seq;
+                    string procCode = "SEQ-" + seq;
+                    string procName = (string)(step.ProcName ?? ("Process Step " + seq));
+                    string procArea = (string)(step.ProcessArea ?? "PROD");
 
-                    // Classify step operation type
-                    bool isManual = procCode.StartsWith("LOAD") || 
-                                    procCode.StartsWith("VC") || 
-                                    procCode.StartsWith("VF") || 
-                                    procCode.StartsWith("VS") || 
-                                    procCode.StartsWith("QS") || 
-                                    procCode.StartsWith("AQL") || 
-                                    procCode.StartsWith("PK") ||
-                                    procCode.StartsWith("IN") ||
-                                    procCode.StartsWith("STG");
+                    decimal machineHourPerPcs = step.MachineHour != null ? (decimal)(double)step.MachineHour : 0m;
+                    decimal laborHourPerPcs = step.LaborHour != null ? (decimal)(double)step.LaborHour : 0m;
 
-                    bool isOven = procCode.StartsWith("OV");
+                    bool isMachineStep = machineHourPerPcs > 0m;
+                    decimal reqMachHours = machineHourPerPcs * demandQty;
+                    decimal reqLaborHours = laborHourPerPcs * demandQty;
 
-                    decimal stepUph = 0m;
-                    string machCode = string.Empty;
-                    string machName = string.Empty;
-                    decimal reqMachHours = 0m;
-                    decimal reqLaborHours = 0m;
+                    decimal stepUph = machineHourPerPcs > 0m 
+                        ? Math.Round(1.0m / machineHourPerPcs, 1) 
+                        : (laborHourPerPcs > 0m ? Math.Round(1.0m / laborHourPerPcs, 1) : 0m);
 
-                    if (isManual)
+                    string machCode;
+                    string machName;
+
+                    if (isMachineStep)
                     {
-                        machCode = "MANUAL-" + procArea;
-                        machName = "Manual Station (" + procArea + ")";
-                        stepUph = 300m; // standard inspection/loading units per hour
-                        reqMachHours = 0m; // Manual labor does not require machine operating hours
+                        machCode = "MC-SEQ" + seq;
+                        machName = procName + " (Machine)";
 
-                        // Standard labor time: 10-15 seconds per unit (approx 0.003 - 0.005 hours/unit)
-                        decimal laborSec = step.LaborTime != null && (double)step.LaborTime > 0 ? (decimal)(double)step.LaborTime : 12m;
-                        reqLaborHours = (laborSec / 3600m) * demandQty;
-                    }
-                    else if (isOven)
-                    {
-                        machCode = "OVEN-" + procArea;
-                        machName = "Curing Oven (" + procArea + ")";
-                        stepUph = 5000m; // Batch oven processing
-                        reqMachHours = demandQty / stepUph;
-                        reqLaborHours = demandQty * 0.0005m; // minimal operator interaction for batch load/unload
-                    }
-                    else
-                    {
-                        // Machine operation: extract UPH from cycle time or fallback
-                        if (step.UPH != null && (double)step.UPH > 0)
-                        {
-                            stepUph = (decimal)(double)step.UPH;
-                        }
-                        else if (avgProcessUph.ContainsKey(procCode))
-                        {
-                            stepUph = avgProcessUph[procCode];
-                        }
-                        else
-                        {
-                            stepUph = 1500m; // Default industrial semiconductor assembly UPH
-                        }
-
-                        // Determine machine code
-                        if (!string.IsNullOrWhiteSpace((string?)step.MachCode))
-                        {
-                            machCode = (string)step.MachCode;
-                            machName = (string)(step.MachName ?? machCode);
-                        }
-                        else if (processDefaultMachine.ContainsKey(procCode))
-                        {
-                            machCode = processDefaultMachine[procCode];
-                            machName = machineNames.ContainsKey(machCode) ? machineNames[machCode].Name : machCode;
-                        }
-                        else
-                        {
-                            machCode = "AUTO-" + procCode;
-                            machName = procName + " Machine (" + procArea + ")";
-                        }
-
-                        reqMachHours = stepUph > 0 ? (demandQty / stepUph) : 0m;
-
-                        // Labor hours required for this machine operation
-                        if (step.LaborTime != null && (double)step.LaborTime > 0)
-                        {
-                            reqLaborHours = ((decimal)(double)step.LaborTime / 3600m) * demandQty;
-                        }
-                        else
-                        {
-                            reqLaborHours = reqMachHours; // 1 operator per machine by default
-                        }
-
-                        // Accumulate machine hours
                         if (!machineRequiredHours.ContainsKey(machCode))
                             machineRequiredHours[machCode] = 0m;
                         machineRequiredHours[machCode] += reqMachHours;
                     }
+                    else
+                    {
+                        machCode = "MANUAL-SEQ" + seq;
+                        machName = "Manual Station: " + procName;
+                    }
 
                     // Accumulate process labor hours
-                    if (!processLaborHours.ContainsKey(procCode))
+                    string processKey = procName;
+                    if (!processLaborHours.ContainsKey(processKey))
                     {
-                        processLaborHours[procCode] = 0m;
-                        processNames[procCode] = procName;
+                        processLaborHours[processKey] = 0m;
+                        processNames[processKey] = procName;
                     }
-                    processLaborHours[procCode] += reqLaborHours;
+                    processLaborHours[processKey] += reqLaborHours;
 
                     // Add to detailed routing step breakdown
                     result.RoutingSteps.Add(new ProcessRoutingStep
@@ -406,12 +324,12 @@ namespace LssTraining.Web.Data
                         MachCode = machCode,
                         MachName = machName,
                         UPH = stepUph,
-                        LaborHour = step.LaborHour != null ? (decimal)(double)step.LaborHour : 1.0m,
-                        LimitReject = step.LimitReject != null ? (decimal)(double)step.LimitReject : 1.0m,
+                        LaborHour = laborHourPerPcs,
+                        LimitReject = 1.0m,
                         DemandUnits = demandQty,
                         MachineHoursRequired = reqMachHours,
                         LaborHoursRequired = reqLaborHours,
-                        IsMachineStep = !isManual
+                        IsMachineStep = isMachineStep
                     });
                 }
             }

@@ -487,3 +487,7 @@ RelationDB.txt
 # Database backup files
 CI-LSS
 *.bak
+
+# Excel spreadsheets
+*.xlsx
+~$*.xlsx
