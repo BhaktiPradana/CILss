@@ -1,5 +1,6 @@
 using Dapper;
 using LssTraining.Web.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,14 +23,14 @@ namespace LssTraining.Web.Data
             
             try
             {
-                // Mengambil jumlah total dari masing-masing tabel master (prioritas CI_SQ01)
+                // Fetch totals from each master table (prioritizing CI_SQ01)
                 summary.TotalDevices = await connection.ExecuteScalarAsync<int>("SELECT COUNT(DISTINCT DeviceCode) FROM CI_SQ01");
                 summary.TotalProcesses = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_SQ01");
                 summary.TotalEmployees = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Employee");
             }
             catch 
             {
-                // Fallback jika tabel CI_SQ01 belum di-create
+                // Fallback if CI_SQ01 table has not been created yet
                 try
                 {
                     summary.TotalDevices = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Product");
@@ -129,10 +130,24 @@ namespace LssTraining.Web.Data
         {
             using var connection = _connectionFactory.CreateConnection();
             var result = new SimulationResult();
+
+            int weeksPerYear = input.EffectiveWeeksPerYear;
+            string breakdownMode = string.Equals(input.YearlyBreakdownMode, "Levelized", StringComparison.OrdinalIgnoreCase)
+                ? "Levelized"
+                : "CapacityFill";
+            result.WorkingWeeksPerYear = weeksPerYear;
+            result.YearlyBreakdownMode = breakdownMode;
             
             var machineRequiredHours = new Dictionary<string, decimal>();
             var processLaborHours = new Dictionary<string, decimal>();
             var processNames = new Dictionary<string, string>();
+
+            // Tracking for Yearly -> Weekly capacity breakdown
+            long totalYearlyUnits = 0L;
+            var fixedWeeklyMachineHours = new Dictionary<string, decimal>();
+            var yearlyDemandMachineHoursTotal = new Dictionary<string, decimal>();
+            var fixedWeeklyProcessLabor = new Dictionary<string, decimal>();
+            var yearlyProcessLaborTotal = new Dictionary<string, decimal>();
 
             // 1. Preload master cycle times & machines mapping
             var avgProcessUph = new Dictionary<string, decimal>();
@@ -224,7 +239,7 @@ namespace LssTraining.Web.Data
 
                     routingSteps = (await connection.QueryAsync<dynamic>(sqlRouting, new { DeviceCode = targetDevice, FallbackGroup = targetGroup })).AsList();
 
-                    // If still no routing, inherit from another device in the same family
+                    // If still no routing, inherit from the primary master sequence device in the same family
                     if (routingSteps.Count == 0 && !string.IsNullOrWhiteSpace(targetGroup))
                     {
                         var sqlGroupRouting = @"
@@ -238,9 +253,16 @@ namespace LssTraining.Web.Data
                                 'PROD' AS ProcessArea,
                                 ISNULL(sq.LaborHour, 0) AS LaborHour,
                                 ISNULL(sq.MachineHour, 0) AS MachineHour
-                            FROM CI_Product p
-                            JOIN CI_SQ01 sq ON p.DeviceCode = sq.DeviceCode
-                            WHERE p.DeviceGroupCode = @DeviceGroupCode
+                            FROM CI_SQ01 sq
+                            LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                            WHERE sq.DeviceCode = (
+                                SELECT TOP 1 p2.DeviceCode
+                                FROM CI_Product p2
+                                JOIN CI_SQ01 sq2 ON p2.DeviceCode = sq2.DeviceCode
+                                WHERE p2.DeviceGroupCode = @DeviceGroupCode
+                                GROUP BY p2.DeviceCode
+                                ORDER BY COUNT(sq2.Seq) DESC, p2.DeviceCode
+                            )
                             ORDER BY sq.Seq ASC";
                         routingSteps = (await connection.QueryAsync<dynamic>(sqlGroupRouting, new { DeviceGroupCode = targetGroup })).AsList();
                     }
@@ -265,6 +287,19 @@ namespace LssTraining.Web.Data
                 result.TotalDevicesSimulated++;
 
                 int demandQty = demandInput.DemandQuantity;
+                bool isYearlyDemand = string.Equals(demandInput.DemandPeriod, "Yearly", StringComparison.OrdinalIgnoreCase);
+                string normalizedPeriod = isYearlyDemand ? "Yearly" : "Weekly";
+                decimal weeklyEquivalentUnits = isYearlyDemand
+                    ? Math.Round((decimal)demandQty / weeksPerYear, 2)
+                    : demandQty;
+                decimal exactWeeklyUnits = isYearlyDemand
+                    ? (decimal)demandQty / weeksPerYear
+                    : demandQty;
+
+                if (isYearlyDemand)
+                {
+                    totalYearlyUnits += demandQty;
+                }
 
                 foreach (var step in routingSteps)
                 {
@@ -273,12 +308,12 @@ namespace LssTraining.Web.Data
                     string procName = (string)(step.ProcName ?? ("Process Step " + seq));
                     string procArea = (string)(step.ProcessArea ?? "PROD");
 
-                    decimal machineHourPerPcs = step.MachineHour != null ? (decimal)(double)step.MachineHour : 0m;
-                    decimal laborHourPerPcs = step.LaborHour != null ? (decimal)(double)step.LaborHour : 0m;
+                    decimal machineHourPerPcs = step.MachineHour != null ? Convert.ToDecimal(step.MachineHour) : 0m;
+                    decimal laborHourPerPcs = step.LaborHour != null ? Convert.ToDecimal(step.LaborHour) : 0m;
 
                     bool isMachineStep = machineHourPerPcs > 0m;
-                    decimal reqMachHours = machineHourPerPcs * demandQty;
-                    decimal reqLaborHours = laborHourPerPcs * demandQty;
+                    decimal reqMachHours = machineHourPerPcs * exactWeeklyUnits;
+                    decimal reqLaborHours = laborHourPerPcs * exactWeeklyUnits;
 
                     decimal stepUph = machineHourPerPcs > 0m 
                         ? Math.Round(1.0m / machineHourPerPcs, 1) 
@@ -292,9 +327,21 @@ namespace LssTraining.Web.Data
                         machCode = "MC-SEQ" + seq;
                         machName = procName + " (Machine)";
 
+                        if (!machineNames.ContainsKey(machCode))
+                            machineNames[machCode] = (machName, procArea);
+
                         if (!machineRequiredHours.ContainsKey(machCode))
                             machineRequiredHours[machCode] = 0m;
                         machineRequiredHours[machCode] += reqMachHours;
+
+                        if (isYearlyDemand)
+                        {
+                            yearlyDemandMachineHoursTotal[machCode] = yearlyDemandMachineHoursTotal.GetValueOrDefault(machCode, 0m) + (machineHourPerPcs * demandQty);
+                        }
+                        else
+                        {
+                            fixedWeeklyMachineHours[machCode] = fixedWeeklyMachineHours.GetValueOrDefault(machCode, 0m) + (machineHourPerPcs * demandQty);
+                        }
                     }
                     else
                     {
@@ -311,6 +358,15 @@ namespace LssTraining.Web.Data
                     }
                     processLaborHours[processKey] += reqLaborHours;
 
+                    if (isYearlyDemand)
+                    {
+                        yearlyProcessLaborTotal[processKey] = yearlyProcessLaborTotal.GetValueOrDefault(processKey, 0m) + (laborHourPerPcs * demandQty);
+                    }
+                    else
+                    {
+                        fixedWeeklyProcessLabor[processKey] = fixedWeeklyProcessLabor.GetValueOrDefault(processKey, 0m) + (laborHourPerPcs * demandQty);
+                    }
+
                     // Add to detailed routing step breakdown
                     result.RoutingSteps.Add(new ProcessRoutingStep
                     {
@@ -326,7 +382,9 @@ namespace LssTraining.Web.Data
                         UPH = stepUph,
                         LaborHour = laborHourPerPcs,
                         LimitReject = 1.0m,
-                        DemandUnits = demandQty,
+                        DemandUnits = weeklyEquivalentUnits,
+                        InputDemandUnits = demandQty,
+                        DemandPeriod = normalizedPeriod,
                         MachineHoursRequired = reqMachHours,
                         LaborHoursRequired = reqLaborHours,
                         IsMachineStep = isMachineStep
@@ -402,22 +460,228 @@ namespace LssTraining.Web.Data
             result.TotalHeadcountZeroOvertime = result.ManpowerResults.Sum(x => x.HeadcountZeroOvertime);
             result.TotalHeadcountWithOvertime = result.ManpowerResults.Sum(x => x.HeadcountWithOvertime);
 
-            // 5. Formulation of Actionable Simulation Recommendation
-            if (result.IsCapacityMet && result.Bottlenecks.Count == 0)
+            // 5. Compute Weekly Capacity Breakdown when Yearly Demand is present
+            if (totalYearlyUnits > 0)
             {
-                if (result.TotalHeadcountZeroOvertime == result.TotalHeadcountWithOvertime || input.OvertimeLimitPercent == 0)
+                result.HasYearlyDemand = true;
+                result.TotalYearlyDemandUnits = totalYearlyUnits;
+
+                decimal weeklyNormalAvailPerMachine = input.NormalHoursPerShift * input.WorkingDays * input.ShiftsPerDay;
+                decimal weeklyOvertimeAvailPerMachine = weeklyNormalAvailPerMachine * (input.OvertimeLimitPercent / 100m);
+                decimal weeklyTotalAvailPerMachine = weeklyNormalAvailPerMachine + weeklyOvertimeAvailPerMachine;
+
+                string? constraintMach = null;
+                decimal constraintUnitHours = 0m;
+                decimal constraintFixedWeeklyHours = 0m;
+                long minMaxUnits = long.MaxValue;
+                long minNormalUnits = long.MaxValue;
+
+                foreach (var kvp in yearlyDemandMachineHoursTotal)
                 {
-                    result.Recommendation = $"✅ Capacity is SUFFICIENT across all {result.RoutingSteps.Count} sequence steps. Required Headcount: {result.TotalHeadcountZeroOvertime} operators (Standard 7.25h/shift, No Overtime).";
+                    if (kvp.Value <= 0m) continue;
+                    decimal unitHours = kvp.Value / totalYearlyUnits;
+                    decimal fixedHrs = fixedWeeklyMachineHours.GetValueOrDefault(kvp.Key, 0m);
+                    decimal remNormHrs = Math.Max(0m, weeklyNormalAvailPerMachine - fixedHrs);
+                    decimal remTotalHrs = Math.Max(0m, weeklyTotalAvailPerMachine - fixedHrs);
+
+                    long normCapUnits = (long)Math.Floor(remNormHrs / unitHours);
+                    long maxCapUnits = (long)Math.Floor(remTotalHrs / unitHours);
+
+                    if (maxCapUnits < minMaxUnits || (maxCapUnits == minMaxUnits && normCapUnits < minNormalUnits))
+                    {
+                        minMaxUnits = maxCapUnits;
+                        minNormalUnits = normCapUnits;
+                        constraintMach = kvp.Key;
+                        constraintUnitHours = unitHours;
+                        constraintFixedWeeklyHours = fixedHrs;
+                    }
+                }
+
+                decimal bottleneckNormalHours = weeklyNormalAvailPerMachine;
+                decimal bottleneckTotalHours = weeklyTotalAvailPerMachine;
+
+                if (constraintMach != null)
+                {
+                    string mName = machineNames.ContainsKey(constraintMach) ? machineNames[constraintMach].Name : constraintMach;
+                    result.BottleneckConstraintName = $"{constraintMach} - {mName}";
+                    result.WeeklyNormalCapacityUnits = minNormalUnits;
+                    result.WeeklyOvertimeCapacityUnits = Math.Max(0L, minMaxUnits - minNormalUnits);
                 }
                 else
                 {
-                    result.Recommendation = $"✅ Capacity is SUFFICIENT. Required Headcount: {result.TotalHeadcountWithOvertime} operators (with {input.OvertimeLimitPercent}% Overtime) or {result.TotalHeadcountZeroOvertime} operators (Zero OT).";
+                    decimal totalYearlyLabor = yearlyProcessLaborTotal.Values.Sum();
+                    decimal laborPerUnit = totalYearlyLabor / totalYearlyUnits;
+                    if (totalEmployees > 0 && laborPerUnit > 0m)
+                    {
+                        decimal fixedLabor = fixedWeeklyProcessLabor.Values.Sum();
+                        bottleneckNormalHours = totalEmployees * input.AvailableHoursPerPerson;
+                        bottleneckTotalHours = bottleneckNormalHours * (1m + input.OvertimeLimitPercent / 100m);
+                        decimal remNormLabor = Math.Max(0m, bottleneckNormalHours - fixedLabor);
+                        decimal remTotalLabor = Math.Max(0m, bottleneckTotalHours - fixedLabor);
+
+                        long normUnits = (long)Math.Floor(remNormLabor / laborPerUnit);
+                        long maxUnits = (long)Math.Floor(remTotalLabor / laborPerUnit);
+                        result.BottleneckConstraintName = $"Manual Labor ({totalEmployees} Active Operators)";
+                        result.WeeklyNormalCapacityUnits = normUnits;
+                        result.WeeklyOvertimeCapacityUnits = Math.Max(0L, maxUnits - normUnits);
+                        constraintUnitHours = laborPerUnit;
+                        constraintFixedWeeklyHours = fixedLabor;
+                    }
+                    else
+                    {
+                        long avgWeekly = (totalYearlyUnits + weeksPerYear - 1) / weeksPerYear;
+                        result.BottleneckConstraintName = "Manual Station (Unconstrained)";
+                        result.WeeklyNormalCapacityUnits = avgWeekly;
+                        result.WeeklyOvertimeCapacityUnits = (long)Math.Floor(avgWeekly * (input.OvertimeLimitPercent / 100m));
+                        bottleneckNormalHours = input.AvailableHoursPerPerson;
+                        bottleneckTotalHours = bottleneckNormalHours * (1m + input.OvertimeLimitPercent / 100m);
+                    }
+                }
+
+                long cNorm = result.WeeklyNormalCapacityUnits;
+                long cOt = result.WeeklyOvertimeCapacityUnits;
+                long cMax = cNorm + cOt;
+
+                result.RequiredWeeksAtMaxCapacity = cMax > 0
+                    ? Math.Round((decimal)totalYearlyUnits / cMax, 1)
+                    : 0m;
+
+                long remaining = totalYearlyUnits;
+                long cumulative = 0L;
+                long baseLevelTarget = totalYearlyUnits / weeksPerYear;
+                long levelRemainder = totalYearlyUnits % weeksPerYear;
+
+                decimal availPersonZeroOT = input.AvailableHoursPerPerson;
+                decimal availPersonWithOT = input.AvailableHoursPerPerson * (1m + input.OvertimeLimitPercent / 100m);
+                var allProcKeys = fixedWeeklyProcessLabor.Keys.Union(yearlyProcessLaborTotal.Keys).ToList();
+
+                for (int w = 1; w <= weeksPerYear; w++)
+                {
+                    long plannedTarget;
+                    long normalUnits;
+                    long otUnits;
+                    long shortageUnits = 0L;
+
+                    if (breakdownMode == "Levelized")
+                    {
+                        plannedTarget = baseLevelTarget + (w <= levelRemainder ? 1L : 0L);
+                        normalUnits = Math.Min(plannedTarget, cNorm);
+                        otUnits = Math.Min(Math.Max(0L, plannedTarget - normalUnits), cOt);
+                        long actual = normalUnits + otUnits;
+                        shortageUnits = Math.Max(0L, plannedTarget - actual);
+                        cumulative += actual;
+                        remaining = Math.Max(0L, totalYearlyUnits - cumulative);
+                    }
+                    else
+                    {
+                        long weeksAfter = weeksPerYear - w;
+                        long futureNormalCap = weeksAfter * cNorm;
+                        normalUnits = Math.Min(remaining, cNorm);
+                        long remAfterNorm = remaining - normalUnits;
+                        long otNeededNow = Math.Max(0L, remAfterNorm - futureNormalCap);
+                        otUnits = Math.Min(otNeededNow, cOt);
+                        long actual = normalUnits + otUnits;
+                        plannedTarget = remaining > 0 ? Math.Min(remaining, Math.Max(actual, cNorm)) : 0L;
+                        remaining -= actual;
+                        cumulative += actual;
+                        if (w == weeksPerYear && remaining > 0)
+                        {
+                            shortageUnits = remaining;
+                            plannedTarget = actual + remaining;
+                        }
+                    }
+
+                    long scheduled = normalUnits + otUnits;
+                    if (scheduled > 0)
+                        result.ActiveProductionWeeks++;
+                    if (result.CompletionWeek == null && cumulative >= totalYearlyUnits)
+                        result.CompletionWeek = w;
+
+                    decimal hoursUsed = constraintUnitHours > 0m
+                        ? constraintFixedWeeklyHours + (scheduled * constraintUnitHours)
+                        : 0m;
+
+                    int weekHeadcount = 0;
+                    if (scheduled > 0 || fixedWeeklyProcessLabor.Count > 0)
+                    {
+                        decimal personCap = otUnits > 0 ? availPersonWithOT : availPersonZeroOT;
+                        if (personCap > 0m)
+                        {
+                            foreach (var pk in allProcKeys)
+                            {
+                                decimal pHrs = fixedWeeklyProcessLabor.GetValueOrDefault(pk, 0m)
+                                    + (yearlyProcessLaborTotal.TryGetValue(pk, out var yTot) ? scheduled * (yTot / totalYearlyUnits) : 0m);
+                                if (pHrs > 0m)
+                                    weekHeadcount += (int)Math.Ceiling(pHrs / personCap);
+                            }
+                        }
+                    }
+
+                    string status = shortageUnits > 0 || (scheduled == 0 && remaining > 0)
+                        ? "Shortage"
+                        : scheduled == 0
+                            ? "Completed"
+                            : otUnits > 0
+                                ? "Overtime"
+                                : "Normal";
+
+                    result.WeeklyBreakdowns.Add(new WeeklyDemandBreakdown
+                    {
+                        WeekNumber = w,
+                        PlannedDemandUnits = plannedTarget,
+                        NormalCapacityUnits = normalUnits,
+                        OvertimeCapacityUnits = otUnits,
+                        ShortageUnits = shortageUnits,
+                        CumulativeUnits = cumulative,
+                        RemainingYearlyDemand = remaining,
+                        BottleneckHoursUsed = hoursUsed,
+                        BottleneckNormalHours = bottleneckNormalHours,
+                        BottleneckTotalHours = bottleneckTotalHours,
+                        RequiredHeadcount = weekHeadcount,
+                        Status = status
+                    });
+                }
+
+                result.TotalYearlyDeliverableUnits = cumulative;
+                result.TotalYearlyShortageUnits = Math.Max(0L, totalYearlyUnits - cumulative);
+            }
+
+            // 6. Formulation of Actionable Simulation Recommendation
+            if (result.IsCapacityMet)
+            {
+                string headcountInfo = (result.TotalHeadcountZeroOvertime == result.TotalHeadcountWithOvertime || input.OvertimeLimitPercent == 0)
+                    ? $"{result.TotalHeadcountZeroOvertime} operators (Standard 7.25h/shift, No Overtime)"
+                    : $"{result.TotalHeadcountWithOvertime} operators (with {input.OvertimeLimitPercent}% Overtime) or {result.TotalHeadcountZeroOvertime} operators (Zero OT)";
+
+                if (result.HasYearlyDemand)
+                {
+                    string finishNote = breakdownMode == "CapacityFill" && result.CompletionWeek.HasValue
+                        ? $"Target completed by Week {result.CompletionWeek} of {weeksPerYear} working weeks."
+                        : $"Evenly distributed across {weeksPerYear} working weeks.";
+                    result.Recommendation = $"✅ Capacity is SUFFICIENT for Yearly Demand ({result.TotalYearlyDemandUnits:N0} units). Weekly Capacity Owned: {result.WeeklyNormalCapacityUnits:N0} units/wk Normal ({result.WeeklyMaxCapacityUnits:N0} units/wk inc. OT). {finishNote} Avg Headcount: {headcountInfo}.";
+                }
+                else
+                {
+                    result.Recommendation = $"✅ Capacity is SUFFICIENT across all {result.RoutingSteps.Count} sequence steps. Required Headcount: {headcountInfo}.";
                 }
             }
             else
             {
-                var topBottlenecks = string.Join(", ", result.Bottlenecks.OrderByDescending(b => b.UtilizationPercent).Take(3).Select(b => $"{b.MachCode} ({b.UtilizationPercent:N0}%)"));
-                result.Recommendation = $"⚠️ CAPACITY SHORTAGE detected on {result.Bottlenecks.Count} bottleneck machines: {topBottlenecks}. Required Headcount: {result.TotalHeadcountZeroOvertime} operators (No OT) or {result.TotalHeadcountWithOvertime} operators (with {input.OvertimeLimitPercent}% OT).";
+                var topBottlenecks = result.Bottlenecks.Count > 0
+                    ? string.Join(", ", result.Bottlenecks.OrderByDescending(b => b.UtilizationPercent).Take(3).Select(b => $"{b.MachCode} ({b.UtilizationPercent:N0}%)"))
+                    : result.BottleneckConstraintName;
+
+                if (result.HasYearlyDemand && result.TotalYearlyShortageUnits > 0)
+                {
+                    string weeksNeeded = result.RequiredWeeksAtMaxCapacity > 0
+                        ? $" (requires ~{result.RequiredWeeksAtMaxCapacity:N1} weeks at max capacity)"
+                        : "";
+                    result.Recommendation = $"⚠️ CAPACITY SHORTAGE for Yearly Demand ({result.TotalYearlyDemandUnits:N0} units): Max deliverable in {weeksPerYear} weeks is {result.TotalYearlyDeliverableUnits:N0} units — Shortage of {result.TotalYearlyShortageUnits:N0} units{weeksNeeded}. Bottleneck: {topBottlenecks}. Avg Headcount: {result.TotalHeadcountZeroOvertime} (No OT) / {result.TotalHeadcountWithOvertime} ({input.OvertimeLimitPercent}% OT).";
+                }
+                else
+                {
+                    result.Recommendation = $"⚠️ CAPACITY SHORTAGE detected on {result.Bottlenecks.Count} bottleneck machines: {topBottlenecks}. Required Headcount: {result.TotalHeadcountZeroOvertime} operators (No OT) or {result.TotalHeadcountWithOvertime} operators (with {input.OvertimeLimitPercent}% OT).";
+                }
             }
 
             return result;

@@ -81,6 +81,8 @@ namespace LssTraining.Web.Models
         public decimal LaborHour { get; set; }
         public decimal LimitReject { get; set; } // Yield
         public decimal DemandUnits { get; set; }
+        public int InputDemandUnits { get; set; }
+        public string DemandPeriod { get; set; } = "Weekly";
         public decimal MachineHoursRequired { get; set; }
         public decimal LaborHoursRequired { get; set; }
         public bool IsMachineStep { get; set; }
@@ -94,6 +96,7 @@ namespace LssTraining.Web.Models
         public string? DeviceGroupCode { get; set; }
         public string? DeviceCode { get; set; }
         public int DemandQuantity { get; set; }
+        public string DemandPeriod { get; set; } = "Weekly"; // "Weekly" or "Yearly"
     }
 
     public class SimulationInput
@@ -102,6 +105,11 @@ namespace LssTraining.Web.Models
         public decimal OvertimeLimitPercent { get; set; }
         public string ShiftSystem { get; set; } = "5-2"; // 5-2 or 6-1
         public int ShiftsPerDay { get; set; } = 3;
+        public int WorkingWeeksPerYear { get; set; } = 52;
+        public string YearlyBreakdownMode { get; set; } = "CapacityFill"; // "CapacityFill" or "Levelized"
+
+        public int EffectiveWeeksPerYear => WorkingWeeksPerYear >= 1 && WorkingWeeksPerYear <= 53 ? WorkingWeeksPerYear : 52;
+        public bool HasYearlyDemand => Demands != null && Demands.Any(d => d.DemandQuantity > 0 && string.Equals(d.DemandPeriod, "Yearly", System.StringComparison.OrdinalIgnoreCase));
         
         public int WorkingDays => ShiftSystem == "6-1" ? 6 : 5;
 
@@ -145,6 +153,24 @@ namespace LssTraining.Web.Models
         public decimal UtilizationPercent => TotalAvailableHours > 0 ? (RequiredHours / TotalAvailableHours) * 100 : 0;
     }
 
+    public class WeeklyDemandBreakdown
+    {
+        public int WeekNumber { get; set; }
+        public long PlannedDemandUnits { get; set; }
+        public long NormalCapacityUnits { get; set; }
+        public long OvertimeCapacityUnits { get; set; }
+        public long TotalScheduledUnits => NormalCapacityUnits + OvertimeCapacityUnits;
+        public long ShortageUnits { get; set; }
+        public long CumulativeUnits { get; set; }
+        public long RemainingYearlyDemand { get; set; }
+        public decimal BottleneckHoursUsed { get; set; }
+        public decimal BottleneckNormalHours { get; set; }
+        public decimal BottleneckTotalHours { get; set; }
+        public decimal UtilizationPercent => BottleneckTotalHours > 0 ? (BottleneckHoursUsed / BottleneckTotalHours) * 100m : 0m;
+        public int RequiredHeadcount { get; set; }
+        public string Status { get; set; } = "Normal"; // "Normal", "Overtime", "Shortage", "Completed"
+    }
+
     public class SimulationResult
     {
         // Global aggregate
@@ -153,8 +179,24 @@ namespace LssTraining.Web.Models
         public decimal AvailableOvertimeHours { get; set; }
         public decimal TotalAvailableHours => AvailableNormalHours + AvailableOvertimeHours;
         public decimal ShortageOrSurplus => TotalAvailableHours - RequiredHours;
-        public bool IsCapacityMet => ShortageOrSurplus >= 0;
+        public bool IsCapacityMet => ShortageOrSurplus >= 0 && Bottlenecks.Count == 0 && TotalYearlyShortageUnits == 0;
         public string Recommendation { get; set; } = string.Empty;
+
+        // Yearly-to-Weekly capacity breakdown
+        public bool HasYearlyDemand { get; set; }
+        public int WorkingWeeksPerYear { get; set; } = 52;
+        public string YearlyBreakdownMode { get; set; } = "CapacityFill";
+        public string BottleneckConstraintName { get; set; } = string.Empty;
+        public long TotalYearlyDemandUnits { get; set; }
+        public long WeeklyNormalCapacityUnits { get; set; }
+        public long WeeklyOvertimeCapacityUnits { get; set; }
+        public long WeeklyMaxCapacityUnits => WeeklyNormalCapacityUnits + WeeklyOvertimeCapacityUnits;
+        public long TotalYearlyDeliverableUnits { get; set; }
+        public long TotalYearlyShortageUnits { get; set; }
+        public int ActiveProductionWeeks { get; set; }
+        public int? CompletionWeek { get; set; }
+        public decimal RequiredWeeksAtMaxCapacity { get; set; }
+        public List<WeeklyDemandBreakdown> WeeklyBreakdowns { get; set; } = new List<WeeklyDemandBreakdown>();
 
         // Operator shift configuration & labor hours
         public decimal OperatorHoursPerShift { get; set; } = 7.25m;

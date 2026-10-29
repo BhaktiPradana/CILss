@@ -59,11 +59,15 @@
                 </div>
                 <div class="card-body px-4 pb-4">
                     <form method="post" asp-page-handler="Simulate" id="simForm">
+                        @{
+                            var hasAnyYearlyInput = Model.Input.HasYearlyDemand;
+                        }
                         <div id="demands-container">
                             @for(int i = 0; i < Math.Max(1, Model.Input.Demands?.Count ?? 1); i++)
                             {
                                 var demand = Model.Input.Demands != null && Model.Input.Demands.Count > i ? Model.Input.Demands[i] : new LssTraining.Web.Models.SimulationDemand();
                                 var isDeviceMode = demand.SelectionType == "Device";
+                                var isYearlyPeriod = string.Equals(demand.DemandPeriod, "Yearly", StringComparison.OrdinalIgnoreCase);
                                 <div class="row g-2 align-items-end demand-row mb-3 p-3 bg-light rounded-3 border">
                                     <div class="col-md-2">
                                         <label class="form-label fw-medium small mb-1">Target Mode</label>
@@ -100,7 +104,7 @@
                                             }
                                         </select>
                                     </div>
-                                    <div class="col-md-4 device-filter-col" style="@(isDeviceMode ? "display:none;" : "")">
+                                    <div class="col-md-3 device-filter-col" style="@(isDeviceMode ? "display:none;" : "")">
                                         <label class="form-label fw-medium small mb-1">Device in Family <span class="text-muted">(Optional)</span></label>
                                         <select name="Input.Demands[@i].DeviceCode" class="form-select form-select-sm family-device-select">
                                             <option value="">-- Family Master Sequence --</option>
@@ -120,7 +124,7 @@
                                             }
                                         </select>
                                     </div>
-                                    <div class="col-md-7 direct-device-col" style="@(isDeviceMode ? "" : "display:none;")">
+                                    <div class="col-md-6 direct-device-col" style="@(isDeviceMode ? "" : "display:none;")">
                                         <label class="form-label fw-medium small mb-1">Specific Device from Master Database</label>
                                         <select class="form-select form-select-sm direct-device-select" onchange="onDirectDeviceChange(this)">
                                             <option value="">-- Choose Specific Device --</option>
@@ -140,9 +144,23 @@
                                             }
                                         </select>
                                     </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label fw-medium small mb-1">Demand (Units)</label>
-                                        <input name="Input.Demands[@i].DemandQuantity" type="number" class="form-control form-control-sm" min="1" value="@(demand.DemandQuantity > 0 ? demand.DemandQuantity : 10000)" required />
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-medium small mb-1">Demand (Units &amp; Period)</label>
+                                        <div class="input-group input-group-sm">
+                                            <input name="Input.Demands[@i].DemandQuantity" type="number" class="form-control demand-qty-input" min="1" value="@(demand.DemandQuantity > 0 ? demand.DemandQuantity : 10000)" aria-label="Demand Quantity" required />
+                                            <select name="Input.Demands[@i].DemandPeriod" class="form-select demand-period-select fw-semibold text-primary bg-white" style="max-width: 108px;" aria-label="Demand Period" onchange="onDemandPeriodChange()">
+                                                @if (isYearlyPeriod)
+                                                {
+                                                    <option value="Weekly">Weekly</option>
+                                                    <option value="Yearly" selected>Yearly</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="Weekly" selected>Weekly</option>
+                                                    <option value="Yearly">Yearly</option>
+                                                }
+                                            </select>
+                                        </div>
                                     </div>
                                     <div class="col-md-1">
                                         @if(i == 0) {
@@ -153,6 +171,28 @@
                                     </div>
                                 </div>
                             }
+                        </div>
+
+                        <div id="yearly-options-panel" class="p-3 mb-2 rounded-3 border border-primary-subtle bg-primary bg-opacity-10" style="@(hasAnyYearlyInput ? "" : "display:none;")">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label asp-for="Input.WorkingWeeksPerYear" class="form-label fw-semibold small text-primary mb-1">Working Weeks / Year</label>
+                                    <div class="input-group input-group-sm">
+                                        <input asp-for="Input.WorkingWeeksPerYear" type="number" class="form-control bg-white" min="1" max="53" value="@(Model.Input.WorkingWeeksPerYear > 0 ? Model.Input.WorkingWeeksPerYear : 52)" />
+                                        <span class="input-group-text bg-white text-muted">weeks/yr</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <label asp-for="Input.YearlyBreakdownMode" class="form-label fw-semibold small text-primary mb-1">Weekly Breakdown Strategy</label>
+                                    <select asp-for="Input.YearlyBreakdownMode" class="form-select form-select-sm bg-white">
+                                        <option value="CapacityFill">Max Weekly Capacity Allocation (Capacity-Driven)</option>
+                                        <option value="Levelized">Evenly Distributed Across Year / Heijunka (Levelized)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 small text-muted">
+                                    <strong>Yearly</strong> demand is automatically broken down by week (W1–W@(Model.Input.EffectiveWeeksPerYear)) based on bottleneck machine &amp; shift capacity.
+                                </div>
+                            </div>
                         </div>
                         <div class="row g-3 align-items-end mt-2 pt-3 border-top">
                             <div class="col-md-2">
@@ -192,7 +232,7 @@
                                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                                 <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.896.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
                             </svg>
-                            <span>Standar kapasitas jam kerja operator: <strong>7.25 jam per shift</strong> (Kapasitas normal: @(Model.Input.WorkingDays * Model.Input.NormalHoursPerShift) jam kerja per operator/minggu tanpa lembur).</span>
+                            <span>Standard operator working hours: <strong>7.25 hours per shift</strong> (Normal capacity: @(Model.Input.WorkingDays * Model.Input.NormalHoursPerShift) working hours per operator/week without overtime).</span>
                         </div>
                     </form>
 
@@ -205,24 +245,19 @@
         const familyCol = row.querySelector('.family-group-col');
         const deviceFilterCol = row.querySelector('.device-filter-col');
         const directDeviceCol = row.querySelector('.direct-device-col');
-        const familySelect = row.querySelector('.family-select');
-        const familyDeviceSelect = row.querySelector('.family-device-select');
         const directDeviceSelect = row.querySelector('.direct-device-select');
 
         if (isDevice) {
             familyCol.style.display = 'none';
             deviceFilterCol.style.display = 'none';
             directDeviceCol.style.display = '';
-            familySelect.required = false;
-            // Transfer selected value if any
             if (directDeviceSelect.value) {
-                familyDeviceSelect.value = directDeviceSelect.value;
+                onDirectDeviceChange(directDeviceSelect);
             }
         } else {
             familyCol.style.display = '';
             deviceFilterCol.style.display = '';
             directDeviceCol.style.display = 'none';
-            familySelect.required = true;
         }
     }
 
@@ -252,20 +287,37 @@
         const familySelect = row.querySelector('.family-select');
         const selectedCode = directSelect.value;
 
-        // Sync hidden input for DeviceCode
-        familyDeviceSelect.value = selectedCode;
         if (selectedCode && allDeviceData) {
             const found = allDeviceData.find(d => (d.DeviceCode || d.deviceCode) === selectedCode);
             if (found && familySelect) {
                 familySelect.value = found.DeviceGroupCode || found.deviceGroupCode;
+                onFamilyChange(familySelect);
             }
+        }
+        if (selectedCode && !Array.from(familyDeviceSelect.options).some(o => o.value === selectedCode)) {
+            const opt = document.createElement('option');
+            opt.value = selectedCode;
+            opt.textContent = selectedCode;
+            familyDeviceSelect.appendChild(opt);
+        }
+        familyDeviceSelect.value = selectedCode;
+    }
+
+    function onDemandPeriodChange() {
+        const periodSelects = document.querySelectorAll('.demand-period-select');
+        const hasYearly = Array.from(periodSelects).some(s => s.value === 'Yearly');
+        const panel = document.getElementById('yearly-options-panel');
+        if (panel) {
+            panel.style.display = hasYearly ? '' : 'none';
         }
     }
 
     let rowIdx = @(Math.Max(1, Model.Input.Demands?.Count ?? 1));
     function addDemandRow() {
         const container = document.getElementById('demands-container');
-        const firstRow = container.querySelector('.demand-row').cloneNode(true);
+        const sourceRow = container.querySelector('.demand-row');
+        const sourcePeriod = sourceRow.querySelector('.demand-period-select')?.value || 'Weekly';
+        const firstRow = sourceRow.cloneNode(true);
 
         firstRow.querySelector('.selection-type-select').name = `Input.Demands[${rowIdx}].SelectionType`;
         firstRow.querySelector('.selection-type-select').value = 'Family';
@@ -281,9 +333,13 @@
         firstRow.querySelector('.device-filter-col').style.display = '';
         firstRow.querySelector('.direct-device-col').style.display = 'none';
 
-        const qtyInput = firstRow.querySelector('input[type="number"]');
+        const qtyInput = firstRow.querySelector('.demand-qty-input');
         qtyInput.name = `Input.Demands[${rowIdx}].DemandQuantity`;
-        qtyInput.value = '10000';
+        qtyInput.value = sourcePeriod === 'Yearly' ? '520000' : '10000';
+
+        const periodSelect = firstRow.querySelector('.demand-period-select');
+        periodSelect.name = `Input.Demands[${rowIdx}].DemandPeriod`;
+        periodSelect.value = sourcePeriod;
 
         const btn = firstRow.querySelector('button');
         btn.className = 'btn btn-outline-danger btn-sm w-100 fw-bold shadow-sm';
@@ -292,6 +348,7 @@
 
         container.appendChild(firstRow);
         rowIdx++;
+        onDemandPeriodChange();
     }
 
     function removeDemandRow(btn) {
@@ -301,39 +358,214 @@
             row.querySelector('.selection-type-select').name = `Input.Demands[${index}].SelectionType`;
             row.querySelector('.family-select').name = `Input.Demands[${index}].DeviceGroupCode`;
             row.querySelector('.family-device-select').name = `Input.Demands[${index}].DeviceCode`;
-            row.querySelector('input[type="number"]').name = `Input.Demands[${index}].DemandQuantity`;
+            row.querySelector('.demand-qty-input').name = `Input.Demands[${index}].DemandQuantity`;
+            row.querySelector('.demand-period-select').name = `Input.Demands[${index}].DemandPeriod`;
         });
         rowIdx = rows.length;
+        onDemandPeriodChange();
     }
 </script>
 
                     @if (Model.Result != null)
                     {
                         <hr class="my-4" />
-                        <div class="p-4 rounded-4 @(Model.Result.IsCapacityMet && Model.Result.Bottlenecks.Count == 0 ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
+                        <div class="p-4 rounded-4 @(Model.Result.IsCapacityMet ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
                             <div class="row">
                                 <div class="col-md-3 border-end border-dark-subtle">
                                     <div class="text-muted small fw-bold text-uppercase">Total Bottlenecks</div>
-                                    <h4 class="fw-bold @(Model.Result.Bottlenecks.Count == 0 ? "text-success" : "text-danger")">@Model.Result.Bottlenecks.Count</h4>
+                                    <h4 class="fw-bold @(Model.Result.Bottlenecks.Count == 0 && Model.Result.TotalYearlyShortageUnits == 0 ? "text-success" : "text-danger")">@Model.Result.Bottlenecks.Count</h4>
                                 </div>
                                 <div class="col-md-3 border-end border-dark-subtle">
-                                    <div class="text-muted small fw-bold text-uppercase">Required Hours</div>
-                                    <h4 class="fw-bold">@Model.Result.RequiredHours.ToString("N1") h</h4>
+                                    <div class="text-muted small fw-bold text-uppercase">Weekly Required Hours</div>
+                                    <h4 class="fw-bold mb-0">@Model.Result.RequiredHours.ToString("N1") h/wk</h4>
+                                    @if (Model.Result.HasYearlyDemand)
+                                    {
+                                        <small class="text-muted">Annual (@Model.Result.WorkingWeeksPerYear w): @((Model.Result.RequiredHours * Model.Result.WorkingWeeksPerYear).ToString("N0")) h</small>
+                                    }
                                 </div>
                                 <div class="col-md-3 border-end border-dark-subtle">
-                                    <div class="text-muted small fw-bold text-uppercase">Available Hours (Inc OT)</div>
-                                    <h4 class="fw-bold">@Model.Result.TotalAvailableHours.ToString("N1") h</h4>
+                                    <div class="text-muted small fw-bold text-uppercase">Weekly Available (Inc OT)</div>
+                                    <h4 class="fw-bold mb-0">@Model.Result.TotalAvailableHours.ToString("N1") h/wk</h4>
+                                    @if (Model.Result.HasYearlyDemand)
+                                    {
+                                        <small class="text-muted">Annual (@Model.Result.WorkingWeeksPerYear w): @((Model.Result.TotalAvailableHours * Model.Result.WorkingWeeksPerYear).ToString("N0")) h</small>
+                                    }
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="text-muted small fw-bold text-uppercase">Shortage / Surplus</div>
-                                    <h4 class="fw-bold @(Model.Result.IsCapacityMet && Model.Result.Bottlenecks.Count == 0 ? "text-success" : "text-danger")">
-                                        @(Model.Result.ShortageOrSurplus > 0 ? "+" : "")@Model.Result.ShortageOrSurplus.ToString("N1") h
+                                    <div class="text-muted small fw-bold text-uppercase">Weekly Shortage / Surplus</div>
+                                    <h4 class="fw-bold mb-0 @(Model.Result.IsCapacityMet ? "text-success" : "text-danger")">
+                                        @(Model.Result.ShortageOrSurplus > 0 ? "+" : "")@Model.Result.ShortageOrSurplus.ToString("N1") h/wk
                                     </h4>
+                                    @if (Model.Result.HasYearlyDemand)
+                                    {
+                                        var annualDiff = Model.Result.ShortageOrSurplus * Model.Result.WorkingWeeksPerYear;
+                                        <small class="text-muted">Annual: @(annualDiff > 0 ? "+" : "")@annualDiff.ToString("N0") h</small>
+                                    }
                                 </div>
                             </div>
-                            <div class="alert @(Model.Result.IsCapacityMet && Model.Result.Bottlenecks.Count == 0 ? "alert-success" : "alert-danger") mt-3 mb-4 border-0 fw-medium">
+                            <div class="alert @(Model.Result.IsCapacityMet ? "alert-success" : "alert-danger") mt-3 mb-4 border-0 fw-medium">
                                 @Model.Result.Recommendation
                             </div>
+
+                            @if (Model.Result.HasYearlyDemand && Model.Result.WeeklyBreakdowns != null && Model.Result.WeeklyBreakdowns.Count > 0)
+                            {
+                                var avgWeeklyDemand = Math.Round((decimal)Model.Result.TotalYearlyDemandUnits / Model.Result.WorkingWeeksPerYear, 0);
+                                var fulfillmentPct = Model.Result.TotalYearlyDemandUnits > 0
+                                    ? ((decimal)Model.Result.TotalYearlyDeliverableUnits / Model.Result.TotalYearlyDemandUnits) * 100m
+                                    : 100m;
+                                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                                        <div>
+                                            <h5 class="fw-bold text-dark mb-1">
+                                                Yearly Demand &rarr; Weekly Capacity Breakdown (W1&ndash;W@(Model.Result.WorkingWeeksPerYear))
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">
+                                                    @(Model.Result.YearlyBreakdownMode == "Levelized" ? "Levelized / Heijunka" : "Capacity-Driven / Weekly")
+                                                </span>
+                                            </h5>
+                                            <small class="text-muted">
+                                                Binding Constraint (TOC): <strong class="text-dark">@Model.Result.BottleneckConstraintName</strong>
+                                                &bull; Normal Capacity: <strong>@Model.Result.WeeklyNormalCapacityUnits.ToString("N0") pcs/wk</strong>
+                                                &bull; Max + OT (@Model.Input.OvertimeLimitPercent%): <strong>@Model.Result.WeeklyMaxCapacityUnits.ToString("N0") pcs/wk</strong>
+                                            </small>
+                                        </div>
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="Filter weeks">
+                                            <button type="button" class="btn btn-outline-primary active" id="btnShowAllWeeks" onclick="filterWeeklyRows('all')">All Weeks (@Model.Result.WorkingWeeksPerYear)</button>
+                                            <button type="button" class="btn btn-outline-primary" id="btnShowActiveWeeks" onclick="filterWeeklyRows('active')">Active Only (@Model.Result.ActiveProductionWeeks)</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-3 mb-4">
+                                        <div class="col-sm-6 col-lg-3">
+                                            <div class="p-3 rounded-3 bg-light border h-100">
+                                                <div class="text-muted small fw-semibold text-uppercase">Total Yearly Demand</div>
+                                                <div class="fs-5 fw-bold text-dark">@Model.Result.TotalYearlyDemandUnits.ToString("N0") <small class="fw-normal text-muted">units</small></div>
+                                                <small class="text-muted">Average: @avgWeeklyDemand.ToString("N0") units/wk</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6 col-lg-3">
+                                            <div class="p-3 rounded-3 bg-light border h-100">
+                                                <div class="text-muted small fw-semibold text-uppercase">Weekly Capacity Owned</div>
+                                                <div class="fs-5 fw-bold text-primary">@Model.Result.WeeklyMaxCapacityUnits.ToString("N0") <small class="fw-normal text-muted">pcs/wk</small></div>
+                                                <small class="text-muted">Normal: @Model.Result.WeeklyNormalCapacityUnits.ToString("N0") | OT: +@Model.Result.WeeklyOvertimeCapacityUnits.ToString("N0")</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6 col-lg-3">
+                                            <div class="p-3 rounded-3 bg-light border h-100">
+                                                <div class="text-muted small fw-semibold text-uppercase">Deliverable Annual Output</div>
+                                                <div class="fs-5 fw-bold @(Model.Result.TotalYearlyShortageUnits == 0 ? "text-success" : "text-danger")">
+                                                    @Model.Result.TotalYearlyDeliverableUnits.ToString("N0") <small class="fw-normal text-muted">units</small>
+                                                </div>
+                                                <small class="text-muted">Fulfillment: @fulfillmentPct.ToString("N1")% of annual target</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6 col-lg-3">
+                                            <div class="p-3 rounded-3 bg-light border h-100">
+                                                <div class="text-muted small fw-semibold text-uppercase">
+                                                    @(Model.Result.TotalYearlyShortageUnits == 0 ? "Completion Horizon" : "Annual Capacity Shortage")
+                                                </div>
+                                                @if (Model.Result.TotalYearlyShortageUnits == 0)
+                                                {
+                                                    <div class="fs-5 fw-bold text-success">
+                                                        Week @(Model.Result.CompletionWeek ?? Model.Result.WorkingWeeksPerYear)
+                                                    </div>
+                                                    <small class="text-muted">Active @Model.Result.ActiveProductionWeeks of @Model.Result.WorkingWeeksPerYear working weeks</small>
+                                                }
+                                                else
+                                                {
+                                                    <div class="fs-5 fw-bold text-danger">
+                                                        -@Model.Result.TotalYearlyShortageUnits.ToString("N0") <small class="fw-normal">units</small>
+                                                    </div>
+                                                    <small class="text-danger">Requires ~@Model.Result.RequiredWeeksAtMaxCapacity.ToString("N1") weeks at max capacity</small>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <canvas id="weeklyBreakdownChart" height="90"></canvas>
+                                    </div>
+
+                                    <div class="table-responsive" style="max-height: 440px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover table-bordered align-middle mb-0" id="weeklyBreakdownTable">
+                                            <thead class="table-light sticky-top shadow-sm">
+                                                <tr>
+                                                    <th class="text-center" style="width: 72px;">Week</th>
+                                                    <th class="text-end">Target Demand</th>
+                                                    <th class="text-end">Normal Allocation</th>
+                                                    <th class="text-end">OT Allocation</th>
+                                                    <th class="text-end">Deliverable Output</th>
+                                                    <th class="text-end">Shortage</th>
+                                                    <th class="text-end">Cumulative Output</th>
+                                                    <th class="text-end">Remaining Yearly</th>
+                                                    <th class="text-end">Bottleneck Load</th>
+                                                    <th class="text-end">Headcount</th>
+                                                    <th class="text-center">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var wk in Model.Result.WeeklyBreakdowns)
+                                                {
+                                                    var isIdle = wk.TotalScheduledUnits == 0 && wk.ShortageUnits == 0;
+                                                    <tr class="weekly-row @(isIdle ? "weekly-row-idle text-muted" : "")">
+                                                        <td class="text-center fw-bold">W@(wk.WeekNumber.ToString("D2"))</td>
+                                                        <td class="text-end">@wk.PlannedDemandUnits.ToString("N0")</td>
+                                                        <td class="text-end">@wk.NormalCapacityUnits.ToString("N0")</td>
+                                                        <td class="text-end @(wk.OvertimeCapacityUnits > 0 ? "text-warning-emphasis fw-semibold" : "text-muted")">
+                                                            @(wk.OvertimeCapacityUnits > 0 ? "+" + wk.OvertimeCapacityUnits.ToString("N0") : "-")
+                                                        </td>
+                                                        <td class="text-end fw-bold @(wk.TotalScheduledUnits > 0 ? "text-primary" : "text-muted")">
+                                                            @wk.TotalScheduledUnits.ToString("N0")
+                                                        </td>
+                                                        <td class="text-end @(wk.ShortageUnits > 0 ? "text-danger fw-bold" : "text-muted")">
+                                                            @(wk.ShortageUnits > 0 ? "-" + wk.ShortageUnits.ToString("N0") : "-")
+                                                        </td>
+                                                        <td class="text-end">@wk.CumulativeUnits.ToString("N0")</td>
+                                                        <td class="text-end">@wk.RemainingYearlyDemand.ToString("N0")</td>
+                                                        <td class="text-end small">
+                                                            @wk.BottleneckHoursUsed.ToString("N1") / @wk.BottleneckTotalHours.ToString("N1") h
+                                                            <span class="text-muted">(@wk.UtilizationPercent.ToString("N0")%)</span>
+                                                        </td>
+                                                        <td class="text-end fw-medium">@wk.RequiredHeadcount</td>
+                                                        <td class="text-center">
+                                                            @if (wk.Status == "Shortage")
+                                                            {
+                                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Shortage</span>
+                                                            }
+                                                            else if (wk.Status == "Overtime")
+                                                            {
+                                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Normal + OT</span>
+                                                            }
+                                                            else if (wk.Status == "Completed")
+                                                            {
+                                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Completed</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-success-subtle text-success border border-success-subtle">Normal</span>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                            <tfoot class="table-light fw-bold">
+                                                <tr>
+                                                    <td class="text-center">TOTAL</td>
+                                                    <td class="text-end">@Model.Result.TotalYearlyDemandUnits.ToString("N0")</td>
+                                                    <td class="text-end">@Model.Result.WeeklyBreakdowns.Sum(x => x.NormalCapacityUnits).ToString("N0")</td>
+                                                    <td class="text-end text-warning-emphasis">@Model.Result.WeeklyBreakdowns.Sum(x => x.OvertimeCapacityUnits).ToString("N0")</td>
+                                                    <td class="text-end text-primary">@Model.Result.TotalYearlyDeliverableUnits.ToString("N0")</td>
+                                                    <td class="text-end @(Model.Result.TotalYearlyShortageUnits > 0 ? "text-danger" : "text-success")">
+                                                        @(Model.Result.TotalYearlyShortageUnits > 0 ? "-" + Model.Result.TotalYearlyShortageUnits.ToString("N0") : "0")
+                                                    </td>
+                                                    <td colspan="5" class="text-end text-muted small fw-normal">
+                                                        Total Annual Capacity (@Model.Result.WorkingWeeksPerYear weeks): Normal @((Model.Result.WeeklyNormalCapacityUnits * Model.Result.WorkingWeeksPerYear).ToString("N0")) pcs | Max + OT @((Model.Result.WeeklyMaxCapacityUnits * Model.Result.WorkingWeeksPerYear).ToString("N0")) pcs
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
                             
                             @if (Model.Result.MachineResults != null && Model.Result.MachineResults.Count > 0)
                             {
@@ -385,10 +617,10 @@
                                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                                         <div>
                                             <h6 class="fw-bold text-primary mb-0"><i class="bi bi-people-fill me-2"></i>Required Manpower (Headcount)</h6>
-                                            <small class="text-muted">Dihitung berdasarkan standar <strong>7.25 jam kerja/shift</strong> per operator (@(Model.Input.WorkingDays * Model.Input.NormalHoursPerShift) jam normal/minggu).</small>
+                                            <small class="text-muted">Calculated based on standard <strong>7.25 working hrs/shift</strong> per operator (@(Model.Input.WorkingDays * Model.Input.NormalHoursPerShift) normal hrs/week).</small>
                                         </div>
                                         <span class="badge bg-light text-dark border px-3 py-2 shadow-sm">
-                                            <i class="bi bi-person-check text-primary me-1"></i> Standar Operator: <strong>7.25 jam/shift</strong> &bull; Total Labor: <strong>@Model.Result.TotalLaborHoursRequired.ToString("N1") jam</strong>
+                                            <i class="bi bi-person-check text-primary me-1"></i> Operator Standard: <strong>7.25 hrs/shift</strong> &bull; Total Labor: <strong>@Model.Result.TotalLaborHoursRequired.ToString("N1") hrs</strong>
                                         </span>
                                     </div>
                                     <div class="table-responsive">
@@ -436,7 +668,7 @@
                                                 <i class="bi bi-diagram-3-fill me-2 text-primary"></i>Verified Production Routing Sequence
                                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-2">@Model.Result.RoutingSteps.Count Steps in Database</span>
                                             </h6>
-                                            <small class="text-muted">Urutan sequence proses produksi, alokasi mesin, dan estimasi waktu siklus (UPH) berdasarkan data database terbaru.</small>
+                                            <small class="text-muted">Production process sequence, machine allocation, and estimated cycle time (UPH) based on the latest synchronized database.</small>
                                         </div>
                                         <span class="badge bg-light text-dark border px-3 py-2 shadow-sm">
                                             Total Devices Simulated: <strong>@Model.Result.TotalDevicesSimulated</strong>
@@ -483,7 +715,13 @@
                                                             }
                                                         </td>
                                                         <td class="text-end">@(step.UPH > 0 ? step.UPH.ToString("N0") + " /h" : "-")</td>
-                                                        <td class="text-end">@step.DemandUnits.ToString("N0")</td>
+                                                        <td class="text-end">
+                                                            <span>@step.DemandUnits.ToString("N0") /wk</span>
+                                                            @if (step.DemandPeriod == "Yearly")
+                                                            {
+                                                                <small class="text-muted d-block">@step.InputDemandUnits.ToString("N0") /yr</small>
+                                                            }
+                                                        </td>
                                                         <td class="text-end fw-bold @(step.MachineHoursRequired > 0 ? "text-dark" : "text-muted")">
                                                             @(step.MachineHoursRequired > 0 ? step.MachineHoursRequired.ToString("N1") + " h" : "-")
                                                         </td>
@@ -600,14 +838,113 @@
 </div>
 
 @section Scripts {
-    @if (Model.Result != null && Model.Result.MachineResults != null && Model.Result.MachineResults.Count > 0)
+    @if (Model.Result != null && ((Model.Result.MachineResults != null && Model.Result.MachineResults.Count > 0) || (Model.Result.WeeklyBreakdowns != null && Model.Result.WeeklyBreakdowns.Count > 0)))
     {
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
+            function filterWeeklyRows(mode) {
+                const idleRows = document.querySelectorAll('.weekly-row-idle');
+                idleRows.forEach(r => r.style.display = mode === 'active' ? 'none' : '');
+                document.getElementById('btnShowAllWeeks')?.classList.toggle('active', mode !== 'active');
+                document.getElementById('btnShowActiveWeeks')?.classList.toggle('active', mode === 'active');
+            }
+
             document.addEventListener("DOMContentLoaded", function () {
+                const weeklyCtx = document.getElementById('weeklyBreakdownChart');
+                if (weeklyCtx) {
+                    const wkData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Result.WeeklyBreakdowns ?? new List<LssTraining.Web.Models.WeeklyDemandBreakdown>()));
+                    const wkLabels = wkData.map(w => 'W' + String(w.WeekNumber).padStart(2, '0'));
+                    const normUnits = wkData.map(w => w.NormalCapacityUnits);
+                    const otUnits = wkData.map(w => w.OvertimeCapacityUnits);
+                    const shortUnits = wkData.map(w => w.ShortageUnits);
+                    const normCapLine = wkData.map(() => @Model.Result.WeeklyNormalCapacityUnits);
+                    const maxCapLine = wkData.map(() => @Model.Result.WeeklyMaxCapacityUnits);
+
+                    new Chart(weeklyCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: wkLabels,
+                            datasets: [
+                                {
+                                    type: 'line',
+                                    label: 'Max Weekly Capacity (Inc. OT)',
+                                    data: maxCapLine,
+                                    borderColor: 'rgba(25, 135, 84, 1)',
+                                    borderWidth: 2,
+                                    borderDash: [6, 4],
+                                    pointRadius: 0,
+                                    fill: false,
+                                    order: 1
+                                },
+                                {
+                                    type: 'line',
+                                    label: 'Normal Weekly Capacity (0% OT)',
+                                    data: normCapLine,
+                                    borderColor: 'rgba(13, 110, 253, 0.85)',
+                                    borderWidth: 2,
+                                    borderDash: [3, 3],
+                                    pointRadius: 0,
+                                    fill: false,
+                                    order: 2
+                                },
+                                {
+                                    type: 'bar',
+                                    label: 'Normal Allocation (Units)',
+                                    data: normUnits,
+                                    backgroundColor: 'rgba(37, 99, 235, 0.82)',
+                                    stack: 'weeklyLoad',
+                                    order: 3
+                                },
+                                {
+                                    type: 'bar',
+                                    label: 'Overtime Allocation (Units)',
+                                    data: otUnits,
+                                    backgroundColor: 'rgba(245, 158, 11, 0.88)',
+                                    stack: 'weeklyLoad',
+                                    order: 4
+                                },
+                                {
+                                    type: 'bar',
+                                    label: 'Unmet Shortage (Units)',
+                                    data: shortUnits,
+                                    backgroundColor: 'rgba(220, 38, 38, 0.85)',
+                                    stack: 'weeklyLoad',
+                                    order: 5
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            return context.dataset.label + ': ' + Number(context.parsed.y).toLocaleString() + ' units';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    stacked: true,
+                                    grid: { display: false },
+                                    title: { display: true, text: 'Production Week', font: { weight: 'bold' } }
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'Units / Week', font: { weight: 'bold' } }
+                                }
+                            }
+                        }
+                    });
+                }
+
                 const ctx = document.getElementById('capacityChart');
                 if (ctx) {
-                    const rawData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Result.MachineResults.OrderByDescending(x => x.RequiredHours)));
+                    const rawData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Result.MachineResults?.OrderByDescending(x => x.RequiredHours) ?? Enumerable.Empty<LssTraining.Web.Models.MachineCapacityResult>()));
                     
                     const labels = rawData.map(d => d.MachCode);
                     const reqHours = rawData.map(d => d.RequiredHours);
