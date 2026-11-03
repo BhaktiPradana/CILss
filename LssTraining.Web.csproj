@@ -8,12 +8,15 @@
 		<Compile Remove="Analyzer\**" />
 		<Compile Remove="CapacitySimulatorAPI\**" />
 		<Compile Remove="DatabaseSyncApp\**" />
+		<Compile Remove="YieldSyncApp\**" />
 		<Content Remove="Analyzer\**" />
 		<Content Remove="CapacitySimulatorAPI\**" />
 		<Content Remove="DatabaseSyncApp\**" />
+		<Content Remove="YieldSyncApp\**" />
 		<None Remove="Analyzer\**" />
 		<None Remove="CapacitySimulatorAPI\**" />
 		<None Remove="DatabaseSyncApp\**" />
+		<None Remove="YieldSyncApp\**" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
