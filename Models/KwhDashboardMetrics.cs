@@ -20,6 +20,9 @@ namespace LssTraining.Web.Models
         public bool HasData { get; set; }
         public int DataPointsCount { get; set; }
         public List<decimal> Sparkline { get; set; } = new();
+        public bool IsAccumulated { get; set; }
+        public List<string> ConstituentMeters { get; set; } = new();
+        public List<string> ConstituentDisplayNames { get; set; } = new();
     }
 
     public class ElectricityDashboardSummary

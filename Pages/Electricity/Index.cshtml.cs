@@ -171,22 +171,50 @@ namespace LssTraining.Web.Pages.Electricity
                 string cleanMeter = def.MeterName.Trim();
                 string cleanDisplay = def.DisplayName.Trim();
 
-                recordsByMeter.TryGetValue(cleanMeter, out var matching);
+                List<KwhRecord>? matching = null;
 
-                // Fallback search by DisplayName or partial match if exact meter key wasn't found
-                if (matching == null || !matching.Any())
+                if (def.IsAccumulated && def.ConstituentMeters.Any())
                 {
-                    recordsByMeter.TryGetValue(cleanDisplay, out matching);
-                }
+                    var constMeters = new HashSet<string>(def.ConstituentMeters, StringComparer.OrdinalIgnoreCase);
+                    var constDisplays = new HashSet<string>(def.ConstituentDisplayNames, StringComparer.OrdinalIgnoreCase);
 
-                if (matching == null || !matching.Any())
-                {
-                    matching = Records.Where(r =>
-                        r.MeterName.Trim().Equals(cleanMeter, StringComparison.OrdinalIgnoreCase) ||
-                        r.MeterName.Trim().Equals(cleanDisplay, StringComparison.OrdinalIgnoreCase) ||
-                        r.MeterName.Contains(cleanDisplay, StringComparison.OrdinalIgnoreCase) ||
-                        cleanDisplay.Contains(r.MeterName.Trim(), StringComparison.OrdinalIgnoreCase)
+                    var allConstituentRecs = Records.Where(r =>
+                        constMeters.Contains(r.MeterName.Trim()) ||
+                        constDisplays.Contains(r.MeterName.Trim()) ||
+                        constMeters.Any(cm => r.MeterName.Contains(cm, StringComparison.OrdinalIgnoreCase))
                     ).ToList();
+
+                    matching = allConstituentRecs
+                        .GroupBy(r => r.Timestamp)
+                        .Select(g => new KwhRecord
+                        {
+                            Timestamp = g.Key,
+                            MeterName = def.MeterName,
+                            Usage_kWh = g.Sum(x => x.Usage_kWh),
+                            Floor = def.Floor
+                        })
+                        .OrderBy(r => r.Timestamp)
+                        .ToList();
+                }
+                else
+                {
+                    recordsByMeter.TryGetValue(cleanMeter, out matching);
+
+                    // Fallback search by DisplayName or partial match if exact meter key wasn't found
+                    if (matching == null || !matching.Any())
+                    {
+                        recordsByMeter.TryGetValue(cleanDisplay, out matching);
+                    }
+
+                    if (matching == null || !matching.Any())
+                    {
+                        matching = Records.Where(r =>
+                            r.MeterName.Trim().Equals(cleanMeter, StringComparison.OrdinalIgnoreCase) ||
+                            r.MeterName.Trim().Equals(cleanDisplay, StringComparison.OrdinalIgnoreCase) ||
+                            r.MeterName.Contains(cleanDisplay, StringComparison.OrdinalIgnoreCase) ||
+                            cleanDisplay.Contains(r.MeterName.Trim(), StringComparison.OrdinalIgnoreCase)
+                        ).ToList();
+                    }
                 }
 
                 decimal totalUsage = matching != null ? matching.Sum(r => r.Usage_kWh) : 0m;
@@ -214,7 +242,10 @@ namespace LssTraining.Web.Pages.Electricity
                     LatestTimestamp = latestRec?.Timestamp,
                     HasData = matching != null && matching.Any(),
                     DataPointsCount = matching?.Count ?? 0,
-                    Sparkline = sparkline
+                    Sparkline = sparkline,
+                    IsAccumulated = def.IsAccumulated,
+                    ConstituentMeters = def.ConstituentMeters,
+                    ConstituentDisplayNames = def.ConstituentDisplayNames
                 });
             }
 
@@ -248,6 +279,55 @@ namespace LssTraining.Web.Pages.Electricity
             if (Records == null || Records.Count == 0)
             {
                 ChartDataJson = "{}";
+                return;
+            }
+
+            // Check if selected meter is an accumulated card
+            var accumCard = Cards.FirstOrDefault(c => c.IsAccumulated && (c.MeterName.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase) || c.CardTitle.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase)));
+            if (accumCard != null)
+            {
+                var constMeters = new HashSet<string>(accumCard.ConstituentMeters, StringComparer.OrdinalIgnoreCase);
+                var constDisplays = new HashSet<string>(accumCard.ConstituentDisplayNames, StringComparer.OrdinalIgnoreCase);
+
+                var accumRecs = Records.Where(r =>
+                    constMeters.Contains(r.MeterName.Trim()) ||
+                    constDisplays.Contains(r.MeterName.Trim()) ||
+                    constMeters.Any(cm => r.MeterName.Contains(cm, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
+
+                var tsList = accumRecs.Select(r => r.Timestamp).Distinct().OrderBy(t => t).ToList();
+                var catList = tsList.Select(t => ViewMode == "Hourly" ? t.ToString("dd MMM HH:mm") : t.ToString("dd MMM yyyy")).ToList();
+
+                var sList = new List<object>();
+
+                // 1. Total Accumulated Series
+                var totalByTs = accumRecs.GroupBy(r => r.Timestamp).ToDictionary(g => g.Key, g => g.Sum(r => r.Usage_kWh));
+                sList.Add(new
+                {
+                    name = accumCard.CardTitle + " (Total)",
+                    data = tsList.Select(t => totalByTs.TryGetValue(t, out var v) ? v : 0m).ToList()
+                });
+
+                // 2. Individual Constituent DB Series
+                foreach (var cm in accumCard.ConstituentMeters)
+                {
+                    var cmRecs = accumRecs.Where(r => r.MeterName.Trim().Equals(cm, StringComparison.OrdinalIgnoreCase) || r.MeterName.Contains(cm, StringComparison.OrdinalIgnoreCase)).ToList();
+                    var cmDict = cmRecs.GroupBy(r => r.Timestamp).ToDictionary(g => g.Key, g => g.Sum(r => r.Usage_kWh));
+                    var cardDef = ElectricityCardCatalog.FindItem(cm);
+                    sList.Add(new
+                    {
+                        name = cardDef?.DisplayName ?? cm,
+                        data = tsList.Select(t => cmDict.TryGetValue(t, out var v) ? v : 0m).ToList()
+                    });
+                }
+
+                var payload = new
+                {
+                    categories = catList,
+                    series = sList,
+                    unit = accumCard.Unit
+                };
+                ChartDataJson = JsonSerializer.Serialize(payload);
                 return;
             }
 

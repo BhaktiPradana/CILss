@@ -1515,6 +1515,43 @@ namespace LssTraining.Web.Data
 
             foreach (var card in cards)
             {
+                if (card.Title.Equals("Overall Building 207", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(new ElectricityCardFlatItem
+                    {
+                        SortOrder = order++,
+                        CardGroup = card.Title,
+                        Building = card.Building,
+                        Floor = card.Title,
+                        DisplayName = "Overall Building 207 (Accumulated SSB)",
+                        MeterName = "PM_LOT207_OVERALL_SSB",
+                        Unit = "kWh",
+                        PanelType = "SSB-ACCUM",
+                        Subtitle = "Accumulated: SSB1T, SSB2TA, SSB2TB, SSB3TA, SSB3TB",
+                        IsAccumulated = true,
+                        ConstituentMeters = card.Items.Select(x => x.MeterName).ToList(),
+                        ConstituentDisplayNames = card.Items.Select(x => x.DisplayName).ToList()
+                    });
+                }
+                else if (card.Title.Equals("Overall Building 209", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(new ElectricityCardFlatItem
+                    {
+                        SortOrder = order++,
+                        CardGroup = card.Title,
+                        Building = card.Building,
+                        Floor = card.Title,
+                        DisplayName = "Overall Building 209 (Accumulated SSB)",
+                        MeterName = "PM_LOT209_OVERALL_SSB",
+                        Unit = "kWh",
+                        PanelType = "SSB-ACCUM",
+                        Subtitle = "Accumulated: SSB1TA, SSB1TB, SSB2TA, SSB2TB, SSB3TB",
+                        IsAccumulated = true,
+                        ConstituentMeters = card.Items.Select(x => x.MeterName).ToList(),
+                        ConstituentDisplayNames = card.Items.Select(x => x.DisplayName).ToList()
+                    });
+                }
+
                 foreach (var item in card.Items)
                 {
                     string meterKey = !string.IsNullOrWhiteSpace(item.MeterName) ? item.MeterName.Trim() : item.DisplayName.Trim();
@@ -1566,5 +1603,8 @@ namespace LssTraining.Web.Data
         public string Unit { get; set; } = "kWh";
         public string PanelType { get; set; } = "DB";
         public string Subtitle { get; set; } = string.Empty;
+        public bool IsAccumulated { get; set; }
+        public List<string> ConstituentMeters { get; set; } = new();
+        public List<string> ConstituentDisplayNames { get; set; } = new();
     }
 }

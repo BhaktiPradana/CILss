@@ -272,7 +272,7 @@
                     {
                         var isActive = card.HasData && card.TotalUsage > 0;
                         <div class="col-xl-3 col-lg-4 col-md-6">
-                            <div class="electricity-card @(isActive ? "is-active" : "is-standby") h-100" id="card-@card.CardTitle.Replace(" ", "").Replace("#", "").Replace(".", "_")">
+                            <div class="electricity-card @(isActive ? "is-active" : "is-standby") @(card.IsAccumulated ? "border-primary border-2 shadow-sm" : "") h-100" id="card-@card.CardTitle.Replace(" ", "").Replace("#", "").Replace(".", "_")">
                                 <div class="electricity-card-header">
                                     <div class="d-flex align-items-center gap-2">
                                         @if (isActive)
@@ -284,6 +284,10 @@
                                         {
                                             <span class="standby-dot" title="Standby / No records for period"></span>
                                             <span class="badge bg-secondary bg-opacity-10 text-secondary fw-semibold" style="font-size:0.7rem;">STANDBY</span>
+                                        }
+                                        @if (card.IsAccumulated)
+                                        {
+                                            <span class="badge bg-primary text-white fw-bold" style="font-size:0.68rem;">ACCUMULATED</span>
                                         }
                                     </div>
                                     <span class="badge bg-light text-muted border" style="font-size:0.72rem;">@card.PanelType</span>
@@ -301,6 +305,16 @@
                                     <div class="electricity-tag" title="@card.MeterName">
                                         @card.MeterName
                                     </div>
+
+                                    @if (card.IsAccumulated && card.ConstituentDisplayNames.Any())
+                                    {
+                                        <div class="d-flex flex-wrap gap-1 my-2">
+                                            @foreach (var cName in card.ConstituentDisplayNames)
+                                            {
+                                                <span class="badge bg-light text-primary border" style="font-size:0.65rem;">@cName</span>
+                                            }
+                                        </div>
+                                    }
 
                                     <div class="electricity-usage-row">
                                         <div>

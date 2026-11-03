@@ -1,0 +1,464 @@
+@page
+@model LssTraining.Web.Pages.Electricity.KwhPerPcsModel
+@{
+    ViewData["Title"] = "Machine Energy Efficiency (kWh/pcs)";
+}
+
+<div class="container-fluid mt-3 mb-5 px-3 px-lg-4">
+    <!-- HERO HEADER -->
+    <div class="electricity-hero">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-primary bg-opacity-25 text-white border border-primary border-opacity-50 px-3 py-1 rounded-pill">
+                        ⚡ Specific Energy Consumption (SEC)
+                    </span>
+                    <span class="badge bg-success bg-opacity-25 text-white border border-success border-opacity-50 px-3 py-1 rounded-pill d-inline-flex align-items-center gap-1">
+                        <span class="active-glow-dot" style="width:7px;height:7px;"></span> Production & Energy Correlated
+                    </span>
+                </div>
+                <h1 class="h2 fw-bold text-white mb-1">Machine Energy Efficiency (kWh/pcs)</h1>
+                <p class="text-white-50 mb-0">Distribution Board (DB) electrical energy allocation correlated with machine production quantity from <code class="text-info">[dbo].[ProcessQuantity]</code></p>
+            </div>
+            <div class="d-flex gap-2">
+                <a asp-page="/Electricity/Index" class="btn btn-outline-light btn-sm shadow-sm d-inline-flex align-items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                    </svg>
+                    Consumption Dashboard
+                </a>
+                <a asp-page="/Electricity/DbMapping" class="btn btn-outline-light btn-sm shadow-sm d-inline-flex align-items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M14.763.075A.5.5 0 0 1 15 .5v15a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V14h-1v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V10a.5.5 0 0 1 .342-.474L6 7.64V4.5a.5.5 0 0 1 .276-.447l8-4a.5.5 0 0 1 .487.022z"/>
+                    </svg>
+                    DB Mapping Directory
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTER ENGINE -->
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body p-3 p-md-4">
+            <form method="get" id="filterForm" class="row g-3 align-items-end">
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label fw-bold text-secondary small">Start Date</label>
+                    <input type="date" asp-for="StartDate" class="form-control shadow-sm" />
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label fw-bold text-secondary small">End Date</label>
+                    <input type="date" asp-for="EndDate" class="form-control shadow-sm" />
+                </div>
+                <div class="col-md-3 col-lg-3">
+                    <label class="form-label fw-bold text-secondary small">Distribution Board (DB)</label>
+                    <select asp-for="SelectedDB" asp-items="Model.DbOptions" class="form-select shadow-sm" onchange="this.form.submit();"></select>
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label fw-bold text-secondary small">Allocation Formula</label>
+                    <select asp-for="AllocationMethod" class="form-select shadow-sm" onchange="this.form.submit();">
+                        <option value="Equal">Equal Share (DB / N)</option>
+                        <option value="Proportional">Proportional to Output</option>
+                    </select>
+                </div>
+                <div class="col-md-8 col-lg-2">
+                    <label class="form-label fw-bold text-secondary small">Search Machine</label>
+                    <input type="text" asp-for="SearchTerm" class="form-control shadow-sm" placeholder="Code, name, area..." />
+                </div>
+                <div class="col-md-4 col-lg-1 d-flex gap-1">
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-bold">Filter</button>
+                    @if (!string.IsNullOrEmpty(Model.SelectedDB) || !string.IsNullOrEmpty(Model.SearchTerm))
+                    {
+                        <a asp-page="/Electricity/KwhPerPcs" class="btn btn-outline-secondary" title="Reset">✕</a>
+                    }
+                </div>
+            </form>
+
+            <!-- Quick Date Presets -->
+            <div class="d-flex align-items-center gap-2 mt-3 pt-3 border-top border-secondary border-opacity-10 flex-wrap">
+                <span class="text-muted small fw-semibold">Quick Presets:</span>
+                <a href="#" class="preset-pill" onclick="setPresetDates('2026-08-01', '2026-10-09'); return false;">Active Period (Aug - Oct 2026)</a>
+                <a href="#" class="preset-pill" onclick="setPresetDates('2026-09-01', '2026-10-09'); return false;">September - October 2026</a>
+                <a href="#" class="preset-pill" onclick="setPresetDates('2026-08-01', '2026-08-31'); return false;">August 2026 Full Month</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUMMARY KPI METRICS -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="electricity-kpi-card">
+                <div class="electricity-kpi-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1zm2 1v2h8V2H4zm0 3v1h2V5H4zm3 0v1h2V5H7zm3 0v1h2V5h-2zm-6 2v1h2V7H4zm3 0v1h2V7H7zm3 0v1h2V7h-2zm-6 2v1h2V9H4zm3 0v1h2V9H7zm3 0v1h2V9h-2zm-6 2v1h2v-1H4zm3 0v1h2v-1H7zm3 0v1h2v-1h-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="electricity-kpi-lbl">Avg Plant Efficiency</div>
+                    <div class="electricity-kpi-val text-success">@Model.Summary.AverageKwhPerPcs.ToString("0.00000") <span class="fs-6 text-muted fw-normal">kWh/pcs</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="electricity-kpi-card">
+                <div class="electricity-kpi-icon" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="electricity-kpi-lbl">Total Energy Allocated</div>
+                    <div class="electricity-kpi-val">@Model.Summary.TotalKwhAllocated.ToString("N1") <span class="fs-6 text-muted fw-normal">kWh</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="electricity-kpi-card">
+                <div class="electricity-kpi-icon" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="electricity-kpi-lbl">Total Output (Qty In)</div>
+                    <div class="electricity-kpi-val">@Model.Summary.TotalPiecesProduced.ToString("N0") <span class="fs-6 text-muted fw-normal">pcs</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="electricity-kpi-card">
+                <div class="electricity-kpi-icon" style="background: linear-gradient(135deg, #d97706, #b45309);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="electricity-kpi-lbl">Active Machines / DBs</div>
+                    <div class="electricity-kpi-val">@Model.Summary.ActiveMachinesCount <span class="fs-6 text-muted fw-normal">/ @Model.Summary.MappedMachinesCount mach (@Model.Summary.MonitoredDbsCount DBs)</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div class="row g-4 mb-4">
+        <!-- Daily Trend of kWh/pcs -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white pt-3 pb-2 border-0 d-flex justify-content-between align-items-center flex-wrap">
+                    <div>
+                        <h5 class="fw-bold text-primary mb-0">📈 Daily Energy Intensity Trend (kWh/pcs)</h5>
+                        <small class="text-muted">Daily evolution of energy efficiency across mapped manufacturing machines</small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="trendChartContainer" style="min-height: 320px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Machines Ranking (kWh/pcs) -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white pt-3 pb-2 border-0 d-flex justify-content-between align-items-center flex-wrap">
+                    <div>
+                        <h5 class="fw-bold text-success mb-0">🏆 Machine Efficiency Ranking</h5>
+                        <small class="text-muted">Machines with lowest (most efficient) kWh per piece</small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="machineRankingChartContainer" style="min-height: 320px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DB OVERVIEW CARDS -->
+    <div class="mb-4">
+        <h4 class="fw-bold text-dark mb-3">Distribution Board Overview</h4>
+        <div class="row g-3">
+            @foreach (var db in Model.DbSummaries)
+            {
+                <div class="col-md-4 col-xl-3">
+                    <div class="card shadow-sm border-0 h-100 db-stat-card @(db.TotalQuantityIn > 0 ? "border-start border-4 border-primary" : "border-start border-4 border-secondary")">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge @(db.IsMetered ? "bg-success" : "bg-warning text-dark")" style="font-size:0.7rem;">
+                                    @(db.IsMetered ? "Metered" : "Estimated")
+                                </span>
+                                <span class="badge bg-light text-muted border" style="font-size:0.7rem;">
+                                    @db.ActiveMachineCount / @db.MachineCount Machines
+                                </span>
+                            </div>
+                            <h6 class="fw-bold text-truncate mb-1" title="@db.DBName">@db.DBName</h6>
+                            <div class="text-muted small mb-2">@db.Building · @db.Floor</div>
+
+                            <div class="d-flex justify-content-between align-items-baseline pt-2 border-top">
+                                <div>
+                                    <div class="text-muted" style="font-size:0.7rem;">Total Energy</div>
+                                    <div class="fw-bold text-dark">@db.TotalKwh.ToString("N1") <span class="small text-muted">kWh</span></div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="text-muted" style="font-size:0.7rem;">Overall kWh/pcs</div>
+                                    <div class="fw-bold text-primary">@db.OverallKwhPerPcs.ToString("0.00000")</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- DETAILED MACHINE EFFICIENCY TABLE -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white pt-3 pb-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h5 class="fw-bold text-dark mb-0">Detailed Machine Allocation & kWh/pcs Breakdown</h5>
+                <small class="text-muted">Displaying @Model.Machines.Count machine connection(s) correlated with production logs</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-outline-success btn-sm shadow-sm" onclick="exportTableToCSV('Machine_kWh_Per_Pcs.csv');">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                    </svg>
+                    Export CSV
+                </button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="kwhPerPcsTable">
+                <thead class="table-light text-uppercase small text-muted">
+                    <tr>
+                        <th>Machine</th>
+                        <th>Distribution Board</th>
+                        <th>Area</th>
+                        <th class="text-end">DB Total Energy</th>
+                        <th class="text-center">Sharing</th>
+                        <th class="text-end">Allocated Energy</th>
+                        <th class="text-end">Quantity In</th>
+                        <th class="text-end">kWh / pcs</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Machines.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-5">
+                                No machine connections found for the selected filter.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var m in Model.Machines)
+                        {
+                            var badgeClass = m.KwhPerPcs == 0 ? "bg-secondary text-white" 
+                                           : m.KwhPerPcs < 0.01m ? "bg-success text-white" 
+                                           : m.KwhPerPcs < 0.1m ? "bg-primary text-white" 
+                                           : "bg-warning text-dark";
+
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark">@m.MachCode</div>
+                                    <div class="text-muted small">@m.MachName</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">@m.DBName</span>
+                                    @if (!string.IsNullOrEmpty(m.SubDBName))
+                                    {
+                                        <div class="small text-muted mt-1">+ @m.SubDBName</div>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-secondary">@(string.IsNullOrEmpty(m.Area) ? "-" : m.Area)</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="fw-bold">@m.DBTotalKwh.ToString("N1") kWh</div>
+                                    <span class="badge @(m.IsMetered ? "bg-success bg-opacity-10 text-success" : "bg-warning bg-opacity-10 text-warning")" style="font-size:0.68rem;">
+                                        @(m.IsMetered ? "METERED" : "ESTIMATED")
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-muted border">1 / @m.MachinesConnectedCount</span>
+                                </td>
+                                <td class="text-end fw-bold text-primary">
+                                    @m.AllocatedKwh.ToString("N1") kWh
+                                </td>
+                                <td class="text-end">
+                                    <span class="fw-bold">@m.QuantityIn.ToString("N0")</span> pcs
+                                </td>
+                                <td class="text-end">
+                                    @if (m.QuantityIn > 0)
+                                    {
+                                        <span class="badge @badgeClass px-2 py-1 fs-6">
+                                            @m.KwhPerPcs.ToString("0.00000")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">No output</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (m.QuantityIn > 0)
+                                    {
+                                        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50 px-2 py-1">
+                                            ACTIVE
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary px-2 py-1">
+                                            STANDBY
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script>
+        function setPresetDates(start, end) {
+            document.getElementById('StartDate').value = start;
+            document.getElementById('EndDate').value = end;
+            document.getElementById('filterForm').submit();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // 1. Daily Trend Chart
+            var trendData = @Html.Raw(Model.TrendChartJson);
+            if (trendData && trendData.categories && trendData.categories.length > 0) {
+                var trendOptions = {
+                    series: [{
+                        name: 'kWh/pcs',
+                        type: 'line',
+                        data: trendData.kwhPerPcsSeries
+                    }, {
+                        name: 'Allocated Energy (kWh)',
+                        type: 'area',
+                        data: trendData.kwhSeries
+                    }],
+                    chart: {
+                        height: 320,
+                        type: 'line',
+                        toolbar: { show: true },
+                        fontFamily: 'Plus Jakarta Sans, sans-serif'
+                    },
+                    stroke: {
+                        width: [3, 2],
+                        curve: 'smooth'
+                    },
+                    fill: {
+                        type: ['solid', 'gradient'],
+                        gradient: {
+                            shadeIntensity: 1,
+                            opacityFrom: 0.4,
+                            opacityTo: 0.05
+                        }
+                    },
+                    colors: ['#10b981', '#2563eb'],
+                    xaxis: {
+                        categories: trendData.categories,
+                        labels: {
+                            rotate: -30,
+                            style: { colors: '#64748b', fontSize: '11px' }
+                        }
+                    },
+                    yaxis: [{
+                        title: { text: 'kWh / pcs' },
+                        labels: {
+                            formatter: function (v) { return v ? v.toFixed(5) : '0'; }
+                        }
+                    }, {
+                        opposite: true,
+                        title: { text: 'Total Energy (kWh)' },
+                        labels: {
+                            formatter: function (v) { return v ? v.toLocaleString() + ' kWh' : '0'; }
+                        }
+                    }],
+                    tooltip: {
+                        theme: 'light',
+                        shared: true
+                    }
+                };
+                new ApexCharts(document.querySelector("#trendChartContainer"), trendOptions).render();
+            } else {
+                document.querySelector("#trendChartContainer").innerHTML = '<div class="text-center text-muted py-5">No trend points available for selected range</div>';
+            }
+
+            // 2. Machine Ranking Chart
+            var machData = @Html.Raw(Model.MachineChartJson);
+            if (machData && machData.categories && machData.categories.length > 0) {
+                var machOptions = {
+                    series: [{
+                        name: 'kWh/pcs',
+                        data: machData.kwhPerPcs
+                    }],
+                    chart: {
+                        type: 'bar',
+                        height: 320,
+                        toolbar: { show: false },
+                        fontFamily: 'Plus Jakarta Sans, sans-serif'
+                    },
+                    plotOptions: {
+                        bar: {
+                            horizontal: true,
+                            borderRadius: 4,
+                            dataLabels: { position: 'top' }
+                        }
+                    },
+                    colors: ['#059669'],
+                    xaxis: {
+                        categories: machData.categories,
+                        labels: {
+                            formatter: function (v) { return v ? v.toFixed(5) : '0'; }
+                        }
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function (v) { return v + ' kWh/pcs'; }
+                        }
+                    }
+                };
+                new ApexCharts(document.querySelector("#machineRankingChartContainer"), machOptions).render();
+            } else {
+                document.querySelector("#machineRankingChartContainer").innerHTML = '<div class="text-center text-muted py-5">No active machine data to rank</div>';
+            }
+        });
+
+        function exportTableToCSV(filename) {
+            var csv = [];
+            var rows = document.querySelectorAll("#kwhPerPcsTable tr");
+            for (var i = 0; i < rows.length; i++) {
+                var row = [], cols = rows[i].querySelectorAll("td, th");
+                for (var j = 0; j < cols.length; j++) {
+                    var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").replace(/(\s\s+)/gm, " ").trim();
+                    data = data.replace(/"/g, '""');
+                    row.push('"' + data + '"');
+                }
+                csv.push(row.join(","));
+            }
+            var csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+            var downloadLink = document.createElement("a");
+            downloadLink.download = filename;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+    </script>
+}
+

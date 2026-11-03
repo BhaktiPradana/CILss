@@ -24,6 +24,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Electricity/DbMapping");
     options.Conventions.AllowAnonymousToPage("/Electricity/DbMappingAdd");
     options.Conventions.AllowAnonymousToPage("/Electricity/Improvements");
+    options.Conventions.AllowAnonymousToPage("/Electricity/KwhPerPcs");
     options.Conventions.AllowAnonymousToPage("/CapacitySimulator/Index");
 });
 
@@ -57,6 +58,7 @@ builder.Services.AddScoped<KwhRepository>();
 builder.Services.AddScoped<DistributionBoardRepository>();
 builder.Services.AddScoped<ImprovementRepository>();
 builder.Services.AddScoped<CapacityRepository>();
+builder.Services.AddScoped<KwhPerPcsRepository>();
 
 var app = builder.Build();
 

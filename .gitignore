@@ -491,3 +491,6 @@ CI-LSS
 # Excel spreadsheets
 *.xlsx
 ~$*.xlsx
+
+# Schema dumps
+*_DB.txt
