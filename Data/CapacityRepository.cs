@@ -217,36 +217,47 @@ namespace LssTraining.Web.Data
                     targetDevice = !string.IsNullOrWhiteSpace(targetGroup) ? targetGroup + "-01" : "DEMO-DEVICE";
                 }
 
-                // Query the exact process sequence ordered by Seq ASC from dbo.CI_SQ01
+                // Query the exact process sequence ordered by Seq ASC from dbo.CI_DeviceProcess (with fallback to CI_SQ01)
                 List<dynamic> routingSteps = new List<dynamic>();
                 try
                 {
-                    var sqlRouting = @"
+                    var sqlDeviceProcess = @"
                         SELECT 
-                            sq.DeviceCode,
-                            ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName,
+                            dp.DeviceCode,
+                            ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
                             ISNULL(p.DeviceGroupCode, @FallbackGroup) AS DeviceGroupCode,
-                            sq.Seq,
-                            CAST(sq.Seq AS NVARCHAR(50)) AS ProcCode,
-                            ISNULL(sq.Description, 'Seq ' + CAST(sq.Seq AS NVARCHAR(10))) AS ProcName,
-                            'PROD' AS ProcessArea,
-                            ISNULL(sq.LaborHour, 0) AS LaborHour,
-                            ISNULL(sq.MachineHour, 0) AS MachineHour
-                        FROM CI_SQ01 sq
-                        LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
-                        WHERE sq.DeviceCode = @DeviceCode
-                        ORDER BY sq.Seq ASC";
+                            dp.Seq,
+                            dp.ProcCode,
+                            ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
+                            ISNULL(m.Area, ISNULL(pr.Area, 'PROD')) AS ProcessArea,
+                            dp.LaborHour,
+                            CASE 
+                                WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
+                                WHEN ISNULL(h.MachineTime, 0) > 0 THEN (CASE WHEN h.MachineTime > 5 THEN h.MachineTime / 3600.0 ELSE h.MachineTime END)
+                                WHEN ISNULL(dp.TAKTTime, 0) > 0 THEN (CASE WHEN dp.TAKTTime > 5 THEN dp.TAKTTime / 3600.0 ELSE dp.TAKTTime END)
+                                ELSE 0.005
+                            END AS MachineHour,
+                            h.MachCode,
+                            ISNULL(m.MachName, ISNULL(h.MachCode, pr.ProcName)) AS MachName,
+                            ISNULL(h.UPH, 0) AS UPH
+                        FROM CI_DeviceProcess dp
+                        LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
+                        LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
+                        LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
+                        LEFT JOIN MasterMachines m ON h.MachCode = m.MachCode
+                        WHERE dp.DeviceCode = @DeviceCode
+                        ORDER BY dp.Seq ASC";
 
-                    routingSteps = (await connection.QueryAsync<dynamic>(sqlRouting, new { DeviceCode = targetDevice, FallbackGroup = targetGroup })).AsList();
+                    routingSteps = (await connection.QueryAsync<dynamic>(sqlDeviceProcess, new { DeviceCode = targetDevice, FallbackGroup = targetGroup })).AsList();
 
-                    // If still no routing, inherit from the primary master sequence device in the same family
-                    if (routingSteps.Count == 0 && !string.IsNullOrWhiteSpace(targetGroup))
+                    // Fallback to CI_SQ01 if device not found in CI_DeviceProcess
+                    if (routingSteps.Count == 0)
                     {
-                        var sqlGroupRouting = @"
+                        var sqlRouting = @"
                             SELECT 
                                 sq.DeviceCode,
                                 ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName,
-                                ISNULL(p.DeviceGroupCode, @DeviceGroupCode) AS DeviceGroupCode,
+                                ISNULL(p.DeviceGroupCode, @FallbackGroup) AS DeviceGroupCode,
                                 sq.Seq,
                                 CAST(sq.Seq AS NVARCHAR(50)) AS ProcCode,
                                 ISNULL(sq.Description, 'Seq ' + CAST(sq.Seq AS NVARCHAR(10))) AS ProcName,
@@ -255,16 +266,77 @@ namespace LssTraining.Web.Data
                                 ISNULL(sq.MachineHour, 0) AS MachineHour
                             FROM CI_SQ01 sq
                             LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
-                            WHERE sq.DeviceCode = (
+                            WHERE sq.DeviceCode = @DeviceCode
+                            ORDER BY sq.Seq ASC";
+
+                        routingSteps = (await connection.QueryAsync<dynamic>(sqlRouting, new { DeviceCode = targetDevice, FallbackGroup = targetGroup })).AsList();
+                    }
+
+                    // If still no routing, inherit from the primary master sequence device in the same family
+                    if (routingSteps.Count == 0 && !string.IsNullOrWhiteSpace(targetGroup))
+                    {
+                        var sqlGroupDeviceProcess = @"
+                            SELECT 
+                                dp.DeviceCode,
+                                ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
+                                ISNULL(p.DeviceGroupCode, @DeviceGroupCode) AS DeviceGroupCode,
+                                dp.Seq,
+                                dp.ProcCode,
+                                ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
+                                ISNULL(m.Area, ISNULL(pr.Area, 'PROD')) AS ProcessArea,
+                                dp.LaborHour,
+                                CASE 
+                                    WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
+                                    WHEN ISNULL(h.MachineTime, 0) > 0 THEN (CASE WHEN h.MachineTime > 5 THEN h.MachineTime / 3600.0 ELSE h.MachineTime END)
+                                    WHEN ISNULL(dp.TAKTTime, 0) > 0 THEN (CASE WHEN dp.TAKTTime > 5 THEN dp.TAKTTime / 3600.0 ELSE dp.TAKTTime END)
+                                    ELSE 0.005
+                                END AS MachineHour,
+                                h.MachCode,
+                                ISNULL(m.MachName, ISNULL(h.MachCode, pr.ProcName)) AS MachName,
+                                ISNULL(h.UPH, 0) AS UPH
+                            FROM CI_DeviceProcess dp
+                            LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
+                            LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
+                            LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
+                            LEFT JOIN MasterMachines m ON h.MachCode = m.MachCode
+                            WHERE dp.DeviceCode = (
                                 SELECT TOP 1 p2.DeviceCode
                                 FROM CI_Product p2
-                                JOIN CI_SQ01 sq2 ON p2.DeviceCode = sq2.DeviceCode
+                                JOIN CI_DeviceProcess dp2 ON p2.DeviceCode = dp2.DeviceCode
                                 WHERE p2.DeviceGroupCode = @DeviceGroupCode
                                 GROUP BY p2.DeviceCode
-                                ORDER BY COUNT(sq2.Seq) DESC, p2.DeviceCode
+                                ORDER BY COUNT(dp2.Seq) DESC, p2.DeviceCode
                             )
-                            ORDER BY sq.Seq ASC";
-                        routingSteps = (await connection.QueryAsync<dynamic>(sqlGroupRouting, new { DeviceGroupCode = targetGroup })).AsList();
+                            ORDER BY dp.Seq ASC";
+
+                        routingSteps = (await connection.QueryAsync<dynamic>(sqlGroupDeviceProcess, new { DeviceGroupCode = targetGroup })).AsList();
+
+                        if (routingSteps.Count == 0)
+                        {
+                            var sqlGroupRouting = @"
+                                SELECT 
+                                    sq.DeviceCode,
+                                    ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName,
+                                    ISNULL(p.DeviceGroupCode, @DeviceGroupCode) AS DeviceGroupCode,
+                                    sq.Seq,
+                                    CAST(sq.Seq AS NVARCHAR(50)) AS ProcCode,
+                                    ISNULL(sq.Description, 'Seq ' + CAST(sq.Seq AS NVARCHAR(10))) AS ProcName,
+                                    'PROD' AS ProcessArea,
+                                    ISNULL(sq.LaborHour, 0) AS LaborHour,
+                                    ISNULL(sq.MachineHour, 0) AS MachineHour
+                                FROM CI_SQ01 sq
+                                LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                                WHERE sq.DeviceCode = (
+                                    SELECT TOP 1 p2.DeviceCode
+                                    FROM CI_Product p2
+                                    JOIN CI_SQ01 sq2 ON p2.DeviceCode = sq2.DeviceCode
+                                    WHERE p2.DeviceGroupCode = @DeviceGroupCode
+                                    GROUP BY p2.DeviceCode
+                                    ORDER BY COUNT(sq2.Seq) DESC, p2.DeviceCode
+                                )
+                                ORDER BY sq.Seq ASC";
+                            routingSteps = (await connection.QueryAsync<dynamic>(sqlGroupRouting, new { DeviceGroupCode = targetGroup })).AsList();
+                        }
                     }
                 }
                 catch { }
@@ -432,7 +504,11 @@ namespace LssTraining.Web.Data
             }
 
             // 4. Compute Manpower Headcount Results (Standard 7.25 hours/shift per operator)
+            // Rules: Fractional headcounts are rounded down to base operators, with remainder covered as overtime.
             result.OperatorHoursPerShift = input.NormalHoursPerShift;
+            decimal availablePerPersonZeroOT = input.AvailableHoursPerPerson > 0 ? input.AvailableHoursPerPerson : 36.25m;
+            decimal availablePerPersonWithOT = availablePerPersonZeroOT * (1m + input.OvertimeLimitPercent / 100m);
+
             foreach (var kvp in processLaborHours)
             {
                 var mp = new ProcessManpowerResult
@@ -440,25 +516,41 @@ namespace LssTraining.Web.Data
                     ProcCode = kvp.Key,
                     ProcName = processNames.ContainsKey(kvp.Key) ? processNames[kvp.Key] : kvp.Key,
                     TotalLaborHoursRequired = kvp.Value,
-                    AvailableHoursPerPerson = input.AvailableHoursPerPerson
+                    AvailableHoursPerPerson = availablePerPersonZeroOT
                 };
 
-                decimal availablePerPersonZeroOT = input.AvailableHoursPerPerson;
-                decimal availablePerPersonWithOT = input.AvailableHoursPerPerson * (1m + input.OvertimeLimitPercent / 100m);
+                decimal exactHeadcount = availablePerPersonZeroOT > 0 
+                    ? (mp.TotalLaborHoursRequired / availablePerPersonZeroOT) 
+                    : 0m;
 
-                mp.HeadcountZeroOvertime = mp.TotalLaborHoursRequired > 0 
-                    ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonZeroOT) 
-                    : 0;
+                mp.ExactHeadcount = Math.Round(exactHeadcount, 2);
+                mp.BaseHeadcount = (int)Math.Floor(exactHeadcount); // Rounded down (e.g. 2 for 2.4)
+                mp.OvertimeEquivalent = Math.Round(exactHeadcount - mp.BaseHeadcount, 2); // Remainder overtime (e.g. 0.4)
+                mp.OvertimeHoursNeeded = Math.Round(mp.OvertimeEquivalent * availablePerPersonZeroOT, 1);
+                mp.OvertimeRatePercent = mp.BaseHeadcount > 0 
+                    ? Math.Round((mp.OvertimeEquivalent / mp.BaseHeadcount) * 100m, 1) 
+                    : (mp.OvertimeEquivalent > 0 ? 100m : 0m);
 
-                mp.HeadcountWithOvertime = mp.TotalLaborHoursRequired > 0 
-                    ? (int)System.Math.Ceiling(mp.TotalLaborHoursRequired / availablePerPersonWithOT) 
-                    : 0;
+                mp.HeadcountZeroOvertime = (int)Math.Ceiling(exactHeadcount);
+                mp.HeadcountWithOvertime = mp.BaseHeadcount; // Base operators with remainder absorbed by overtime
 
                 result.ManpowerResults.Add(mp);
             }
 
-            result.TotalHeadcountZeroOvertime = result.ManpowerResults.Sum(x => x.HeadcountZeroOvertime);
-            result.TotalHeadcountWithOvertime = result.ManpowerResults.Sum(x => x.HeadcountWithOvertime);
+            decimal totalExactHc = availablePerPersonZeroOT > 0 
+                ? (result.ManpowerResults.Sum(x => x.TotalLaborHoursRequired) / availablePerPersonZeroOT) 
+                : 0m;
+
+            result.TotalExactHeadcount = Math.Round(totalExactHc, 2);
+            result.TotalBaseHeadcount = result.ManpowerResults.Sum(x => x.BaseHeadcount);
+            result.TotalOvertimeEquivalent = Math.Round(result.ManpowerResults.Sum(x => x.OvertimeEquivalent), 2);
+            result.TotalOvertimeHours = Math.Round(result.ManpowerResults.Sum(x => x.OvertimeHoursNeeded), 1);
+            result.AverageOvertimeRatePercent = result.TotalBaseHeadcount > 0 
+                ? Math.Round((result.TotalOvertimeEquivalent / result.TotalBaseHeadcount) * 100m, 1) 
+                : 0m;
+
+            result.TotalHeadcountZeroOvertime = (int)Math.Ceiling(totalExactHc);
+            result.TotalHeadcountWithOvertime = result.TotalBaseHeadcount;
 
             // 5. Compute Weekly Capacity Breakdown when Yearly Demand is present
             if (totalYearlyUnits > 0)
@@ -734,37 +826,90 @@ namespace LssTraining.Web.Data
 
             result.TotalDevicesCount = validDevices.Count;
 
-            // Check if WorkCenter column exists in CI_SQ01
-            bool hasWorkCenterCol = false;
-            try
-            {
-                hasWorkCenterCol = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_SQ01') AND name = 'WorkCenter'") > 0;
-            }
-            catch { }
-
             var deviceCodes = validDevices.Select(d => d.DeviceCode.Trim()).Distinct().ToList();
 
-            string sql = hasWorkCenterCol
-                ? @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
-                           sq.Description, sq.MachineHour, sq.LaborHour, sq.WorkCenter
-                    FROM CI_SQ01 sq
-                    LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
-                    WHERE sq.DeviceCode IN @DeviceCodes
-                    ORDER BY sq.DeviceCode, sq.Seq ASC"
-                : @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
-                           sq.Description, sq.MachineHour, sq.LaborHour, NULL AS WorkCenter
-                    FROM CI_SQ01 sq
-                    LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
-                    WHERE sq.DeviceCode IN @DeviceCodes
-                    ORDER BY sq.DeviceCode, sq.Seq ASC";
-
             List<dynamic> allSteps = new List<dynamic>();
+
+            // 1. Primary: Retrieve routing and labor hours following CI_DeviceProcess
+            bool hasDeviceProcessTable = false;
             try
             {
-                allSteps = (await connection.QueryAsync<dynamic>(sql, new { DeviceCodes = deviceCodes })).AsList();
+                hasDeviceProcessTable = await connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(1) FROM sys.tables WHERE name = 'CI_DeviceProcess' AND schema_id = SCHEMA_ID('dbo')") > 0;
             }
             catch { }
+
+            if (hasDeviceProcessTable)
+            {
+                string deviceProcessSql = @"
+                    SELECT 
+                        dp.DeviceCode,
+                        ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
+                        dp.Seq,
+                        dp.ProcCode,
+                        ISNULL(pr.ProcName, dp.ProcCode) AS Description,
+                        ISNULL(h.MachCode, dp.ProcCode) AS WorkCenter,
+                        ISNULL(m.MachName, ISNULL(h.MachCode, pr.ProcName)) AS MachineName,
+                        ISNULL(m.Area, ISNULL(pr.Area, 'PROD')) AS Area,
+                        CASE 
+                            WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
+                            WHEN ISNULL(h.MachineTime, 0) > 0 THEN (CASE WHEN h.MachineTime > 5 THEN h.MachineTime / 3600.0 ELSE h.MachineTime END)
+                            WHEN ISNULL(dp.TAKTTime, 0) > 0 THEN (CASE WHEN dp.TAKTTime > 5 THEN dp.TAKTTime / 3600.0 ELSE dp.TAKTTime END)
+                            ELSE 0.005
+                        END AS MachineHour,
+                        dp.LaborHour
+                    FROM CI_DeviceProcess dp
+                    LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
+                    LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
+                    LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
+                    LEFT JOIN MasterMachines m ON h.MachCode = m.MachCode
+                    WHERE dp.DeviceCode IN @DeviceCodes
+                    ORDER BY dp.DeviceCode, dp.Seq ASC";
+
+                try
+                {
+                    allSteps = (await connection.QueryAsync<dynamic>(deviceProcessSql, new { DeviceCodes = deviceCodes })).AsList();
+                }
+                catch { }
+            }
+
+            // 2. Fallback to CI_SQ01 for any devices not present in CI_DeviceProcess
+            var coveredDevices = allSteps.Select(s => ((string)s.DeviceCode).Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet();
+            var missingDevices = deviceCodes.Where(d => !coveredDevices.Contains(d)).ToList();
+
+            if (missingDevices.Count > 0)
+            {
+                bool hasWorkCenterCol = false;
+                try
+                {
+                    hasWorkCenterCol = await connection.ExecuteScalarAsync<int>(
+                        "SELECT COUNT(1) FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_SQ01') AND name = 'WorkCenter'") > 0;
+                }
+                catch { }
+
+                string sqSql = hasWorkCenterCol
+                    ? @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
+                               sq.Description, sq.MachineHour, sq.LaborHour, sq.WorkCenter,
+                               NULL AS MachineName, 'PROD' AS Area
+                        FROM CI_SQ01 sq
+                        LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                        WHERE sq.DeviceCode IN @MissingCodes
+                        ORDER BY sq.DeviceCode, sq.Seq ASC"
+                    : @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
+                               sq.Description, sq.MachineHour, sq.LaborHour, NULL AS WorkCenter,
+                               NULL AS MachineName, 'PROD' AS Area
+                        FROM CI_SQ01 sq
+                        LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                        WHERE sq.DeviceCode IN @MissingCodes
+                        ORDER BY sq.DeviceCode, sq.Seq ASC";
+
+                try
+                {
+                    var fallbackSteps = (await connection.QueryAsync<dynamic>(sqSql, new { MissingCodes = missingDevices })).AsList();
+                    allSteps.AddRange(fallbackSteps);
+                }
+                catch { }
+            }
 
             var stepsByDevice = allSteps
                 .GroupBy(s => (string)s.DeviceCode)
@@ -885,13 +1030,31 @@ namespace LssTraining.Web.Data
             decimal availLabor0Ot = input.AvailableHoursPerPersonZeroOt > 0 ? input.AvailableHoursPerPersonZeroOt : 36.25m;
             decimal availLaborWithOt = input.AvailableHoursPerPersonWithOt > 0 ? input.AvailableHoursPerPersonWithOt : 39.875m;
 
-            result.TotalHeadcountZeroOt = availLabor0Ot > 0 ? (int)Math.Ceiling(totalLabor / availLabor0Ot) : 0;
-            result.TotalHeadcountWithOt = availLaborWithOt > 0 ? (int)Math.Ceiling(totalLabor / availLaborWithOt) : 0;
+            decimal totalExact = availLabor0Ot > 0 ? (totalLabor / availLabor0Ot) : 0m;
+            result.TotalExactHeadcount = Math.Round(totalExact, 2);
+            result.TotalBaseHeadcount = (int)Math.Floor(totalExact); // Rounded down to base operators
+            result.TotalOvertimeEquivalent = Math.Round(totalExact - result.TotalBaseHeadcount, 2); // Fractional overtime remainder
+            result.TotalOvertimeHours = Math.Round(result.TotalOvertimeEquivalent * availLabor0Ot, 1);
+            result.AverageOvertimeRatePercent = result.TotalBaseHeadcount > 0 
+                ? Math.Round((result.TotalOvertimeEquivalent / result.TotalBaseHeadcount) * 100m, 1) 
+                : 0m;
+
+            result.TotalHeadcountZeroOt = (int)Math.Ceiling(totalExact);
+            result.TotalHeadcountWithOt = result.TotalBaseHeadcount; // Base operators with fractional part absorbed as overtime
 
             foreach (var l in laborLoadsDict.Values)
             {
-                l.HeadcountZeroOt = availLabor0Ot > 0 ? (int)Math.Ceiling(l.TotalLaborHours / availLabor0Ot) : 0;
-                l.HeadcountWithOt = availLaborWithOt > 0 ? (int)Math.Ceiling(l.TotalLaborHours / availLaborWithOt) : 0;
+                decimal exactHc = availLabor0Ot > 0 ? (l.TotalLaborHours / availLabor0Ot) : 0m;
+                l.ExactHeadcount = Math.Round(exactHc, 2);
+                l.BaseHeadcount = (int)Math.Floor(exactHc); // Rounded down (e.g. 2 for 2.4)
+                l.OvertimeEquivalent = Math.Round(exactHc - l.BaseHeadcount, 2); // e.g. 0.4
+                l.OvertimeHoursNeeded = Math.Round(l.OvertimeEquivalent * availLabor0Ot, 1); // e.g. 0.4 * 36.25 = 14.5h
+                l.OvertimeRatePercent = l.BaseHeadcount > 0 
+                    ? Math.Round((l.OvertimeEquivalent / l.BaseHeadcount) * 100m, 1) 
+                    : (l.OvertimeEquivalent > 0 ? 100m : 0m);
+
+                l.HeadcountZeroOt = (int)Math.Ceiling(exactHc);
+                l.HeadcountWithOt = l.BaseHeadcount; // Base operator count with overtime absorbing remainder
                 l.PercentOfTotalLabor = totalLabor > 0 ? (l.TotalLaborHours / totalLabor) * 100m : 0m;
             }
 
@@ -1303,13 +1466,31 @@ namespace LssTraining.Web.Data
             decimal availLabor0Ot = filter.AvailableHoursPerPersonZeroOt > 0 ? filter.AvailableHoursPerPersonZeroOt : 36.25m;
             decimal availLaborWithOt = filter.AvailableHoursPerPersonWithOt > 0 ? filter.AvailableHoursPerPersonWithOt : 39.875m;
 
-            result.RequiredHeadcountZeroOt = availLabor0Ot > 0 ? (int)Math.Ceiling(totalLabor / availLabor0Ot) : 0;
-            result.RequiredHeadcountWithOt = availLaborWithOt > 0 ? (int)Math.Ceiling(totalLabor / availLaborWithOt) : 0;
+            decimal totalExactHc = availLabor0Ot > 0 ? (totalLabor / availLabor0Ot) : 0m;
+            result.TotalExactHeadcount = Math.Round(totalExactHc, 2);
+            result.TotalBaseHeadcount = (int)Math.Floor(totalExactHc); // Rounded down
+            result.TotalOvertimeEquivalent = Math.Round(totalExactHc - result.TotalBaseHeadcount, 2); // Remainder absorbed as overtime
+            result.TotalOvertimeHours = Math.Round(result.TotalOvertimeEquivalent * availLabor0Ot, 1);
+            result.AverageOvertimeRatePercent = result.TotalBaseHeadcount > 0 
+                ? Math.Round((result.TotalOvertimeEquivalent / result.TotalBaseHeadcount) * 100m, 1) 
+                : 0m;
+
+            result.RequiredHeadcountZeroOt = (int)Math.Ceiling(totalExactHc);
+            result.RequiredHeadcountWithOt = result.TotalBaseHeadcount; // Base operators with fractional part absorbed as overtime
 
             foreach (var l in laborLoadsDict.Values)
             {
-                l.HeadcountZeroOt = availLabor0Ot > 0 ? (int)Math.Ceiling(l.TotalLaborHours / availLabor0Ot) : 0;
-                l.HeadcountWithOt = availLaborWithOt > 0 ? (int)Math.Ceiling(l.TotalLaborHours / availLaborWithOt) : 0;
+                decimal exactHc = availLabor0Ot > 0 ? (l.TotalLaborHours / availLabor0Ot) : 0m;
+                l.ExactHeadcount = Math.Round(exactHc, 2);
+                l.BaseHeadcount = (int)Math.Floor(exactHc); // Rounded down (e.g. 2 for 2.4)
+                l.OvertimeEquivalent = Math.Round(exactHc - l.BaseHeadcount, 2); // e.g. 0.4
+                l.OvertimeHoursNeeded = Math.Round(l.OvertimeEquivalent * availLabor0Ot, 1); // e.g. 0.4 * 36.25 = 14.5h
+                l.OvertimeRatePercent = l.BaseHeadcount > 0 
+                    ? Math.Round((l.OvertimeEquivalent / l.BaseHeadcount) * 100m, 1) 
+                    : (l.OvertimeEquivalent > 0 ? 100m : 0m);
+
+                l.HeadcountZeroOt = (int)Math.Ceiling(exactHc);
+                l.HeadcountWithOt = l.BaseHeadcount;
                 l.PercentOfTotalLabor = totalLabor > 0 ? (l.TotalLaborHours / totalLabor) * 100m : 0m;
             }
 
@@ -1342,9 +1523,12 @@ namespace LssTraining.Web.Data
             if (!result.IsLaborCapacityMet)
             {
                 int deficit = Math.Abs(result.LaborSurplusOrDeficit);
-                points.Add($"Direct Labor Shortage: Requires {result.RequiredHeadcountWithOt} operators (at {filter.OvertimeLimitPercent}% OT), but only {result.ActiveEmployeesAvailable} active employees are currently available. Deficit: -{deficit} operators.");
+                points.Add($"Direct Labor Shortage: Requires {result.RequiredHeadcountWithOt} base operators with {result.TotalOvertimeEquivalent:N1} operator overtime equivalent ({result.TotalOvertimeHours:N1} OT hrs), but only {result.ActiveEmployeesAvailable} active employees are available. Deficit: -{deficit} operators.");
             }
-            else if (result.RequiredHeadcountZeroOt > result.ActiveEmployeesAvailable)
+            else if (result.TotalOvertimeEquivalent > 0)
+            {
+                points.Add($"Overtime Schedule Required: Requires {result.RequiredHeadcountWithOt} base operators plus {result.TotalOvertimeEquivalent:N1} operator overtime equivalent ({result.TotalOvertimeHours:N1} OT hrs, avg {result.AverageOvertimeRatePercent:N1}% OT).");
+            }
             {
                 points.Add($"Normal Hours Overtime Dependent: Requires {result.RequiredHeadcountZeroOt} operators under 0% OT vs {result.ActiveEmployeesAvailable} available. Continuous overtime scheduling is necessary.");
             }

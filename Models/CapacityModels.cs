@@ -134,9 +134,35 @@ namespace LssTraining.Web.Models
         public string ProcCode { get; set; } = string.Empty;
         public string ProcName { get; set; } = string.Empty;
         public decimal TotalLaborHoursRequired { get; set; }
+        public decimal AvailableHoursPerPerson { get; set; }
+
+        /// <summary>
+        /// Exact theoretical operator requirement (e.g. 2.4 operators).
+        /// </summary>
+        public decimal ExactHeadcount { get; set; }
+
+        /// <summary>
+        /// Base headcount rounded down (e.g. 2 operators for 2.4 requirement).
+        /// </summary>
+        public int BaseHeadcount { get; set; }
+
+        /// <summary>
+        /// Fractional operator equivalent absorbed as overtime (e.g. 0.4 operator equivalent).
+        /// </summary>
+        public decimal OvertimeEquivalent { get; set; }
+
+        /// <summary>
+        /// Overtime hours required: OvertimeEquivalent * AvailableHoursPerPerson (e.g. 0.4 * 36.25 = 14.5 hrs).
+        /// </summary>
+        public decimal OvertimeHoursNeeded { get; set; }
+
+        /// <summary>
+        /// Overtime load percentage per base operator (e.g. 0.4 / 2 = 20.0%).
+        /// </summary>
+        public decimal OvertimeRatePercent { get; set; }
+
         public int HeadcountZeroOvertime { get; set; }
         public int HeadcountWithOvertime { get; set; }
-        public decimal AvailableHoursPerPerson { get; set; }
     }
 
     public class MachineCapacityResult
@@ -204,6 +230,11 @@ namespace LssTraining.Web.Models
 
         // Manpower Headcount Summary
         public List<ProcessManpowerResult> ManpowerResults { get; set; } = new List<ProcessManpowerResult>();
+        public decimal TotalExactHeadcount { get; set; }
+        public int TotalBaseHeadcount { get; set; }
+        public decimal TotalOvertimeEquivalent { get; set; }
+        public decimal TotalOvertimeHours { get; set; }
+        public decimal AverageOvertimeRatePercent { get; set; }
         public int TotalHeadcountZeroOvertime { get; set; }
         public int TotalHeadcountWithOvertime { get; set; }
 
@@ -274,6 +305,32 @@ namespace LssTraining.Web.Models
         public string ProcessName { get; set; } = string.Empty;
         public string WorkCenter { get; set; } = string.Empty;
         public decimal TotalLaborHours { get; set; }
+
+        /// <summary>
+        /// Exact theoretical operator requirement (e.g. 2.4 operators).
+        /// </summary>
+        public decimal ExactHeadcount { get; set; }
+
+        /// <summary>
+        /// Base headcount rounded down (e.g. 2 operators for 2.4 requirement).
+        /// </summary>
+        public int BaseHeadcount { get; set; }
+
+        /// <summary>
+        /// Fractional operator equivalent absorbed as overtime (e.g. 0.4 operator equivalent).
+        /// </summary>
+        public decimal OvertimeEquivalent { get; set; }
+
+        /// <summary>
+        /// Overtime hours required: OvertimeEquivalent * AvailableHoursPerPerson (e.g. 0.4 * 36.25 = 14.5 hrs).
+        /// </summary>
+        public decimal OvertimeHoursNeeded { get; set; }
+
+        /// <summary>
+        /// Overtime load percentage per base operator (e.g. 0.4 / 2 = 20.0%).
+        /// </summary>
+        public decimal OvertimeRatePercent { get; set; }
+
         public int HeadcountZeroOt { get; set; }
         public int HeadcountWithOt { get; set; }
         public decimal PercentOfTotalLabor { get; set; }
@@ -322,6 +379,11 @@ namespace LssTraining.Web.Models
 
         // Labor Capacity Section
         public decimal TotalRequiredLaborHours { get; set; }
+        public decimal TotalExactHeadcount { get; set; }
+        public int TotalBaseHeadcount { get; set; }
+        public decimal TotalOvertimeEquivalent { get; set; }
+        public decimal TotalOvertimeHours { get; set; }
+        public decimal AverageOvertimeRatePercent { get; set; }
         public int TotalHeadcountZeroOt { get; set; }
         public int TotalHeadcountWithOt { get; set; }
         public int HeadcountSavedByOt => Math.Max(0, TotalHeadcountZeroOt - TotalHeadcountWithOt);
@@ -394,6 +456,11 @@ namespace LssTraining.Web.Models
 
         // Live Labor Capacity
         public decimal TotalRequiredLaborHours { get; set; }
+        public decimal TotalExactHeadcount { get; set; }
+        public int TotalBaseHeadcount { get; set; }
+        public decimal TotalOvertimeEquivalent { get; set; }
+        public decimal TotalOvertimeHours { get; set; }
+        public decimal AverageOvertimeRatePercent { get; set; }
         public int RequiredHeadcountZeroOt { get; set; }
         public int RequiredHeadcountWithOt { get; set; }
         public int ActiveEmployeesAvailable { get; set; }

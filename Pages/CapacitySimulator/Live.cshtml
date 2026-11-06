@@ -503,11 +503,12 @@
                     </svg>
                     Live Direct Labor Capacity &amp; Manpower Alignment
                 </h4>
-                <p class="text-muted small">Actual direct labor headcount required vs active operators registered in HR database (CI_Employee).</p>
+                <p class="text-muted small">Actual direct labor headcount required using <strong>CI_DeviceProcess</strong> routing vs active operators registered in HR database (CI_Employee). Fractional requirements are rounded down to base operators, with remainder absorbed as overtime.</p>
             </div>
             <div>
                 <span class="badge @(res.IsLaborCapacityMet ? "bg-success" : "bg-danger") px-3 py-2 rounded-pill fs-6 shadow-sm">
                     @(res.IsLaborCapacityMet ? "Labor Capacity: SUFFICIENT" : "Labor Capacity: DEFICIT / SHORTAGE")
+                    (Base: @res.TotalBaseHeadcount Ops, Avail: @res.ActiveEmployeesAvailable)
                 </span>
             </div>
         </div>
@@ -523,27 +524,27 @@
                     </div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
-                    <div class="p-3 bg-light rounded-3 border">
-                        <span class="text-muted small fw-semibold text-uppercase">Headcount Needed (0% OT)</span>
-                        <h4 class="fw-bold mb-0 text-secondary">@res.RequiredHeadcountZeroOt <small class="text-muted fs-6">Operators</small></h4>
-                        <span class="text-muted small">Standard normal hours only</span>
+                    <div class="p-3 bg-light rounded-3 border border-primary">
+                        <span class="text-muted small fw-semibold text-uppercase">Base Headcount (Floor)</span>
+                        <h4 class="fw-bold mb-0 text-primary">@res.TotalBaseHeadcount <small class="text-muted fs-6">Operators</small></h4>
+                        <span class="text-muted small">Exact theoretical: <strong>@res.TotalExactHeadcount.ToString("N2")</strong> ops</span>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="p-3 bg-light rounded-3 border border-warning">
+                        <span class="text-muted small fw-semibold text-uppercase">Overtime Remainder</span>
+                        <h4 class="fw-bold mb-0 text-warning-emphasis">
+                            +@res.TotalOvertimeEquivalent.ToString("N2") <small class="text-muted fs-6">OT eqv</small>
+                        </h4>
+                        <span class="text-muted small">@res.TotalOvertimeHours.ToString("N1") hrs OT (@res.AverageOvertimeRatePercent.ToString("N1")% rate)</span>
                     </div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <div class="p-3 bg-light rounded-3 border @(res.IsLaborCapacityMet ? "border-success" : "border-danger")">
-                        <span class="text-muted small fw-semibold text-uppercase">Headcount Needed (@f.OvertimeLimitPercent% OT)</span>
-                        <h4 class="fw-bold mb-0 @(res.IsLaborCapacityMet ? "text-success" : "text-danger")">
-                            @res.RequiredHeadcountWithOt <small class="text-muted fs-6">Operators</small>
-                        </h4>
-                        <span class="text-muted small">With configured overtime limit</span>
-                    </div>
-                </div>
-                <div class="col-sm-6 col-lg-3">
-                    <div class="p-3 bg-light rounded-3 border">
                         <span class="text-muted small fw-semibold text-uppercase">Plant Active Manpower (CI_Employee)</span>
                         <h4 class="fw-bold mb-0 text-primary">@res.ActiveEmployeesAvailable <small class="text-muted fs-6">Operators</small></h4>
                         <span class="small @(res.IsLaborCapacityMet ? "text-success fw-bold" : "text-danger fw-bold")">
-                            @(res.IsLaborCapacityMet ? $"+{res.LaborSurplusOrDeficit} Surplus" : $"{res.LaborSurplusOrDeficit} Deficit")
+                            @(res.IsLaborCapacityMet ? $"+{res.LaborSurplusOrDeficit} Surplus vs with-OT" : $"{res.LaborSurplusOrDeficit} Deficit vs with-OT")
                         </span>
                     </div>
                 </div>
@@ -558,8 +559,10 @@
                             <th>Process Description</th>
                             <th>Participating Live Devices</th>
                             <th class="text-end">Required Labor Hrs</th>
+                            <th class="text-end">Exact Needed</th>
+                            <th class="text-end">Base Headcount</th>
+                            <th class="text-end">Overtime Remainder</th>
                             <th class="text-center">Headcount (0% OT)</th>
-                            <th class="text-center">Headcount (@f.OvertimeLimitPercent% OT)</th>
                             <th style="min-width: 150px;">Labor Share %</th>
                         </tr>
                     </thead>
@@ -584,8 +587,23 @@
                                         </div>
                                     </td>
                                     <td class="text-end fw-bold font-monospace">@labor.TotalLaborHours.ToString("N1")</td>
-                                    <td class="text-center fw-bold text-secondary">@labor.HeadcountZeroOt</td>
-                                    <td class="text-center fw-bold text-success">@labor.HeadcountWithOt</td>
+                                    <td class="text-end fw-bold text-dark font-monospace">@labor.ExactHeadcount.ToString("N2")</td>
+                                    <td class="text-end">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">@labor.BaseHeadcount Base Ops</span>
+                                    </td>
+                                    <td class="text-end">
+                                        @if (labor.OvertimeEquivalent > 0)
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                +@labor.OvertimeEquivalent.ToString("N2") OT eqv (@labor.OvertimeHoursNeeded.ToString("N1")h)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="text-center fw-semibold text-secondary font-monospace">@labor.HeadcountZeroOt</td>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <div class="progress flex-grow-1" style="height: 6px;">
@@ -604,8 +622,21 @@
                         <tr>
                             <td colspan="3">TOTAL DIRECT LABOR REQUIREMENT</td>
                             <td class="text-end text-primary">@res.TotalRequiredLaborHours.ToString("N1") hrs</td>
-                            <td class="text-center text-secondary">@res.RequiredHeadcountZeroOt Operators</td>
-                            <td class="text-center text-success">@res.RequiredHeadcountWithOt Operators</td>
+                            <td class="text-end text-primary font-monospace">@res.TotalExactHeadcount.ToString("N2")</td>
+                            <td class="text-end text-primary">
+                                <span class="badge bg-primary px-2 py-1">@res.TotalBaseHeadcount Base Ops</span>
+                            </td>
+                            <td class="text-end text-warning-emphasis">
+                                @if (res.TotalOvertimeEquivalent > 0)
+                                {
+                                    <span>+@res.TotalOvertimeEquivalent.ToString("N2") OT eqv (@res.TotalOvertimeHours.ToString("N1")h)</span>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </td>
+                            <td class="text-center text-secondary font-monospace">@res.RequiredHeadcountZeroOt Operators</td>
                             <td>100.0%</td>
                         </tr>
                     </tfoot>
