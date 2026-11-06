@@ -218,4 +218,116 @@ namespace LssTraining.Web.Models
         public int TotalDevicesSimulated { get; set; }
         public int TotalStepsSimulated => RoutingSteps != null ? RoutingSteps.Count : 0;
     }
+
+    // =========================================================================
+    // MULTI-DEVICE CAPACITY PLANNING & MACHINE MATRIX SIMULATOR MODELS
+    // =========================================================================
+
+    public class DeviceDemandInput
+    {
+        public string DeviceCode { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
+        public int StepCount { get; set; }
+        public int DemandQuantity { get; set; } = 10000;
+        public string DemandPeriod { get; set; } = "Weekly"; // "Weekly" or "Yearly"
+    }
+
+    public class DeviceCapacitySimulationInput
+    {
+        public List<DeviceDemandInput> Devices { get; set; } = new List<DeviceDemandInput>();
+        public string ShiftSystem { get; set; } = "5-2"; // "5-2" or "6-1"
+        public int ShiftsPerDay { get; set; } = 3; // 1, 2, 3
+        public decimal OvertimeLimitPercent { get; set; } = 10m; // 0 - 50%
+        public int WorkingWeeksPerYear { get; set; } = 52;
+
+        public int EffectiveWeeksPerYear => WorkingWeeksPerYear >= 1 && WorkingWeeksPerYear <= 53 ? WorkingWeeksPerYear : 52;
+        public int WorkingDays => ShiftSystem == "6-1" ? 6 : 5;
+        public decimal NormalHoursPerShift => 7.25m;
+
+        public decimal AvailableHoursPerPersonZeroOt => WorkingDays * NormalHoursPerShift;
+        public decimal AvailableHoursPerPersonWithOt => AvailableHoursPerPersonZeroOt * (1m + (OvertimeLimitPercent / 100m));
+
+        public decimal AvailableMachineHoursNormal => WorkingDays * ShiftsPerDay * NormalHoursPerShift;
+        public decimal AvailableMachineHoursWithOt => AvailableMachineHoursNormal * (1m + (OvertimeLimitPercent / 100m));
+    }
+
+    public class DeviceMachineLoadItem
+    {
+        public string WorkCenter { get; set; } = string.Empty;
+        public string MachineName { get; set; } = string.Empty;
+        public string Area { get; set; } = "PROD";
+        public decimal RequiredHours { get; set; }
+        public decimal AvailableNormalHours { get; set; }
+        public decimal AvailableWithOvertimeHours { get; set; }
+        public decimal ShortageOrSurplus => AvailableWithOvertimeHours - RequiredHours;
+        public decimal UtilizationPercent => AvailableWithOvertimeHours > 0 ? (RequiredHours / AvailableWithOvertimeHours) * 100m : 0m;
+        public bool IsBottleneck => RequiredHours > AvailableWithOvertimeHours;
+        public bool NeedsOvertime => RequiredHours > AvailableNormalHours && RequiredHours <= AvailableWithOvertimeHours;
+        public int RecommendedMachines => AvailableWithOvertimeHours > 0 ? (int)Math.Ceiling(RequiredHours / AvailableWithOvertimeHours) : 1;
+        public string Status => IsBottleneck ? "BOTTLENECK" : (NeedsOvertime ? "OT NEEDED" : "OK");
+        public List<string> ContributingDevices { get; set; } = new List<string>();
+        public Dictionary<string, decimal> DeviceHoursBreakdown { get; set; } = new Dictionary<string, decimal>();
+    }
+
+    public class DeviceLaborLoadItem
+    {
+        public string ProcessName { get; set; } = string.Empty;
+        public string WorkCenter { get; set; } = string.Empty;
+        public decimal TotalLaborHours { get; set; }
+        public int HeadcountZeroOt { get; set; }
+        public int HeadcountWithOt { get; set; }
+        public decimal PercentOfTotalLabor { get; set; }
+        public List<string> ContributingDevices { get; set; } = new List<string>();
+    }
+
+    public class DeviceRoutingStepItem
+    {
+        public string DeviceCode { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
+        public int Seq { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public string WorkCenter { get; set; } = string.Empty;
+        public decimal MachineHour { get; set; }
+        public decimal LaborHour { get; set; }
+        public decimal DemandUnits { get; set; }
+        public int InputDemand { get; set; }
+        public string Period { get; set; } = "Weekly";
+        public decimal RequiredMachineHours { get; set; }
+        public decimal RequiredLaborHours { get; set; }
+    }
+
+    public class DeviceCapacityAnalysisResult
+    {
+        // Parameters used
+        public string ShiftSystem { get; set; } = "5-2";
+        public int ShiftsPerDay { get; set; } = 3;
+        public decimal OvertimeLimitPercent { get; set; } = 10m;
+        public int WorkingWeeksPerYear { get; set; } = 52;
+        public decimal AvailableHoursPerPersonZeroOt { get; set; }
+        public decimal AvailableHoursPerPersonWithOt { get; set; }
+        public decimal AvailableMachineHoursNormal { get; set; }
+        public decimal AvailableMachineHoursWithOt { get; set; }
+
+        // Total demands
+        public int TotalDevicesCount { get; set; }
+        public decimal TotalWeeklyUnits { get; set; }
+
+        // Machine Capacity Section
+        public decimal TotalRequiredMachineHours { get; set; }
+        public decimal TotalAvailableMachineHours { get; set; }
+        public bool IsMachineCapacityMet { get; set; }
+        public int BottleneckMachineCount { get; set; }
+        public List<DeviceMachineLoadItem> MachineLoads { get; set; } = new List<DeviceMachineLoadItem>();
+        public List<DeviceMachineLoadItem> Bottlenecks { get; set; } = new List<DeviceMachineLoadItem>();
+
+        // Labor Capacity Section
+        public decimal TotalRequiredLaborHours { get; set; }
+        public int TotalHeadcountZeroOt { get; set; }
+        public int TotalHeadcountWithOt { get; set; }
+        public int HeadcountSavedByOt => Math.Max(0, TotalHeadcountZeroOt - TotalHeadcountWithOt);
+        public List<DeviceLaborLoadItem> LaborLoads { get; set; } = new List<DeviceLaborLoadItem>();
+
+        // Detailed step routing
+        public List<DeviceRoutingStepItem> RoutingSteps { get; set; } = new List<DeviceRoutingStepItem>();
+    }
 }

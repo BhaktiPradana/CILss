@@ -1,0 +1,1003 @@
+@page
+@model LssTraining.Web.Pages.CapacitySimulator.DeviceModel
+@{
+    ViewData["Title"] = "Capacity Device — Multi-Device & Machine Matrix Simulator";
+}
+
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small">
+                    <li class="breadcrumb-item"><a asp-page="/Index" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a asp-page="/CapacitySimulator/Index" class="text-decoration-none">Capacity Planning</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Capacity Device</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-1 text-dark">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-cpu-fill text-primary me-2 align-middle" viewBox="0 0 16 16">
+                    <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H3.5A1.5 1.5 0 0 0 2 4.5V6H1.5A1.5 1.5 0 0 0 0 7.5v1A1.5 1.5 0 0 0 1.5 10H2v1.5A1.5 1.5 0 0 0 3.5 13H5v.5A1.5 1.5 0 0 0 6.5 15h1a1.5 1.5 0 0 0 1.5-1.5V13h1.5a1.5 1.5 0 0 0 1.5-1.5V10h.5A1.5 1.5 0 0 0 16 8.5v-1A1.5 1.5 0 0 0 14.5 6H14V4.5A1.5 1.5 0 0 0 12.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-1a1.5 1.5 0 0 0-1.5 1.5V3H6.5v-.5A1.5 1.5 0 0 0 6.5 1zM5 5h6a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>
+                </svg>
+                Capacity Device — Multi-Device &amp; Machine Matrix Simulator
+            </h1>
+            <p class="text-muted small mb-0">Simulasi kebutuhan kapasitas mesin (Machine Matrix) &amp; tenaga kerja (Labor Headcount) untuk multi-device produksi bersamaan.</p>
+        </div>
+        <div class="d-flex gap-2 mt-2 mt-md-0">
+            <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm" onclick="location.reload()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise me-1" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                Reset / Refresh
+            </button>
+            <a asp-page="/CapacitySimulator/Index" class="btn btn-outline-primary btn-sm shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-diagram-3 me-1" viewBox="0 0 16 16">
+                    <path d="M7 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 0 0-3 3v1h6V9a3 3 0 0 0-3-3zM2 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 0 0-3 3v1h6v-1a3 3 0 0 0-3-3zm10-1a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 0 0-3 3v1h6v-1a3 3 0 0 0-3-3z"/>
+                </svg>
+                Switch to Family Simulator
+            </a>
+        </div>
+    </div>
+
+    <!-- Master Database Info Badges -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-primary">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Synchronized Devices</span>
+                        <h3 class="fw-bold mb-0 text-dark">@Model.Summary.TotalDevices.ToString("N0")</h3>
+                        <span class="text-muted small">Tersedia di CI_SQ01</span>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 rounded-circle p-3 text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 1a2 2 0 0 1 2 2v2H6V3a2 2 0 0 1 2-2zm3 4V3a3 3 0 1 0-6 0v2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-success">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Total Routing Steps</span>
+                        <h3 class="fw-bold mb-0 text-dark">@Model.Summary.TotalProcesses.ToString("N0")</h3>
+                        <span class="text-muted small">Machine &amp; Labor Matrix</span>
+                    </div>
+                    <div class="bg-success bg-opacity-10 rounded-circle p-3 text-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-info">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Standard Shift Constant</span>
+                        <h3 class="fw-bold mb-0 text-dark">7.25 hrs/shift</h3>
+                        <span class="text-muted small">Standard Operator Effective Time</span>
+                    </div>
+                    <div class="bg-info bg-opacity-10 rounded-circle p-3 text-info">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                            <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datalist for fast client-side autocomplete matching all 3,592 devices -->
+    <datalist id="deviceList">
+        @if (Model.AvailableDevices != null)
+        {
+            foreach (var d in Model.AvailableDevices)
+            {
+                <option value="@d.DeviceCode">@d.DeviceName (@d.StepCount steps)</option>
+            }
+        }
+    </datalist>
+
+    <!-- Form Section -->
+    <form method="post" asp-page-handler="Analyze" id="deviceCapacityForm">
+        <!-- Card 1: Multi-Device Demand Input -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-card-checklist text-primary me-2 align-middle" viewBox="0 0 16 16">
+                            <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
+                            <path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0zM7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0z"/>
+                        </svg>
+                        1. Input Device Code &amp; Production Demand
+                    </h5>
+                    <p class="text-muted small mb-0">Input kode device secara manual atau copy-paste langsung dari file Excel/teks.</p>
+                </div>
+                <div class="d-flex gap-2 mt-2 mt-md-0">
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" onclick="togglePasteBox()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-clipboard-data me-1" viewBox="0 0 16 16">
+                            <path d="M4 11a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0v-1zm6-4a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0V7zM7 9a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0V9z"/>
+                            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                        </svg>
+                        Copy-Paste dari Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-sm rounded-pill" onclick="loadSampleMultiDevice()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-lightning-charge me-1" viewBox="0 0 16 16">
+                            <path d="M11.251.068a.5.5 0 0 1 .227.58L9.677 6.5H13a.5.5 0 0 1 .364.843l-8 8.5a.5.5 0 0 1-.842-.49L6.323 9.5H3a.5.5 0 0 1-.364-.843l8-8.5a.5.5 0 0 1 .615-.09z"/>
+                        </svg>
+                        Load Sample Devices
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" onclick="clearAllDevices()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-trash me-1" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                        Clear All
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body px-4 pb-4">
+                <!-- Paste Box (Collapsible) -->
+                <div id="pasteBoxContainer" class="p-3 mb-3 bg-light rounded-3 border" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fw-bold small text-dark mb-0">
+                            📋 Quick Paste Box (Excel / Teks)
+                        </label>
+                        <span class="text-muted small">Format per baris: <code>DeviceCode [tab/koma/spasi] Demand [tab/koma] Weekly/Yearly</code></span>
+                    </div>
+                    <textarea id="rawPasteArea" class="form-control form-control-sm font-monospace mb-2" rows="4" placeholder="Contoh:&#10;3346007	25000	Weekly&#10;96320668	50000	Weekly&#10;96353433	120000	Yearly"></textarea>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-primary btn-sm px-3" onclick="processPastedText()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-check-circle me-1" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="m10.97 4.97-.02.022-3.473 4.425-2.093-2.094a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                            </svg>
+                            Auto-Detect &amp; Populate Table
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="togglePasteBox()">Batal / Tutup</button>
+                    </div>
+                </div>
+
+                <!-- Dynamic Devices Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-3" id="devicesTable">
+                        <thead class="table-light text-uppercase small text-muted">
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 220px;">Device Code</th>
+                                <th>Device Name &amp; Description</th>
+                                <th style="width: 140px;">Process Steps</th>
+                                <th style="width: 170px;">Demand Qty</th>
+                                <th style="width: 140px;">Period</th>
+                                <th style="width: 150px;">Weekly Equivalent</th>
+                                <th style="width: 70px;" class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devicesTableBody">
+                            @if (Model.Input.Devices != null && Model.Input.Devices.Count > 0)
+                            {
+                                for (int i = 0; i < Model.Input.Devices.Count; i++)
+                                {
+                                    var item = Model.Input.Devices[i];
+                                    var isYearly = string.Equals(item.DemandPeriod, "Yearly", StringComparison.OrdinalIgnoreCase);
+                                    var weeklyUnits = isYearly ? Math.Round((decimal)item.DemandQuantity / Model.Input.EffectiveWeeksPerYear, 1) : item.DemandQuantity;
+                                    <tr class="device-row" data-index="@i">
+                                        <td class="row-num text-muted small fw-bold">@(i + 1)</td>
+                                        <td>
+                                            <input type="text" name="Input.Devices[@i].DeviceCode" class="form-control form-control-sm font-monospace fw-bold device-code-input" 
+                                                   value="@item.DeviceCode" list="deviceList" placeholder="Masukkan Device Code" oninput="onDeviceCodeChanged(this)" required />
+                                        </td>
+                                        <td>
+                                            <span class="device-name-badge fw-medium text-dark">@(string.IsNullOrWhiteSpace(item.DeviceName) ? "-" : item.DeviceName)</span>
+                                            <input type="hidden" name="Input.Devices[@i].DeviceName" class="device-name-hidden" value="@item.DeviceName" />
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border step-count-badge">@(item.StepCount > 0 ? $"{item.StepCount} steps" : "Auto-detecting...")</span>
+                                            <input type="hidden" name="Input.Devices[@i].StepCount" class="step-count-hidden" value="@item.StepCount" />
+                                        </td>
+                                        <td>
+                                            <input type="number" name="Input.Devices[@i].DemandQuantity" class="form-control form-control-sm text-end demand-qty-input" 
+                                                   value="@item.DemandQuantity" min="1" step="1" oninput="updateRowWeeklyEquivalent(this)" required />
+                                        </td>
+                                        <td>
+                                            <select name="Input.Devices[@i].DemandPeriod" class="form-select form-select-sm demand-period-select" onchange="updateRowWeeklyEquivalent(this)">
+                                                @if (isYearly)
+                                                {
+                                                    <option value="Weekly">Weekly</option>
+                                                    <option value="Yearly" selected>Yearly</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="Weekly" selected>Weekly</option>
+                                                    <option value="Yearly">Yearly</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 weekly-equiv-display">
+                                                @weeklyUnits.ToString("N0") pcs/wk
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-outline-danger btn-sm p-1 rounded-circle remove-row-btn" onclick="removeDeviceRow(this)" title="Hapus baris">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
+                                                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDeviceRow()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-plus-lg me-1" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                        </svg>
+                        Tambah Device Row
+                    </button>
+                    <span class="text-muted small" id="totalSelectedSummary">Total: @(Model.Input.Devices?.Count ?? 0) devices terpilih</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Operational Shift & Overtime Settings -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                <h5 class="fw-bold text-dark mb-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-sliders text-primary me-2 align-middle" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9.05 3a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0V3h9.05zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2.05 8a2.5 2.5 0 0 1 4.9 0H16v1H6.95a2.5 2.5 0 0 1-4.9 0H0V8h2.05zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-2.45 1a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0v-1h9.05z"/>
+                    </svg>
+                    2. Shift System, Overtime (OT) Rate &amp; Availability Parameters
+                </h5>
+                <p class="text-muted small mb-0">Konfigurasi pola shift pabrik dan persentase lembur untuk simulasi ketersediaan jam kerja mesin &amp; operator.</p>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <div class="row g-4 align-items-center">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted text-uppercase mb-1">Shift Pattern</label>
+                        <select asp-for="Input.ShiftSystem" class="form-select" onchange="updateShiftPreview()">
+                            <option value="5-2">5-2 System (5 Working Days / Wk)</option>
+                            <option value="6-1">6-1 System (6 Working Days / Wk)</option>
+                        </select>
+                        <div class="form-text small">5-2 = 5 hari kerja; 6-1 = 6 hari kerja</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted text-uppercase mb-1">Shifts per Day</label>
+                        <select asp-for="Input.ShiftsPerDay" class="form-select" onchange="updateShiftPreview()">
+                            <option value="1">1 Shift (7.25 hrs/day)</option>
+                            <option value="2">2 Shifts (14.50 hrs/day)</option>
+                            <option value="3">3 Shifts (21.75 hrs/day)</option>
+                        </select>
+                        <div class="form-text small">Standard 3 shifts operasi 24 jam</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small text-muted text-uppercase mb-1 d-flex justify-content-between">
+                            <span>Overtime (OT) Rate</span>
+                            <span class="text-primary fw-bold" id="otDisplay">@Model.Input.OvertimeLimitPercent%</span>
+                        </label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="range" class="form-range" id="otSlider" min="0" max="50" step="5" value="@Model.Input.OvertimeLimitPercent" oninput="syncOtInput(this.value)" />
+                            <input type="number" asp-for="Input.OvertimeLimitPercent" id="otInput" class="form-control form-control-sm text-end" style="width: 75px;" min="0" max="50" step="1" oninput="syncOtSlider(this.value)" />
+                            <span class="small fw-bold text-muted">%</span>
+                        </div>
+                        <div class="form-text small" id="otHourHint">Jam kerja: 36.25h normal / operator</div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold small text-muted text-uppercase mb-1">Working Weeks/Yr</label>
+                        <input asp-for="Input.WorkingWeeksPerYear" class="form-control" type="number" min="1" max="53" value="@Model.Input.EffectiveWeeksPerYear" />
+                        <div class="form-text small">Default 52 weeks</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="text-muted small">
+                        <span class="badge bg-light text-dark border me-2">Plant Constant: 7.25 hrs/shift</span>
+                        <span class="badge bg-light text-dark border me-2" id="badgeAvailMach">Avail Machine: 108.75h</span>
+                        <span class="badge bg-light text-dark border" id="badgeAvailPerson">Avail Operator: 36.25h</span>
+                    </div>
+                    <button type="submit" class="btn btn-primary px-4 py-2 shadow-sm rounded-pill fw-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-play-circle-fill me-2 align-middle" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM6.79 5.093A.5.5 0 0 0 6 5.5v5a.5.5 0 0 0 .79.407l3.5-2.5a.5.5 0 0 0 0-.814l-3.5-2.5z"/>
+                        </svg>
+                        Run Capacity Analysis (Hitung Kapasitas)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- SIMULATION RESULTS -->
+    @if (Model.HasExecuted && Model.Result != null)
+    {
+        var res = Model.Result;
+
+        <!-- Overall Status Banner -->
+        @if (res.IsMachineCapacityMet)
+        {
+            <div class="alert alert-success border-0 shadow-sm rounded-4 p-4 mb-4 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-success text-white rounded-circle p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-1 text-success">KAPASITAS MESIN TERCUKUPI (SUFFICIENT CAPACITY)</h4>
+                        <p class="mb-0 text-success-emphasis">
+                            Seluruh @res.MachineLoads.Count work center / mesin matrix <strong>mencukupi</strong> untuk memproduksi seluruh @res.TotalDevicesCount device secara bersamaan dengan total demand @res.TotalWeeklyUnits.ToString("N0") pcs/minggu.
+                        </p>
+                    </div>
+                </div>
+                <div class="text-end d-none d-md-block">
+                    <span class="badge bg-success fs-6 px-3 py-2 rounded-pill">0 Bottleneck</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-danger border-0 shadow-sm rounded-4 p-4 mb-4 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-danger text-white rounded-circle p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+                            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-1 text-danger">KAPASITAS MESIN TIDAK TERCUKUPI (BOTTLENECK TERDETEKSI)</h4>
+                        <p class="mb-0 text-danger-emphasis">
+                            Terdeteksi <strong>@res.BottleneckMachineCount mesin/work center mengalami defisit kapasitas</strong> saat @res.TotalDevicesCount device diproduksi bersamaan. Diperlukan penambahan mesin atau re-alokasi shift.
+                        </p>
+                    </div>
+                </div>
+                <div class="text-end d-none d-md-block">
+                    <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill">@res.BottleneckMachineCount Mesin Defisit</span>
+                </div>
+            </div>
+        }
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 1: MACHINE CAPACITY -->
+        <!-- ========================================================================= -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 mb-1">SECTION 1</span>
+                    <h4 class="fw-bold text-dark mb-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-gear-wide-connected text-primary me-2 align-middle" viewBox="0 0 16 16">
+                            <path d="M7.068.727c.243-.97 1.62-.97 1.864 0l.071.286a.96.96 0 0 0 1.622.434l.205-.211c.695-.719 1.888-.03 1.613.931l-.08.284a.96.96 0 0 0 1.187 1.187l.283-.081c.96-.275 1.65.918.931 1.613l-.211.205a.96.96 0 0 0 .434 1.622l.286.071c.97.243.97 1.62 0 1.864l-.286.071a.96.96 0 0 0-.434 1.622l.211.205c.719.695.03 1.888-.931 1.613l-.284-.08a.96.96 0 0 0-1.187 1.187l.081.283c.275.96-.918 1.65-1.613.931l-.205-.211a.96.96 0 0 0-1.622.434l-.071.286c-.243.97-1.62.97-1.864 0l-.071-.286a.96.96 0 0 0-1.622-.434l-.205.211c-.695.719-1.888.03-1.613-.931l.08-.284a.96.96 0 0 0-1.186-1.187l-.284.081c-.96.275-1.65-.918-.931-1.613l.211-.205a.96.96 0 0 0-.434-1.622l-.286-.071c-.97-.243-.97-1.62 0-1.864l.286-.071a.96.96 0 0 0 .434-1.622l-.211-.205c-.719-.695-.03-1.888.931-1.613l.284.08a.96.96 0 0 0 1.187-1.186l-.081-.284c-.275-.96.918-1.65 1.613-.931l.205.211a.96.96 0 0 0 1.622-.434l.071-.286zM12.973 8.5H8.25l-2.834 3.779A4.998 4.998 0 0 0 12.973 8.5zm0-1a4.998 4.998 0 0 0-7.557-3.779l2.834 3.78h4.723zM5.048 3.967c-.03.021-.058.043-.087.065l.087-.065zm-.431.355A4.984 4.984 0 0 0 3.002 8c0 1.455.622 2.765 1.615 3.678L7.375 8 4.617 4.322zm.344 7.646.087.065-.087-.065z"/>
+                        </svg>
+                        Machine Capacity Analysis (Machine Matrix)
+                    </h4>
+                    <p class="text-muted small">Deteksi kapasitas mesin yang digunakan bersamaan oleh seluruh device code yang di-input.</p>
+                </div>
+                <div>
+                    <span class="badge @(res.IsMachineCapacityMet ? "bg-success" : "bg-danger") px-3 py-2 rounded-pill fs-6">
+                        @(res.IsMachineCapacityMet ? "Status: TERCUKUPI" : "Status: TIDAK TERCUKUPI")
+                    </span>
+                </div>
+            </div>
+
+            <div class="card-body px-4 pb-4">
+                <!-- KPI Machine Cards -->
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <span class="text-muted small fw-semibold text-uppercase">Total Jam Mesin Butuh</span>
+                            <h4 class="fw-bold mb-0 text-dark">@res.TotalRequiredMachineHours.ToString("N1") <small class="text-muted fs-6">hrs/wk</small></h4>
+                            <span class="text-muted small">Akumulasi seluruh device</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <span class="text-muted small fw-semibold text-uppercase">Avail Hours / Mesin (OT)</span>
+                            <h4 class="fw-bold mb-0 text-primary">@res.AvailableMachineHoursWithOt.ToString("N1") <small class="text-muted fs-6">hrs/wk</small></h4>
+                            <span class="text-muted small">Base @res.AvailableMachineHoursNormal.ToString("N1")h + @res.OvertimeLimitPercent% OT</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <span class="text-muted small fw-semibold text-uppercase">Max Utilization %</span>
+                            @{
+                                var maxUtil = res.MachineLoads.Count > 0 ? res.MachineLoads.Max(m => m.UtilizationPercent) : 0;
+                            }
+                            <h4 class="fw-bold mb-0 @(maxUtil > 100 ? "text-danger" : (maxUtil > 85 ? "text-warning" : "text-success"))">
+                                @maxUtil.ToString("N1")%
+                            </h4>
+                            <span class="text-muted small">Highest loaded machine</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <span class="text-muted small fw-semibold text-uppercase">Bottleneck Count</span>
+                            <h4 class="fw-bold mb-0 @(res.BottleneckMachineCount > 0 ? "text-danger" : "text-success")">
+                                @res.BottleneckMachineCount <small class="text-muted fs-6">Work Centers</small>
+                            </h4>
+                            <span class="text-muted small">@(res.BottleneckMachineCount > 0 ? "Memerlukan penambahan mesin" : "Kapasitas optimal")</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Machine Loads Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light text-uppercase small text-muted">
+                            <tr>
+                                <th>Work Center / Machine Matrix</th>
+                                <th>Participating Devices</th>
+                                <th class="text-end">Required Hrs</th>
+                                <th class="text-end">Avail (Normal)</th>
+                                <th class="text-end">Avail (+OT)</th>
+                                <th style="width: 170px;">Utilization %</th>
+                                <th class="text-end">Surplus / Shortage</th>
+                                <th class="text-center">Status Kapasitas</th>
+                                <th>Rekomendasi Mesin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (res.MachineLoads != null && res.MachineLoads.Count > 0)
+                            {
+                                foreach (var mach in res.MachineLoads)
+                                {
+                                    var util = mach.UtilizationPercent;
+                                    var isBottle = mach.IsBottleneck;
+                                    var isOtNeeded = mach.NeedsOvertime;
+                                    <tr class="@(isBottle ? "table-danger" : (isOtNeeded ? "table-warning" : ""))">
+                                        <td>
+                                            <div class="fw-bold text-dark">@mach.WorkCenter</div>
+                                            <div class="text-muted small">@mach.MachineName</div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @foreach (var dev in mach.ContributingDevices)
+                                                {
+                                                    var devHrs = mach.DeviceHoursBreakdown.ContainsKey(dev) ? mach.DeviceHoursBreakdown[dev] : 0m;
+                                                    <span class="badge bg-secondary bg-opacity-10 text-dark border small" title="@dev: @devHrs.ToString("N1") hrs">
+                                                        @dev <span class="text-muted">(@devHrs.ToString("N1")h)</span>
+                                                    </span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="text-end fw-bold">@mach.RequiredHours.ToString("N2")</td>
+                                        <td class="text-end text-muted small">@mach.AvailableNormalHours.ToString("N1")</td>
+                                        <td class="text-end text-muted small">@mach.AvailableWithOvertimeHours.ToString("N1")</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="progress flex-grow-1" style="height: 8px;">
+                                                    <div class="progress-bar @(isBottle ? "bg-danger" : (util > 85 ? "bg-warning" : "bg-success"))" 
+                                                         role="progressbar" style="width: @Math.Min(100, util)%;" aria-valuenow="@util" aria-valuemin="0" aria-valuemax="100"></div>
+                                                </div>
+                                                <span class="small fw-bold @(isBottle ? "text-danger" : "text-dark")" style="width: 50px; text-align: right;">
+                                                    @util.ToString("N1")%
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td class="text-end fw-bold @(mach.ShortageOrSurplus >= 0 ? "text-success" : "text-danger")">
+                                            @(mach.ShortageOrSurplus >= 0 ? "+" + mach.ShortageOrSurplus.ToString("N1") : mach.ShortageOrSurplus.ToString("N1")) h
+                                        </td>
+                                        <td class="text-center">
+                                            @if (isBottle)
+                                            {
+                                                <span class="badge bg-danger text-white px-2 py-1">TIDAK TERCUKUPI</span>
+                                            }
+                                            else if (isOtNeeded)
+                                            {
+                                                <span class="badge bg-warning text-dark px-2 py-1">TERCUKUPI (LEMBUR)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success text-white px-2 py-1">TERCUKUPI</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (isBottle)
+                                            {
+                                                <span class="text-danger small fw-bold">
+                                                    ⚠️ Perlu @mach.RecommendedMachines Mesin (+@(mach.RecommendedMachines - 1))
+                                                </span>
+                                            }
+                                            else if (isOtNeeded)
+                                            {
+                                                <span class="text-warning-emphasis small">
+                                                    1 Mesin Cukup (dengan lembur @res.OvertimeLimitPercent%)
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-success small">
+                                                    1 Mesin Cukup (Normal shift)
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="9" class="text-center py-3 text-muted">Tidak ada proses yang memerlukan jam mesin pada device yang dipilih.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 2: LABOR CAPACITY -->
+        <!-- ========================================================================= -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 mb-1">SECTION 2</span>
+                    <h4 class="fw-bold text-dark mb-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-people-fill text-success me-2 align-middle" viewBox="0 0 16 16">
+                            <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                        </svg>
+                        Labor Capacity &amp; Headcount Analysis
+                    </h4>
+                    <p class="text-muted small">Perhitungan kebutuhan jumlah tenaga kerja (Headcount Operator) pada 0% OT vs alokasi lembur @res.OvertimeLimitPercent% OT.</p>
+                </div>
+                <div>
+                    <span class="badge bg-success px-3 py-2 rounded-pill fs-6">
+                        Kebutuhan: @res.TotalHeadcountWithOt Operator (OT @res.OvertimeLimitPercent%)
+                    </span>
+                </div>
+            </div>
+
+            <div class="card-body px-4 pb-4">
+                <!-- KPI Labor Cards -->
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <span class="text-muted small fw-semibold text-uppercase">Total Jam Tenaga Kerja</span>
+                            <h4 class="fw-bold mb-0 text-dark">@res.TotalRequiredLaborHours.ToString("N1") <small class="text-muted fs-6">hrs/wk</small></h4>
+                            <span class="text-muted small">Direct labor seluruh proses</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <span class="text-muted small fw-semibold text-uppercase">Headcount (0% OT)</span>
+                            <h4 class="fw-bold mb-0 text-secondary">@res.TotalHeadcountZeroOt <small class="text-muted fs-6">Orang</small></h4>
+                            <span class="text-muted small">@@@res.AvailableHoursPerPersonZeroOt.ToString("N2") hrs / operator / wk</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border border-success">
+                            <span class="text-muted small fw-semibold text-uppercase">Headcount (@res.OvertimeLimitPercent% OT)</span>
+                            <h4 class="fw-bold mb-0 text-success">@res.TotalHeadcountWithOt <small class="text-muted fs-6">Orang</small></h4>
+                            <span class="text-muted small">@@@res.AvailableHoursPerPersonWithOt.ToString("N2") hrs / operator / wk</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <span class="text-muted small fw-semibold text-uppercase">Efisiensi Lembur (Saving)</span>
+                            <h4 class="fw-bold mb-0 text-primary">
+                                Hemat @res.HeadcountSavedByOt <small class="text-muted fs-6">Operator</small>
+                            </h4>
+                            <span class="text-muted small">Dengan alokasi lembur @res.OvertimeLimitPercent%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Process Labor Breakdown Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light text-uppercase small text-muted">
+                            <tr>
+                                <th>Work Center / Process Area</th>
+                                <th>Process Description</th>
+                                <th>Participating Devices</th>
+                                <th class="text-end">Required Labor Hrs</th>
+                                <th class="text-center">Headcount (0% OT)</th>
+                                <th class="text-center">Headcount (@res.OvertimeLimitPercent% OT)</th>
+                                <th style="width: 150px;">Labor Share %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (res.LaborLoads != null && res.LaborLoads.Count > 0)
+                            {
+                                foreach (var labor in res.LaborLoads)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-dark">@labor.WorkCenter</td>
+                                        <td class="text-muted">@labor.ProcessName</td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @foreach (var dev in labor.ContributingDevices)
+                                                {
+                                                    <span class="badge bg-light text-dark border small">@dev</span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="text-end fw-bold">@labor.TotalLaborHours.ToString("N2")</td>
+                                        <td class="text-center fw-bold text-secondary">@labor.HeadcountZeroOt</td>
+                                        <td class="text-center fw-bold text-success">@labor.HeadcountWithOt</td>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="progress flex-grow-1" style="height: 6px;">
+                                                    <div class="progress-bar bg-info" role="progressbar" style="width: @labor.PercentOfTotalLabor%;"></div>
+                                                </div>
+                                                <span class="small text-muted" style="width: 45px; text-align: right;">
+                                                    @labor.PercentOfTotalLabor.ToString("N1")%
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td colspan="3">TOTAL DIRECT LABOR</td>
+                                <td class="text-end">@res.TotalRequiredLaborHours.ToString("N2")</td>
+                                <td class="text-center text-secondary">@res.TotalHeadcountZeroOt Orang</td>
+                                <td class="text-center text-success">@res.TotalHeadcountWithOt Orang</td>
+                                <td>100.0%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 3: STEP-BY-STEP PROCESS ROUTING ACCORDION -->
+        <!-- ========================================================================= -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 mb-1">SECTION 3</span>
+                        <h5 class="fw-bold text-dark mb-0">Detailed Process Routing &amp; Load per Step (CI_SQ01)</h5>
+                        <p class="text-muted small mb-0">Rincian seluruh sequence proses, jam mesin, dan jam labor dari database CI_SQ01.</p>
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#routingDetailsCollapse" aria-expanded="false" aria-controls="routingDetailsCollapse">
+                        Toggle / Tampilkan Rincian Steps (@(res.RoutingSteps?.Count ?? 0) Steps)
+                    </button>
+                </div>
+            </div>
+            <div class="collapse" id="routingDetailsCollapse">
+                <div class="card-body px-4 pb-4">
+                    <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle small border">
+                            <thead class="table-light sticky-top text-uppercase text-muted">
+                                <tr>
+                                    <th>Device Code</th>
+                                    <th>Seq</th>
+                                    <th>Description</th>
+                                    <th>Work Center</th>
+                                    <th class="text-end">Mach Hr/Pcs</th>
+                                    <th class="text-end">Labor Hr/Pcs</th>
+                                    <th class="text-end">Demand (Wk)</th>
+                                    <th class="text-end">Req Mach Hrs</th>
+                                    <th class="text-end">Req Labor Hrs</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (res.RoutingSteps != null)
+                                {
+                                    foreach (var step in res.RoutingSteps)
+                                    {
+                                        <tr>
+                                            <td class="font-monospace fw-bold">@step.DeviceCode</td>
+                                            <td>@step.Seq</td>
+                                            <td>@step.Description</td>
+                                            <td><span class="badge bg-light text-dark border">@step.WorkCenter</span></td>
+                                            <td class="text-end font-monospace">@step.MachineHour.ToString("F6")</td>
+                                            <td class="text-end font-monospace">@step.LaborHour.ToString("F6")</td>
+                                            <td class="text-end">@step.DemandUnits.ToString("N0")</td>
+                                            <td class="text-end font-monospace fw-bold @(step.RequiredMachineHours > 0 ? "text-primary" : "text-muted")">
+                                                @step.RequiredMachineHours.ToString("N2")
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold @(step.RequiredLaborHours > 0 ? "text-success" : "text-muted")">
+                                                @step.RequiredLaborHours.ToString("N2")
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        // Master device dictionary for instant client-side lookup
+        const deviceMasterMap = {};
+        @if (Model.AvailableDevices != null)
+        {
+            foreach (var d in Model.AvailableDevices)
+            {
+                <text>deviceMasterMap['@d.DeviceCode'] = { name: '@Html.Raw(d.DeviceName.Replace("'", "\\'"))', steps: @d.StepCount };</text>
+            }
+        }
+
+        function togglePasteBox() {
+            const box = document.getElementById('pasteBoxContainer');
+            if (box.style.display === 'none' || box.style.display === '') {
+                box.style.display = 'block';
+                document.getElementById('rawPasteArea').focus();
+            } else {
+                box.style.display = 'none';
+            }
+        }
+
+        function processPastedText() {
+            const raw = document.getElementById('rawPasteArea').value;
+            if (!raw || !raw.trim()) {
+                alert('Silakan tempel teks kode device dan demand terlebih dahulu.');
+                return;
+            }
+
+            const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length === 0) return;
+
+            const tbody = document.getElementById('devicesTableBody');
+            // If all existing rows are default/empty, clear them
+            const existingRows = tbody.querySelectorAll('tr.device-row');
+            if (existingRows.length > 0) {
+                // If the user wants to append or replace, let's keep and append or clean
+            }
+
+            lines.forEach((line) => {
+                // Split by tabs, commas, semicolons, or multiple spaces
+                let parts = line.split(/\t|,|;/).map(p => p.trim()).filter(p => p.length > 0);
+                if (parts.length === 1 && line.includes(' ')) {
+                    parts = line.split(/\s+/).map(p => p.trim()).filter(p => p.length > 0);
+                }
+
+                if (parts.length === 0) return;
+
+                const code = parts[0];
+                let demand = 10000;
+                let period = 'Weekly';
+
+                if (parts.length >= 2) {
+                    const parsedDemand = parseInt(parts[1].replace(/,/g, ''), 10);
+                    if (!isNaN(parsedDemand) && parsedDemand > 0) {
+                        demand = parsedDemand;
+                    } else if (parts[1].toLowerCase().includes('year')) {
+                        period = 'Yearly';
+                    }
+                }
+
+                if (parts.length >= 3) {
+                    if (parts[2].toLowerCase().includes('year')) {
+                        period = 'Yearly';
+                    } else if (parts[2].toLowerCase().includes('week')) {
+                        period = 'Weekly';
+                    }
+                }
+
+                appendDeviceRowWithData(code, demand, period);
+            });
+
+            reindexRows();
+            togglePasteBox();
+            document.getElementById('rawPasteArea').value = '';
+        }
+
+        function appendDeviceRowWithData(code, demand, period) {
+            const tbody = document.getElementById('devicesTableBody');
+            const currentIndex = tbody.querySelectorAll('tr.device-row').length;
+
+            const master = deviceMasterMap[code] || { name: code, steps: 0 };
+            const isYearly = period.toLowerCase() === 'yearly';
+            const weeks = parseInt(document.querySelector('input[name="Input.WorkingWeeksPerYear"]')?.value || '52', 10);
+            const weeklyEquiv = isYearly ? Math.round(demand / weeks) : demand;
+
+            const tr = document.createElement('tr');
+            tr.className = 'device-row';
+            tr.setAttribute('data-index', currentIndex);
+
+            tr.innerHTML = `
+                <td class="row-num text-muted small fw-bold">${currentIndex + 1}</td>
+                <td>
+                    <input type="text" name="Input.Devices[${currentIndex}].DeviceCode" class="form-control form-control-sm font-monospace fw-bold device-code-input" 
+                           value="${code}" list="deviceList" placeholder="Masukkan Device Code" oninput="onDeviceCodeChanged(this)" required />
+                </td>
+                <td>
+                    <span class="device-name-badge fw-medium text-dark">${master.name}</span>
+                    <input type="hidden" name="Input.Devices[${currentIndex}].DeviceName" class="device-name-hidden" value="${master.name}" />
+                </td>
+                <td>
+                    <span class="badge bg-light text-dark border step-count-badge">${master.steps > 0 ? master.steps + ' steps' : 'Auto-detecting...'}</span>
+                    <input type="hidden" name="Input.Devices[${currentIndex}].StepCount" class="step-count-hidden" value="${master.steps}" />
+                </td>
+                <td>
+                    <input type="number" name="Input.Devices[${currentIndex}].DemandQuantity" class="form-control form-control-sm text-end demand-qty-input" 
+                           value="${demand}" min="1" step="1" oninput="updateRowWeeklyEquivalent(this)" required />
+                </td>
+                <td>
+                    <select name="Input.Devices[${currentIndex}].DemandPeriod" class="form-select form-select-sm demand-period-select" onchange="updateRowWeeklyEquivalent(this)">
+                        <option value="Weekly" ${!isYearly ? 'selected' : ''}>Weekly</option>
+                        <option value="Yearly" ${isYearly ? 'selected' : ''}>Yearly</option>
+                    </select>
+                </td>
+                <td>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 weekly-equiv-display">
+                        ${weeklyEquiv.toLocaleString()} pcs/wk
+                    </span>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-outline-danger btn-sm p-1 rounded-circle remove-row-btn" onclick="removeDeviceRow(this)" title="Hapus baris">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
+                            <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                        </svg>
+                    </button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+        }
+
+        function addDeviceRow() {
+            appendDeviceRowWithData('', 10000, 'Weekly');
+            reindexRows();
+        }
+
+        function removeDeviceRow(btn) {
+            const tr = btn.closest('tr');
+            if (tr) {
+                tr.remove();
+                reindexRows();
+            }
+        }
+
+        function clearAllDevices() {
+            if (confirm('Hapus seluruh baris device?')) {
+                document.getElementById('devicesTableBody').innerHTML = '';
+                reindexRows();
+            }
+        }
+
+        function loadSampleMultiDevice() {
+            const tbody = document.getElementById('devicesTableBody');
+            tbody.innerHTML = '';
+            appendDeviceRowWithData('3346007', 35000, 'Weekly');
+            appendDeviceRowWithData('96320668', 20000, 'Weekly');
+            appendDeviceRowWithData('96353433', 100000, 'Yearly');
+            appendDeviceRowWithData('56303016', 15000, 'Weekly');
+            reindexRows();
+        }
+
+        function reindexRows() {
+            const rows = document.querySelectorAll('#devicesTableBody tr.device-row');
+            rows.forEach((tr, idx) => {
+                tr.setAttribute('data-index', idx);
+                const numCell = tr.querySelector('.row-num');
+                if (numCell) numCell.textContent = idx + 1;
+
+                const codeInput = tr.querySelector('.device-code-input');
+                if (codeInput) codeInput.name = `Input.Devices[${idx}].DeviceCode`;
+
+                const nameHidden = tr.querySelector('.device-name-hidden');
+                if (nameHidden) nameHidden.name = `Input.Devices[${idx}].DeviceName`;
+
+                const stepHidden = tr.querySelector('.step-count-hidden');
+                if (stepHidden) stepHidden.name = `Input.Devices[${idx}].StepCount`;
+
+                const qtyInput = tr.querySelector('.demand-qty-input');
+                if (qtyInput) qtyInput.name = `Input.Devices[${idx}].DemandQuantity`;
+
+                const periodSelect = tr.querySelector('.demand-period-select');
+                if (periodSelect) periodSelect.name = `Input.Devices[${idx}].DemandPeriod`;
+            });
+
+            const summaryEl = document.getElementById('totalSelectedSummary');
+            if (summaryEl) {
+                summaryEl.textContent = `Total: ${rows.length} devices terpilih`;
+            }
+        }
+
+        function onDeviceCodeChanged(input) {
+            const code = input.value.trim();
+            const tr = input.closest('tr');
+            if (!tr) return;
+
+            const nameBadge = tr.querySelector('.device-name-badge');
+            const nameHidden = tr.querySelector('.device-name-hidden');
+            const stepBadge = tr.querySelector('.step-count-badge');
+            const stepHidden = tr.querySelector('.step-count-hidden');
+
+            if (deviceMasterMap[code]) {
+                const info = deviceMasterMap[code];
+                if (nameBadge) nameBadge.textContent = info.name;
+                if (nameHidden) nameHidden.value = info.name;
+                if (stepBadge) stepBadge.textContent = `${info.steps} steps`;
+                if (stepHidden) stepHidden.value = info.steps;
+            } else if (code.length >= 4) {
+                // Async lookup if not in map
+                fetch(`?handler=LookupDevice&code=${encodeURIComponent(code)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.success) {
+                            if (nameBadge) nameBadge.textContent = data.deviceName;
+                            if (nameHidden) nameHidden.value = data.deviceName;
+                            if (stepBadge) stepBadge.textContent = `${data.stepCount} steps`;
+                            if (stepHidden) stepHidden.value = data.stepCount;
+                            deviceMasterMap[code] = { name: data.deviceName, steps: data.stepCount };
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }
+
+        function updateRowWeeklyEquivalent(element) {
+            const tr = element.closest('tr');
+            if (!tr) return;
+
+            const qtyInput = tr.querySelector('.demand-qty-input');
+            const periodSelect = tr.querySelector('.demand-period-select');
+            const display = tr.querySelector('.weekly-equiv-display');
+
+            const qty = parseInt(qtyInput?.value || '0', 10);
+            const period = periodSelect?.value || 'Weekly';
+            const weeks = parseInt(document.querySelector('input[name="Input.WorkingWeeksPerYear"]')?.value || '52', 10);
+
+            const weeklyUnits = period === 'Yearly' ? Math.round(qty / (weeks > 0 ? weeks : 52)) : qty;
+            if (display) {
+                display.textContent = `${weeklyUnits.toLocaleString()} pcs/wk`;
+            }
+        }
+
+        function syncOtInput(val) {
+            document.getElementById('otInput').value = val;
+            document.getElementById('otDisplay').textContent = `${val}%`;
+            updateShiftPreview();
+        }
+
+        function syncOtSlider(val) {
+            document.getElementById('otSlider').value = val;
+            document.getElementById('otDisplay').textContent = `${val}%`;
+            updateShiftPreview();
+        }
+
+        function updateShiftPreview() {
+            const shiftSystem = document.querySelector('select[name="Input.ShiftSystem"]')?.value || '5-2';
+            const shiftsPerDay = parseInt(document.querySelector('select[name="Input.ShiftsPerDay"]')?.value || '3', 10);
+            const otPercent = parseFloat(document.getElementById('otInput')?.value || '10');
+
+            const workDays = shiftSystem === '6-1' ? 6 : 5;
+            const hoursPerShift = 7.25;
+
+            const baseMachHours = workDays * shiftsPerDay * hoursPerShift;
+            const withOtMachHours = baseMachHours * (1 + (otPercent / 100));
+
+            const baseLaborHours = workDays * hoursPerShift;
+            const withOtLaborHours = baseLaborHours * (1 + (otPercent / 100));
+
+            const badgeMach = document.getElementById('badgeAvailMach');
+            if (badgeMach) badgeMach.textContent = `Avail Machine: ${withOtMachHours.toFixed(1)}h (base ${baseMachHours.toFixed(1)}h)`;
+
+            const badgePerson = document.getElementById('badgeAvailPerson');
+            if (badgePerson) badgePerson.textContent = `Avail Operator: ${withOtLaborHours.toFixed(2)}h (base ${baseLaborHours.toFixed(2)}h)`;
+
+            const hint = document.getElementById('otHourHint');
+            if (hint) hint.textContent = `Jam kerja: ${baseLaborHours.toFixed(2)}h base / ${withOtLaborHours.toFixed(2)}h with OT`;
+        }
+
+        // Initialize display hints on load
+        document.addEventListener('DOMContentLoaded', function () {
+            updateShiftPreview();
+            reindexRows();
+        });
+    </script>
+}

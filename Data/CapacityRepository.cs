@@ -686,5 +686,274 @@ namespace LssTraining.Web.Data
 
             return result;
         }
+
+        public async Task<List<ProductDeviceItem>> GetAllDevicesQuickListAsync()
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            try
+            {
+                var sql = @"
+                    SELECT 
+                        sq.DeviceCode,
+                        ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName,
+                        ISNULL(p.DeviceGroupCode, '') AS DeviceGroupCode,
+                        COUNT(sq.Seq) AS StepCount
+                    FROM CI_SQ01 sq
+                    LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                    GROUP BY sq.DeviceCode, p.DeviceName, p.DeviceGroupCode
+                    ORDER BY sq.DeviceCode";
+                return (await connection.QueryAsync<ProductDeviceItem>(sql)).AsList();
+            }
+            catch
+            {
+                return new List<ProductDeviceItem>();
+            }
+        }
+
+        public async Task<DeviceCapacityAnalysisResult> AnalyzeDeviceCapacityAsync(DeviceCapacitySimulationInput input)
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var result = new DeviceCapacityAnalysisResult
+            {
+                ShiftSystem = input.ShiftSystem,
+                ShiftsPerDay = input.ShiftsPerDay,
+                OvertimeLimitPercent = input.OvertimeLimitPercent,
+                WorkingWeeksPerYear = input.EffectiveWeeksPerYear,
+                AvailableHoursPerPersonZeroOt = input.AvailableHoursPerPersonZeroOt,
+                AvailableHoursPerPersonWithOt = input.AvailableHoursPerPersonWithOt,
+                AvailableMachineHoursNormal = input.AvailableMachineHoursNormal,
+                AvailableMachineHoursWithOt = input.AvailableMachineHoursWithOt
+            };
+
+            var validDevices = input.Devices?
+                .Where(d => !string.IsNullOrWhiteSpace(d.DeviceCode) && d.DemandQuantity > 0)
+                .ToList() ?? new List<DeviceDemandInput>();
+
+            if (validDevices.Count == 0)
+                return result;
+
+            result.TotalDevicesCount = validDevices.Count;
+
+            // Check if WorkCenter column exists in CI_SQ01
+            bool hasWorkCenterCol = false;
+            try
+            {
+                hasWorkCenterCol = await connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(1) FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_SQ01') AND name = 'WorkCenter'") > 0;
+            }
+            catch { }
+
+            var deviceCodes = validDevices.Select(d => d.DeviceCode.Trim()).Distinct().ToList();
+
+            string sql = hasWorkCenterCol
+                ? @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
+                           sq.Description, sq.MachineHour, sq.LaborHour, sq.WorkCenter
+                    FROM CI_SQ01 sq
+                    LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                    WHERE sq.DeviceCode IN @DeviceCodes
+                    ORDER BY sq.DeviceCode, sq.Seq ASC"
+                : @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
+                           sq.Description, sq.MachineHour, sq.LaborHour, NULL AS WorkCenter
+                    FROM CI_SQ01 sq
+                    LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                    WHERE sq.DeviceCode IN @DeviceCodes
+                    ORDER BY sq.DeviceCode, sq.Seq ASC";
+
+            List<dynamic> allSteps = new List<dynamic>();
+            try
+            {
+                allSteps = (await connection.QueryAsync<dynamic>(sql, new { DeviceCodes = deviceCodes })).AsList();
+            }
+            catch { }
+
+            var stepsByDevice = allSteps
+                .GroupBy(s => (string)s.DeviceCode)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            var machineLoadsDict = new Dictionary<string, DeviceMachineLoadItem>(StringComparer.OrdinalIgnoreCase);
+            var laborLoadsDict = new Dictionary<string, DeviceLaborLoadItem>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var devInput in validDevices)
+            {
+                string code = devInput.DeviceCode.Trim();
+                int demandQty = devInput.DemandQuantity;
+                bool isYearly = string.Equals(devInput.DemandPeriod, "Yearly", StringComparison.OrdinalIgnoreCase);
+                decimal exactWeeklyUnits = isYearly
+                    ? (decimal)demandQty / input.EffectiveWeeksPerYear
+                    : demandQty;
+
+                result.TotalWeeklyUnits += exactWeeklyUnits;
+
+                if (!stepsByDevice.TryGetValue(code, out var devSteps) || devSteps.Count == 0)
+                {
+                    continue;
+                }
+
+                foreach (var step in devSteps)
+                {
+                    int seq = (int)step.Seq;
+                    string desc = (string)(step.Description ?? ("Process " + seq));
+                    string? rawWc = step.WorkCenter != null ? (string)step.WorkCenter : null;
+                    string workCenter = ResolveWorkCenter(rawWc, desc);
+                    string machName = ResolveMachineName(workCenter, desc);
+
+                    decimal machHour = step.MachineHour != null ? Convert.ToDecimal(step.MachineHour) : 0m;
+                    decimal laborHour = step.LaborHour != null ? Convert.ToDecimal(step.LaborHour) : 0m;
+
+                    decimal stepReqMachHrs = machHour * exactWeeklyUnits;
+                    decimal stepReqLaborHrs = laborHour * exactWeeklyUnits;
+
+                    // Record Routing Step
+                    result.RoutingSteps.Add(new DeviceRoutingStepItem
+                    {
+                        DeviceCode = code,
+                        DeviceName = (string)(step.DeviceName ?? code),
+                        Seq = seq,
+                        Description = desc,
+                        WorkCenter = workCenter,
+                        MachineHour = machHour,
+                        LaborHour = laborHour,
+                        DemandUnits = exactWeeklyUnits,
+                        InputDemand = demandQty,
+                        Period = isYearly ? "Yearly" : "Weekly",
+                        RequiredMachineHours = stepReqMachHrs,
+                        RequiredLaborHours = stepReqLaborHrs
+                    });
+
+                    // Machine Matrix aggregation
+                    if (machHour > 0m)
+                    {
+                        if (!machineLoadsDict.TryGetValue(workCenter, out var machItem))
+                        {
+                            machItem = new DeviceMachineLoadItem
+                            {
+                                WorkCenter = workCenter,
+                                MachineName = machName,
+                                AvailableNormalHours = input.AvailableMachineHoursNormal,
+                                AvailableWithOvertimeHours = input.AvailableMachineHoursWithOt,
+                                Area = "PROD"
+                            };
+                            machineLoadsDict[workCenter] = machItem;
+                        }
+
+                        machItem.RequiredHours += stepReqMachHrs;
+                        if (!machItem.ContributingDevices.Contains(code))
+                            machItem.ContributingDevices.Add(code);
+
+                        if (!machItem.DeviceHoursBreakdown.ContainsKey(code))
+                            machItem.DeviceHoursBreakdown[code] = 0m;
+                        machItem.DeviceHoursBreakdown[code] += stepReqMachHrs;
+                    }
+
+                    // Labor aggregation
+                    if (laborHour > 0m)
+                    {
+                        string laborKey = workCenter;
+                        if (!laborLoadsDict.TryGetValue(laborKey, out var laborItem))
+                        {
+                            laborItem = new DeviceLaborLoadItem
+                            {
+                                WorkCenter = workCenter,
+                                ProcessName = desc
+                            };
+                            laborLoadsDict[laborKey] = laborItem;
+                        }
+
+                        laborItem.TotalLaborHours += stepReqLaborHrs;
+                        if (!laborItem.ContributingDevices.Contains(code))
+                            laborItem.ContributingDevices.Add(code);
+                    }
+                }
+            }
+
+            // Summarize Machine Loads
+            result.MachineLoads = machineLoadsDict.Values
+                .OrderByDescending(m => m.UtilizationPercent)
+                .ThenByDescending(m => m.RequiredHours)
+                .ToList();
+
+            result.Bottlenecks = result.MachineLoads.Where(m => m.IsBottleneck).ToList();
+            result.BottleneckMachineCount = result.Bottlenecks.Count;
+            result.IsMachineCapacityMet = result.BottleneckMachineCount == 0;
+            result.TotalRequiredMachineHours = result.MachineLoads.Sum(m => m.RequiredHours);
+            result.TotalAvailableMachineHours = result.MachineLoads.Count * input.AvailableMachineHoursWithOt;
+
+            // Summarize Labor Loads
+            decimal totalLabor = laborLoadsDict.Values.Sum(l => l.TotalLaborHours);
+            result.TotalRequiredLaborHours = totalLabor;
+
+            decimal availLabor0Ot = input.AvailableHoursPerPersonZeroOt > 0 ? input.AvailableHoursPerPersonZeroOt : 36.25m;
+            decimal availLaborWithOt = input.AvailableHoursPerPersonWithOt > 0 ? input.AvailableHoursPerPersonWithOt : 39.875m;
+
+            result.TotalHeadcountZeroOt = availLabor0Ot > 0 ? (int)Math.Ceiling(totalLabor / availLabor0Ot) : 0;
+            result.TotalHeadcountWithOt = availLaborWithOt > 0 ? (int)Math.Ceiling(totalLabor / availLaborWithOt) : 0;
+
+            foreach (var l in laborLoadsDict.Values)
+            {
+                l.HeadcountZeroOt = availLabor0Ot > 0 ? (int)Math.Ceiling(l.TotalLaborHours / availLabor0Ot) : 0;
+                l.HeadcountWithOt = availLaborWithOt > 0 ? (int)Math.Ceiling(l.TotalLaborHours / availLaborWithOt) : 0;
+                l.PercentOfTotalLabor = totalLabor > 0 ? (l.TotalLaborHours / totalLabor) * 100m : 0m;
+            }
+
+            result.LaborLoads = laborLoadsDict.Values
+                .OrderByDescending(l => l.TotalLaborHours)
+                .ToList();
+
+            return result;
+        }
+
+        private static string ResolveWorkCenter(string? rawWorkCenter, string description)
+        {
+            if (!string.IsNullOrWhiteSpace(rawWorkCenter))
+                return rawWorkCenter.Trim();
+
+            string d = (description ?? string.Empty).ToUpperInvariant();
+            if (d.Contains("WIRE BOND")) return "P_WB";
+            if (d.Contains("DIE ATTACH") || d.Contains("CHIP ATTACH") || d.Contains("ASIC")) return "P_ASMDA";
+            if (d.Contains("PREWELD")) return "P_PWELD";
+            if (d.Contains("WELD")) return "P_WELD";
+            if (d.Contains("GLASS SAW") || d.Contains("SAWING GLASS")) return "Q_GLSAW";
+            if (d.Contains("SAW")) return "R_WFSAW";
+            if (d.Contains("LASER") || d.Contains("MARK")) return "T_MARK";
+            if (d.Contains("PIN CUT") || d.Contains("CUT PIN")) return "Q_PIN";
+            if (d.Contains("PRESSURE CHAMBER")) return "R_PCHAM";
+            if (d.Contains("BUBBLE") || d.Contains("LEAK TEST")) return "R_BTEST";
+            if (d.Contains("TRIM")) return "T_LTRIM";
+            if (d.Contains("FINAL") && d.Contains("TEST")) return "T_FTEST";
+            if (d.Contains("TEST")) return "Q_TEST";
+            if (d.Contains("CVD")) return "PF_CVD";
+            if (d.Contains("SANDBLAST")) return "PF_SBM";
+            if (d.Contains("TIN")) return "PF_TINM";
+            if (d.Contains("WASH") || d.Contains("CLEAN")) return "PF_PCWSH";
+            if (d.Contains("MOUNT")) return "UV_MOUNT";
+            if (d.Contains("GLAZE")) return "Q_GLAZE";
+            if (d.Contains("INSPECT") || d.Contains("VISUAL") || d.Contains("QA")) return "P_QA";
+            if (d.Contains("PACK")) return "Q_PACK";
+
+            return "WC_" + (description?.Length > 15 ? description.Substring(0, 15).Trim() : description?.Trim() ?? "GEN");
+        }
+
+        private static string ResolveMachineName(string workCenter, string description)
+        {
+            string wc = (workCenter ?? string.Empty).ToUpperInvariant();
+            if (wc.Contains("WB")) return "Wire Bonder (" + workCenter + ")";
+            if (wc.Contains("ASMDA") || wc.Contains("ADA") || wc.Contains("DA")) return "Die Attach Machine (" + workCenter + ")";
+            if (wc.Contains("PWELD")) return "Prewelding Station (" + workCenter + ")";
+            if (wc.Contains("WELD")) return "Welding Machine (" + workCenter + ")";
+            if (wc.Contains("GLSAW") || wc.Contains("WFSAW") || wc.Contains("SAW")) return "Precision Sawing System (" + workCenter + ")";
+            if (wc.Contains("MARK")) return "Laser Marker (" + workCenter + ")";
+            if (wc.Contains("PIN")) return "Pin Cutting / Polish Machine (" + workCenter + ")";
+            if (wc.Contains("PCHAM")) return "Pressure Chamber (" + workCenter + ")";
+            if (wc.Contains("BTEST")) return "Bubble / Leak Tester (" + workCenter + ")";
+            if (wc.Contains("LTRIM")) return "Laser Trimming System (" + workCenter + ")";
+            if (wc.Contains("FTEST") || wc.Contains("TEST")) return "Electrical Test Station (" + workCenter + ")";
+            if (wc.Contains("CVD")) return "CVD Coating Chamber (" + workCenter + ")";
+            if (wc.Contains("SBM")) return "Sandblasting Machine (" + workCenter + ")";
+            if (wc.Contains("TIN")) return "Tinning Station (" + workCenter + ")";
+            if (wc.Contains("WSH") || wc.Contains("WASH")) return "Ultrasonic Washing Unit (" + workCenter + ")";
+            if (wc.Contains("MOUNT")) return "Mounting Station (" + workCenter + ")";
+            
+            return description + " (" + workCenter + ")";
+        }
     }
 }

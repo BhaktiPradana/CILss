@@ -14,6 +14,7 @@ BEGIN
         [DeviceCode]       NVARCHAR(50)  NOT NULL,
         [Seq]              INT           NOT NULL,
         [Description]      NVARCHAR(250) NULL,
+        [WorkCenter]       NVARCHAR(50)  NULL,
         [MachineHour]      FLOAT         NULL,
         [LaborHour]        FLOAT         NULL,
         [MachineHour_pcs]  AS [MachineHour],
@@ -29,5 +30,12 @@ BEGIN
 
     CREATE NONCLUSTERED INDEX [IX_CI_SQ01_DeviceCode] 
         ON [dbo].[CI_SQ01] ([DeviceCode] ASC);
+END
+ELSE
+BEGIN
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_SQ01') AND name = 'WorkCenter')
+    BEGIN
+        ALTER TABLE [dbo].[CI_SQ01] ADD [WorkCenter] NVARCHAR(50) NULL;
+    END
 END
 GO

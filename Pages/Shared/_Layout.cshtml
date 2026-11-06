@@ -32,7 +32,28 @@
                         <li><a asp-page="/Participants/Roadmap">Roadmap</a></li>
                         <li><a asp-page="/Training/Index">Training</a></li>
                         <li><a asp-page="/Training/Enrollments">Progress</a></li>
-                        <li><a asp-page="/CapacitySimulator/Index">Capacity Simulator</a></li>
+                        <li class="nav-dropdown">
+                            <a href="#" class="nav-dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                Capacity Planning
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" class="nav-dropdown-chevron">
+                                    <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </a>
+                            <ul class="nav-dropdown-menu dropdown-menu">
+                                <li><a class="dropdown-item" asp-page="/CapacitySimulator/Index">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1zm2 1v2h8V2H4zm0 3v1h2V5H4zm3 0v1h2V5H7zm3 0v1h2V5h-2zm-6 2v1h2V7H4zm3 0v1h2V7H7zm3 0v1h2V7h-2zm-6 2v1h2V9H4zm3 0v1h2V9H7zm3 0v1h2V9h-2zm-6 2v1h2v-1H4zm3 0v1h2v-1H7zm3 0v1h2v-1h-2z"/>
+                                    </svg>
+                                    Capacity Simulator
+                                </a></li>
+                                <li><a class="dropdown-item" asp-page="/CapacitySimulator/Device">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M0 1.5A1.5 1.5 0 0 1 1.5 0h13A1.5 1.5 0 0 1 16 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 14.5v-13zM1.5 1a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5H5V1H1.5zM6 1v14h4V1H6zm5 0v14h3.5a.5.5 0 0 0 .5-.5v-13a.5.5 0 0 0-.5-.5H11z"/>
+                                    </svg>
+                                    Capacity Device
+                                </a></li>
+                            </ul>
+                        </li>
                         <li class="nav-dropdown">
                             <a href="#" class="nav-dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                                 Electricity
