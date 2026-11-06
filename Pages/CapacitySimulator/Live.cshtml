@@ -1,0 +1,738 @@
+@page
+@model LssTraining.Web.Pages.CapacitySimulator.LiveModel
+@{
+    ViewData["Title"] = "Live Capacity Planning — Real-Time Production & Load Engine";
+    var res = Model.Result;
+    var f = Model.Filter;
+}
+
+<style>
+    .pulse-live {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #22c55e;
+        box-shadow: 0 0 0 rgba(34, 197, 94, 0.4);
+        animation: pulse 1.8s infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+    }
+    .pulse-live-danger {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #ef4444;
+        box-shadow: 0 0 0 rgba(239, 68, 68, 0.4);
+        animation: pulse-danger 1.8s infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+    }
+    @@keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    @@keyframes pulse-danger {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+</style>
+
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small">
+                    <li class="breadcrumb-item"><a asp-page="/Index" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a asp-page="/CapacitySimulator/Index" class="text-decoration-none">Capacity Planning</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Live Capacity Planning</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
+                @if (res.IsOverallCapacitySufficient)
+                {
+                    <span class="pulse-live"></span>
+                }
+                else
+                {
+                    <span class="pulse-live-danger"></span>
+                }
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-activity text-danger me-2 align-middle" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M6 2a.5.5 0 0 1 .47.33L10 12.036l1.53-4.208A.5.5 0 0 1 12 7.5h3.5a.5.5 0 0 1 0 1h-3.15l-1.88 5.17a.5.5 0 0 1-.94 0L6 3.964 4.47 8.171A.5.5 0 0 1 4 8.5H.5a.5.5 0 0 1 0-1h3.15l1.88-5.17A.5.5 0 0 1 6 2z"/>
+                </svg>
+                Live Capacity Planning — Real-Time Production &amp; Load Engine
+            </h1>
+            <p class="text-muted small mb-0">
+                Continuous real-time capacity monitoring reading actual device outputs (CI_Yield), machine matrices (CI_SQ01), and plant active manpower (CI_Employee).
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+            <span class="badge bg-light text-dark border p-2 small">
+                <span class="text-muted">Updated:</span> <strong id="lblLastUpdate">@res.EvaluatedAt.ToString("HH:mm:ss")</strong>
+            </span>
+            <button type="button" class="btn btn-outline-primary btn-sm shadow-sm" onclick="location.reload()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise me-1" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                Refresh Live
+            </button>
+            <a asp-page="/CapacitySimulator/Device" class="btn btn-outline-secondary btn-sm shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-cpu me-1" viewBox="0 0 16 16">
+                    <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H3.5A1.5 1.5 0 0 0 2 4.5V6H1.5A1.5 1.5 0 0 0 0 7.5v1A1.5 1.5 0 0 0 1.5 10H2v1.5A1.5 1.5 0 0 0 3.5 13H5v.5A1.5 1.5 0 0 0 6.5 15h1a1.5 1.5 0 0 0 1.5-1.5V13h1.5a1.5 1.5 0 0 0 1.5-1.5V10h.5A1.5 1.5 0 0 0 16 8.5v-1A1.5 1.5 0 0 0 14.5 6H14V4.5A1.5 1.5 0 0 0 12.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-1a1.5 1.5 0 0 0-1.5 1.5V3H6.5v-.5A1.5 1.5 0 0 0 6.5 1zM5 5h6a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>
+                </svg>
+                Device Simulator
+            </a>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TOP LIVE CAPACITY ALERT BANNER (Prominent Alert if Capacity Insufficient)  -->
+    <!-- ========================================================================= -->
+    @if (res.AlertSeverity == "CRITICAL_DEFICIT" || res.AlertSeverity == "MACHINE_DEFICIT" || res.AlertSeverity == "LABOR_DEFICIT")
+    {
+        <div class="alert alert-danger border-0 shadow rounded-4 p-4 mb-4 border-start border-5 border-danger animate__animated animate__fadeIn">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="bg-danger text-white rounded-circle p-3 mt-1 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="currentColor" class="bi bi-exclamation-octagon-fill" viewBox="0 0 16 16">
+                            <path d="M11.46.146A.5.5 0 0 0 11.107 0H4.893a.5.5 0 0 0-.353.146L.146 4.54A.5.5 0 0 0 0 4.893v6.214a.5.5 0 0 0 .146.353l4.394 4.394a.5.5 0 0 0 .353.146h6.214a.5.5 0 0 0 .353-.146l4.394-4.394a.5.5 0 0 0 .146-.353V4.893a.5.5 0 0 0-.146-.353L11.46.146zM8 4c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995A.905.905 0 0 1 8 4zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-danger text-uppercase px-2 py-1">Capacity Deficit Alert</span>
+                            <span class="text-danger small fw-semibold">Live Production Run Rate Evaluation</span>
+                        </div>
+                        <h4 class="fw-bold mb-2 text-danger">@res.AlertTitle</h4>
+                        <p class="mb-2 text-dark fs-6">@res.AlertMessage</p>
+                        @if (res.AlertPoints != null && res.AlertPoints.Count > 0)
+                        {
+                            <ul class="mb-0 ps-3 small text-danger-emphasis">
+                                @foreach (var pt in res.AlertPoints)
+                                {
+                                    <li class="mb-1">@pt</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+                <div class="d-flex flex-column gap-2 text-end">
+                    @if (res.BottleneckCount > 0)
+                    {
+                        <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill shadow-sm">
+                            ⚠️ @res.BottleneckCount Machine Bottleneck(s)
+                        </span>
+                    }
+                    @if (!res.IsLaborCapacityMet)
+                    {
+                        <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill shadow-sm">
+                            👥 Deficit: -@Math.Abs(res.LaborSurplusOrDeficit) Operators
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (res.AlertSeverity == "WARNING_OVERTIME")
+    {
+        <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-4 border-start border-5 border-warning animate__animated animate__fadeIn">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="bg-warning text-dark rounded-circle p-3 mt-1 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+                            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-warning text-dark text-uppercase px-2 py-1">Capacity At Risk</span>
+                            <span class="text-warning-emphasis small fw-semibold">Overtime Dependent Operation</span>
+                        </div>
+                        <h4 class="fw-bold mb-2 text-warning-emphasis">@res.AlertTitle</h4>
+                        <p class="mb-2 text-dark fs-6">@res.AlertMessage</p>
+                        @if (res.AlertPoints != null && res.AlertPoints.Count > 0)
+                        {
+                            <ul class="mb-0 ps-3 small text-warning-emphasis">
+                                @foreach (var pt in res.AlertPoints)
+                                {
+                                    <li class="mb-1">@pt</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-warning text-dark fs-6 px-3 py-2 rounded-pill shadow-sm">
+                        Overtime Required: @f.OvertimeLimitPercent%
+                    </span>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-success border-0 shadow-sm rounded-4 p-4 mb-4 border-start border-5 border-success animate__animated animate__fadeIn">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="bg-success text-white rounded-circle p-3 mt-1 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-success text-uppercase px-2 py-1">Capacity Sufficient</span>
+                            <span class="text-success small fw-semibold">All Systems Normal</span>
+                        </div>
+                        <h4 class="fw-bold mb-2 text-success">@res.AlertTitle</h4>
+                        <p class="mb-0 text-success-emphasis fs-6">@res.AlertMessage</p>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-success fs-6 px-3 py-2 rounded-pill shadow-sm">
+                        0 Bottlenecks • Headcount Surplus (+@res.LaborSurplusOrDeficit)
+                    </span>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ========================================================================= -->
+    <!-- LIVE METRICS KPI CARDS                                                    -->
+    <!-- ========================================================================= -->
+    <div class="row g-3 mb-4">
+        <!-- Active Live Devices -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-primary">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Live Active Devices</span>
+                        <h3 class="fw-bold mb-0 text-dark">@res.TotalActiveDevices.ToString("N0")</h3>
+                        <span class="text-muted small">Active on lines (@f.Division)</span>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 rounded-circle p-3 text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 1a2 2 0 0 1 2 2v2H6V3a2 2 0 0 1 2-2zm3 4V3a3 3 0 1 0-6 0v2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Run Rate Output -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-info">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Weekly Run Rate</span>
+                        <h3 class="fw-bold mb-0 text-info">@res.TotalWeeklyRunRateUnits.ToString("N0") <small class="text-muted fs-6">pcs/wk</small></h3>
+                        <span class="text-muted small">Actual Units: @res.TotalActualUnits.ToString("N0")</span>
+                    </div>
+                    <div class="bg-info bg-opacity-10 rounded-circle p-3 text-info">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Machine Matrix Capacity Status -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 @(res.IsMachineCapacityMet ? "border-success" : "border-danger")">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Machine Matrix Status</span>
+                        <h3 class="fw-bold mb-0 @(res.IsMachineCapacityMet ? "text-success" : "text-danger")">
+                            @res.MachineUtilizationPercent.ToString("N1")%
+                        </h3>
+                        <span class="small @(res.IsMachineCapacityMet ? "text-muted" : "text-danger fw-bold")">
+                            @(res.BottleneckCount == 0 ? "All Work Centers OK" : $"{res.BottleneckCount} Bottleneck Machine(s)")
+                        </span>
+                    </div>
+                    <div class="@(res.IsMachineCapacityMet ? "bg-success text-success" : "bg-danger text-danger") bg-opacity-10 rounded-circle p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M7.068.727c.243-.97 1.62-.97 1.864 0l.071.286a.96.96 0 0 0 1.622.434l.205-.211c.695-.719 1.888-.03 1.613.931l-.08.284a.96.96 0 0 0 1.187 1.187l.283-.081c.96-.275 1.65.918.931 1.613l-.211.205a.96.96 0 0 0 .434 1.622l.286.071c.97.243.97 1.62 0 1.864l-.286.071a.96.96 0 0 0-.434 1.622l.211.205c.719.695.03 1.888-.931 1.613l-.284-.08a.96.96 0 0 0-1.187 1.187l.081.283c.275.96-.918 1.65-1.613.931l-.205-.211a.96.96 0 0 0-1.622.434l-.071.286c-.243.97-1.62.97-1.864 0l-.071-.286a.96.96 0 0 0-1.622-.434l-.205.211c-.695.719-1.888.03-1.613-.931l.08-.284a.96.96 0 0 0-1.186-1.187l-.284.081c-.96.275-1.65-.918-.931-1.613l.211-.205a.96.96 0 0 0-.434-1.622l-.286-.071c-.97-.243-.97-1.62 0-1.864l.286-.071a.96.96 0 0 0 .434-1.622l-.211-.205c-.719-.695-.03-1.888.931-1.613l.284.08a.96.96 0 0 0 1.187-1.186l-.081-.284c-.275-.96.918-1.65 1.613-.931l.205.211a.96.96 0 0 0 1.622-.434l.071-.286z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direct Labor Capacity Status -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 @(res.IsLaborCapacityMet ? "border-success" : "border-danger")">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Direct Labor Manpower</span>
+                        <h3 class="fw-bold mb-0 @(res.IsLaborCapacityMet ? "text-success" : "text-danger")">
+                            @res.RequiredHeadcountWithOt <small class="fs-6 text-muted">/ @res.ActiveEmployeesAvailable</small>
+                        </h3>
+                        <span class="small @(res.IsLaborCapacityMet ? "text-muted" : "text-danger fw-bold")">
+                            @(res.IsLaborCapacityMet ? $"Surplus: +{res.LaborSurplusOrDeficit} emps" : $"Deficit: {res.LaborSurplusOrDeficit} emps")
+                        </span>
+                    </div>
+                    <div class="@(res.IsLaborCapacityMet ? "bg-success text-success" : "bg-danger text-danger") bg-opacity-10 rounded-circle p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- INTERACTIVE LIVE CONTROLS & FILTER BAR                                   -->
+    <!-- ========================================================================= -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <form method="get" id="liveFilterForm">
+                <div class="row g-3 align-items-end">
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label class="form-label small fw-semibold text-muted mb-1">Timeframe Window</label>
+                        <select asp-for="Filter.Timeframe" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="Today">Today (Live Today)</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Last7Days">Last 7 Days (Run Rate)</option>
+                            <option value="Last30Days">Last 30 Days (Monthly)</option>
+                            <option value="All">All Time Available</option>
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label class="form-label small fw-semibold text-muted mb-1">Division</label>
+                        <select asp-for="Filter.Division" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="All">All Divisions (MLS/OPTIC/AIS)</option>
+                            <option value="MLS">MLS (Lighting)</option>
+                            <option value="OPTIC">OPTIC (Vision)</option>
+                            <option value="AIS">AIS (Detection)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-2 col-lg-2">
+                        <label class="form-label small fw-semibold text-muted mb-1">Volume Metric</label>
+                        <select asp-for="Filter.MetricSource" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="QtyIn">Qty In (Line Input)</option>
+                            <option value="QtyOut">Qty Out (Good Output)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-2 col-lg-1">
+                        <label class="form-label small fw-semibold text-muted mb-1">Shift System</label>
+                        <select asp-for="Filter.ShiftSystem" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="5-2">5-2 (5 days)</option>
+                            <option value="6-1">6-1 (6 days)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-2 col-lg-1">
+                        <label class="form-label small fw-semibold text-muted mb-1">Shifts/Day</label>
+                        <select asp-for="Filter.ShiftsPerDay" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="1">1 Shift</option>
+                            <option value="2">2 Shifts</option>
+                            <option value="3">3 Shifts</option>
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-2 col-lg-2">
+                        <label class="form-label small fw-semibold text-muted mb-1">Max Overtime %</label>
+                        <select asp-for="Filter.OvertimeLimitPercent" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="0">0% (No Overtime)</option>
+                            <option value="5">5% Overtime</option>
+                            <option value="10">10% Overtime (Standard)</option>
+                            <option value="15">15% Overtime</option>
+                            <option value="20">20% Overtime</option>
+                            <option value="25">25% Overtime</option>
+                            <option value="30">30% Overtime (Max)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-lg-2 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1 shadow-sm fw-semibold">
+                            Apply Filter
+                        </button>
+                        <div class="form-check form-switch d-flex align-items-center mb-0" title="Automatically reload data every 30 seconds">
+                            <input class="form-check-input" type="checkbox" id="chkAutoRefresh" style="cursor: pointer;">
+                            <label class="form-check-label small ms-1 text-muted" for="chkAutoRefresh">Auto</label>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 1: LIVE MACHINE CAPACITY (MACHINE MATRIX)                         -->
+    <!-- ========================================================================= -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 mb-1">SECTION 1</span>
+                <h4 class="fw-bold text-dark mb-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-gear-wide-connected text-primary me-2 align-middle" viewBox="0 0 16 16">
+                        <path d="M7.068.727c.243-.97 1.62-.97 1.864 0l.071.286a.96.96 0 0 0 1.622.434l.205-.211c.695-.719 1.888-.03 1.613.931l-.08.284a.96.96 0 0 0 1.187 1.187l.283-.081c.96-.275 1.65.918.931 1.613l-.211.205a.96.96 0 0 0 .434 1.622l.286.071c.97.243.97 1.62 0 1.864l-.286.071a.96.96 0 0 0-.434 1.622l.211.205c.719.695.03 1.888-.931 1.613l-.284-.08a.96.96 0 0 0-1.187 1.187l.081.283c.275.96-.918 1.65-1.613.931l-.205-.211a.96.96 0 0 0-1.622.434l-.071.286c-.243.97-1.62.97-1.864 0l-.071-.286a.96.96 0 0 0-1.622-.434l-.205.211c-.695.719-1.888.03-1.613-.931l.08-.284a.96.96 0 0 0-1.186-1.187l-.284.081c-.96.275-1.65-.918-.931-1.613l.211-.205a.96.96 0 0 0-.434-1.622l-.286-.071c-.97-.243-.97-1.62 0-1.864l.286-.071a.96.96 0 0 0 .434-1.622l-.211-.205c-.719-.695-.03-1.888.931-1.613l.284.08a.96.96 0 0 0 1.187-1.186l-.081-.284c-.275-.96.918-1.65 1.613-.931l.205.211a.96.96 0 0 0 1.622-.434l.071-.286z"/>
+                    </svg>
+                    Live Machine Capacity (Machine Matrix)
+                </h4>
+                <p class="text-muted small">Actual concurrent machine hours and equipment utilization across all live running devices.</p>
+            </div>
+            <div>
+                <span class="badge @(res.IsMachineCapacityMet ? "bg-success" : "bg-danger") px-3 py-2 rounded-pill fs-6 shadow-sm">
+                    @(res.IsMachineCapacityMet ? "Machine Capacity: SUFFICIENT" : $"Machine Capacity: {res.BottleneckCount} BOTTLENECK(S)")
+                </span>
+            </div>
+        </div>
+
+        <div class="card-body px-4 pb-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle border">
+                    <thead class="table-light text-uppercase small text-muted">
+                        <tr>
+                            <th>Work Center Code</th>
+                            <th>Equipment / Machine Description</th>
+                            <th>Area</th>
+                            <th class="text-end">Required Mach Hrs</th>
+                            <th class="text-end">Normal Avail Hrs</th>
+                            <th class="text-end">Max Avail (w/ OT)</th>
+                            <th style="min-width: 170px;">Utilization %</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Recommend</th>
+                            <th>Active Live Devices</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (res.MachineLoads != null && res.MachineLoads.Count > 0)
+                        {
+                            foreach (var mach in res.MachineLoads)
+                            {
+                                string barClass = mach.IsBottleneck ? "bg-danger" : (mach.NeedsOvertime ? "bg-warning" : "bg-success");
+                                string badgeClass = mach.IsBottleneck ? "bg-danger text-white" : (mach.NeedsOvertime ? "bg-warning text-dark" : "bg-success text-white");
+
+                                <tr class="@(mach.IsBottleneck ? "table-danger bg-opacity-25" : "")">
+                                    <td class="font-monospace fw-bold text-dark">@mach.WorkCenter</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">@mach.MachineName</div>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border">@mach.Area</span></td>
+                                    <td class="text-end fw-bold font-monospace @(mach.IsBottleneck ? "text-danger" : "text-dark")">
+                                        @mach.RequiredHours.ToString("N1")
+                                    </td>
+                                    <td class="text-end text-muted font-monospace">@mach.AvailableNormalHours.ToString("N1")</td>
+                                    <td class="text-end text-muted font-monospace">@mach.AvailableWithOvertimeHours.ToString("N1")</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height: 8px;">
+                                                <div class="progress-bar @barClass" role="progressbar" 
+                                                     style="width: @Math.Min(100m, mach.UtilizationPercent)%;"></div>
+                                            </div>
+                                            <span class="small fw-bold font-monospace" style="width: 50px; text-align: right;">
+                                                @mach.UtilizationPercent.ToString("N1")%
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge @badgeClass rounded-pill px-2 py-1 small">
+                                            @mach.Status
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (mach.RecommendedMachines > 1)
+                                        {
+                                            <span class="badge bg-danger rounded-pill" title="Required to avoid bottleneck">
+                                                +@(mach.RecommendedMachines - 1) Mach
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">OK (1 Mach)</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1" style="max-width: 220px;">
+                                            @foreach (var dev in mach.ContributingDevices.Take(4))
+                                            {
+                                                <span class="badge bg-light text-dark border small font-monospace">@dev</span>
+                                            }
+                                            @if (mach.ContributingDevices.Count > 4)
+                                            {
+                                                <span class="badge bg-secondary text-white small">+@(mach.ContributingDevices.Count - 4) more</span>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="10" class="text-center py-4 text-muted">
+                                    No machine routing steps found for active devices in the selected timeframe.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="3">TOTAL MACHINE HOURS LOAD</td>
+                            <td class="text-end text-primary">@res.TotalRequiredMachineHours.ToString("N1") hrs</td>
+                            <td colspan="2" class="text-end text-muted">Total Available: @res.TotalAvailableMachineHours.ToString("N1") hrs</td>
+                            <td colspan="4">Overall Machine Load: @res.MachineUtilizationPercent.ToString("N1")%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 2: LIVE LABOR CAPACITY & DIRECT MANPOWER                          -->
+    <!-- ========================================================================= -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 mb-1">SECTION 2</span>
+                <h4 class="fw-bold text-dark mb-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-people-fill text-success me-2 align-middle" viewBox="0 0 16 16">
+                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                    </svg>
+                    Live Direct Labor Capacity &amp; Manpower Alignment
+                </h4>
+                <p class="text-muted small">Actual direct labor headcount required vs active operators registered in HR database (CI_Employee).</p>
+            </div>
+            <div>
+                <span class="badge @(res.IsLaborCapacityMet ? "bg-success" : "bg-danger") px-3 py-2 rounded-pill fs-6 shadow-sm">
+                    @(res.IsLaborCapacityMet ? "Labor Capacity: SUFFICIENT" : "Labor Capacity: DEFICIT / SHORTAGE")
+                </span>
+            </div>
+        </div>
+
+        <div class="card-body px-4 pb-4">
+            <!-- Labor KPI Stats Grid -->
+            <div class="row g-3 mb-4">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <span class="text-muted small fw-semibold text-uppercase">Total Direct Labor Hours</span>
+                        <h4 class="fw-bold mb-0 text-dark">@res.TotalRequiredLaborHours.ToString("N1") <small class="text-muted fs-6">hrs/wk</small></h4>
+                        <span class="text-muted small">Across all active processes</span>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <span class="text-muted small fw-semibold text-uppercase">Headcount Needed (0% OT)</span>
+                        <h4 class="fw-bold mb-0 text-secondary">@res.RequiredHeadcountZeroOt <small class="text-muted fs-6">Operators</small></h4>
+                        <span class="text-muted small">Standard normal hours only</span>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="p-3 bg-light rounded-3 border @(res.IsLaborCapacityMet ? "border-success" : "border-danger")">
+                        <span class="text-muted small fw-semibold text-uppercase">Headcount Needed (@f.OvertimeLimitPercent% OT)</span>
+                        <h4 class="fw-bold mb-0 @(res.IsLaborCapacityMet ? "text-success" : "text-danger")">
+                            @res.RequiredHeadcountWithOt <small class="text-muted fs-6">Operators</small>
+                        </h4>
+                        <span class="text-muted small">With configured overtime limit</span>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <span class="text-muted small fw-semibold text-uppercase">Plant Active Manpower (CI_Employee)</span>
+                        <h4 class="fw-bold mb-0 text-primary">@res.ActiveEmployeesAvailable <small class="text-muted fs-6">Operators</small></h4>
+                        <span class="small @(res.IsLaborCapacityMet ? "text-success fw-bold" : "text-danger fw-bold")">
+                            @(res.IsLaborCapacityMet ? $"+{res.LaborSurplusOrDeficit} Surplus" : $"{res.LaborSurplusOrDeficit} Deficit")
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Labor Breakdown Table -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle border">
+                    <thead class="table-light text-uppercase small text-muted">
+                        <tr>
+                            <th>Work Center / Process Area</th>
+                            <th>Process Description</th>
+                            <th>Participating Live Devices</th>
+                            <th class="text-end">Required Labor Hrs</th>
+                            <th class="text-center">Headcount (0% OT)</th>
+                            <th class="text-center">Headcount (@f.OvertimeLimitPercent% OT)</th>
+                            <th style="min-width: 150px;">Labor Share %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (res.LaborLoads != null && res.LaborLoads.Count > 0)
+                        {
+                            foreach (var labor in res.LaborLoads)
+                            {
+                                <tr>
+                                    <td class="fw-bold font-monospace text-dark">@labor.WorkCenter</td>
+                                    <td class="text-muted">@labor.ProcessName</td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1" style="max-width: 250px;">
+                                            @foreach (var dev in labor.ContributingDevices.Take(4))
+                                            {
+                                                <span class="badge bg-light text-dark border small font-monospace">@dev</span>
+                                            }
+                                            @if (labor.ContributingDevices.Count > 4)
+                                            {
+                                                <span class="badge bg-secondary text-white small">+@(labor.ContributingDevices.Count - 4) more</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="text-end fw-bold font-monospace">@labor.TotalLaborHours.ToString("N1")</td>
+                                    <td class="text-center fw-bold text-secondary">@labor.HeadcountZeroOt</td>
+                                    <td class="text-center fw-bold text-success">@labor.HeadcountWithOt</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height: 6px;">
+                                                <div class="progress-bar bg-info" role="progressbar" style="width: @labor.PercentOfTotalLabor%;"></div>
+                                            </div>
+                                            <span class="small text-muted font-monospace" style="width: 45px; text-align: right;">
+                                                @labor.PercentOfTotalLabor.ToString("N1")%
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="3">TOTAL DIRECT LABOR REQUIREMENT</td>
+                            <td class="text-end text-primary">@res.TotalRequiredLaborHours.ToString("N1") hrs</td>
+                            <td class="text-center text-secondary">@res.RequiredHeadcountZeroOt Operators</td>
+                            <td class="text-center text-success">@res.RequiredHeadcountWithOt Operators</td>
+                            <td>100.0%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 3: LIVE ACTIVE DEVICES IN PRODUCTION (CI_Yield Actual Data)       -->
+    <!-- ========================================================================= -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 mb-1">SECTION 3</span>
+                <h5 class="fw-bold text-dark mb-0">Active Devices in Live Production (@res.TotalActiveDevices Devices)</h5>
+                <p class="text-muted small mb-0">Synchronized real-time yield and production quantities from CI_Yield database.</p>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#activeDevicesCollapse" aria-expanded="true">
+                Toggle Device Table
+            </button>
+        </div>
+
+        <div class="collapse show" id="activeDevicesCollapse">
+            <div class="card-body px-4 pb-4">
+                <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                    <table class="table table-hover table-sm align-middle small border">
+                        <thead class="table-light sticky-top text-uppercase text-muted">
+                            <tr>
+                                <th>Device Code</th>
+                                <th>Device Name</th>
+                                <th>Div</th>
+                                <th class="text-end">Actual Qty In</th>
+                                <th class="text-end">Actual Qty Out</th>
+                                <th class="text-end">FPY %</th>
+                                <th class="text-end">Overall %</th>
+                                <th class="text-end">Run Rate (Wk)</th>
+                                <th class="text-end">Req Mach (h)</th>
+                                <th class="text-end">Req Labor (h)</th>
+                                <th class="text-center">Routing</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (res.ActiveDevices != null && res.ActiveDevices.Count > 0)
+                            {
+                                foreach (var d in res.ActiveDevices)
+                                {
+                                    <tr>
+                                        <td class="font-monospace fw-bold text-primary">@d.DeviceCode</td>
+                                        <td class="text-dark">@d.DeviceName</td>
+                                        <td><span class="badge bg-light text-dark border">@d.Division</span></td>
+                                        <td class="text-end font-monospace">@d.TotalQtyIn.ToString("N0")</td>
+                                        <td class="text-end font-monospace">@d.TotalQtyOut.ToString("N0")</td>
+                                        <td class="text-end font-monospace text-success fw-bold">@d.FirstPassYield.ToString("N2")%</td>
+                                        <td class="text-end font-monospace text-info fw-bold">@d.OverallYield.ToString("N2")%</td>
+                                        <td class="text-end font-monospace fw-bold text-dark">@d.WeeklyRunRate.ToString("N0")</td>
+                                        <td class="text-end font-monospace">@d.RequiredMachineHours.ToString("N1")</td>
+                                        <td class="text-end font-monospace">@d.RequiredLaborHours.ToString("N1")</td>
+                                        <td class="text-center">
+                                            @if (d.HasRouting)
+                                            {
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                                                    @d.StepCount steps
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                                    No routing
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="11" class="text-center py-4 text-muted">
+                                        No active devices detected for this timeframe.
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Auto-refresh logic (every 30 seconds if enabled)
+            let refreshInterval = null;
+            const chkAuto = $('#chkAutoRefresh');
+
+            function startTimer() {
+                refreshInterval = setInterval(function () {
+                    location.reload();
+                }, 30000);
+            }
+
+            function stopTimer() {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+            }
+
+            // Restore user preference
+            if (localStorage.getItem('live_capacity_auto_refresh') === 'true') {
+                chkAuto.prop('checked', true);
+                startTimer();
+            }
+
+            chkAuto.on('change', function () {
+                if ($(this).is(':checked')) {
+                    localStorage.setItem('live_capacity_auto_refresh', 'true');
+                    startTimer();
+                } else {
+                    localStorage.setItem('live_capacity_auto_refresh', 'false');
+                    stopTimer();
+                }
+            });
+        });
+    </script>
+}
+

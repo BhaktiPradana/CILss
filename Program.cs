@@ -26,6 +26,8 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Electricity/Improvements");
     options.Conventions.AllowAnonymousToPage("/Electricity/KwhPerPcs");
     options.Conventions.AllowAnonymousToPage("/CapacitySimulator/Index");
+    options.Conventions.AllowAnonymousToPage("/CapacitySimulator/Device");
+    options.Conventions.AllowAnonymousToPage("/CapacitySimulator/Live");
 });
 
 builder.Services.AddAuthorization(options =>

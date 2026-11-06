@@ -93,3 +93,4 @@ dotnet build CISyncHub/CISyncHub.csproj
 # Run GUI
 dotnet run --project CISyncHub/CISyncHub.csproj
 ```
+

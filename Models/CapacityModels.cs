@@ -330,4 +330,96 @@ namespace LssTraining.Web.Models
         // Detailed step routing
         public List<DeviceRoutingStepItem> RoutingSteps { get; set; } = new List<DeviceRoutingStepItem>();
     }
+
+    // =========================================================================
+    // LIVE CAPACITY PLANNING MODELS
+    // =========================================================================
+
+    public class LiveCapacityFilterInput
+    {
+        public string Timeframe { get; set; } = "Last7Days"; // "Today", "Yesterday", "Last7Days", "Last30Days", "All"
+        public string Division { get; set; } = "All"; // "All", "MLS", "OPTIC", "AIS"
+        public string ShiftSystem { get; set; } = "5-2"; // "5-2" (5 days) or "6-1" (6 days)
+        public int ShiftsPerDay { get; set; } = 3; // 1, 2, 3
+        public decimal OvertimeLimitPercent { get; set; } = 10m; // 0 - 50%
+        public string MetricSource { get; set; } = "QtyIn"; // "QtyIn" or "QtyOut"
+
+        public int WorkingDays => ShiftSystem == "6-1" ? 6 : 5;
+        public decimal NormalHoursPerShift => 7.25m;
+        public decimal AvailableHoursPerPersonZeroOt => WorkingDays * NormalHoursPerShift;
+        public decimal AvailableHoursPerPersonWithOt => AvailableHoursPerPersonZeroOt * (1m + (OvertimeLimitPercent / 100m));
+        public decimal AvailableMachineHoursNormal => WorkingDays * ShiftsPerDay * NormalHoursPerShift;
+        public decimal AvailableMachineHoursWithOt => AvailableMachineHoursNormal * (1m + (OvertimeLimitPercent / 100m));
+    }
+
+    public class LiveDeviceProductionItem
+    {
+        public string DeviceCode { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
+        public string Division { get; set; } = string.Empty;
+        public decimal TotalQtyIn { get; set; }
+        public decimal TotalQtyOut { get; set; }
+        public decimal FirstPassYield { get; set; }
+        public decimal OverallYield { get; set; }
+        public System.DateTime? LatestDate { get; set; }
+        public int ProductionDays { get; set; }
+        public decimal WeeklyRunRate { get; set; }
+        public int StepCount { get; set; }
+        public decimal RequiredMachineHours { get; set; }
+        public decimal RequiredLaborHours { get; set; }
+        public bool HasRouting { get; set; }
+    }
+
+    public class LiveCapacityResult
+    {
+        public LiveCapacityFilterInput Filter { get; set; } = new LiveCapacityFilterInput();
+        public System.DateTime EvaluatedAt { get; set; } = System.DateTime.Now;
+
+        // High Level Metrics
+        public int TotalActiveDevices { get; set; }
+        public decimal TotalActualUnits { get; set; }
+        public decimal TotalWeeklyRunRateUnits { get; set; }
+        public decimal AverageFirstPassYield { get; set; }
+        public decimal AverageOverallYield { get; set; }
+
+        // Live Machine Capacity
+        public decimal TotalRequiredMachineHours { get; set; }
+        public decimal TotalAvailableMachineHours { get; set; }
+        public decimal MachineUtilizationPercent => TotalAvailableMachineHours > 0 ? (TotalRequiredMachineHours / TotalAvailableMachineHours) * 100m : 0m;
+        public int TotalMachineWorkCenters { get; set; }
+        public int BottleneckCount => BottleneckMachines != null ? BottleneckMachines.Count : 0;
+        public bool IsMachineCapacityMet => BottleneckCount == 0;
+        public List<DeviceMachineLoadItem> MachineLoads { get; set; } = new List<DeviceMachineLoadItem>();
+        public List<DeviceMachineLoadItem> BottleneckMachines { get; set; } = new List<DeviceMachineLoadItem>();
+
+        // Live Labor Capacity
+        public decimal TotalRequiredLaborHours { get; set; }
+        public int RequiredHeadcountZeroOt { get; set; }
+        public int RequiredHeadcountWithOt { get; set; }
+        public int ActiveEmployeesAvailable { get; set; }
+        public int LaborSurplusOrDeficit => ActiveEmployeesAvailable - RequiredHeadcountWithOt;
+        public bool IsLaborCapacityMet => LaborSurplusOrDeficit >= 0;
+        public decimal LaborUtilizationPercent => ActiveEmployeesAvailable > 0 ? ((decimal)RequiredHeadcountWithOt / ActiveEmployeesAvailable) * 100m : 0m;
+        public List<DeviceLaborLoadItem> LaborLoads { get; set; } = new List<DeviceLaborLoadItem>();
+
+        // Overall Alert Status
+        public bool IsOverallCapacitySufficient => IsMachineCapacityMet && IsLaborCapacityMet;
+        private string? _customAlertSeverity;
+        public string AlertSeverity
+        {
+            get => _customAlertSeverity ?? ((!IsMachineCapacityMet && !IsLaborCapacityMet) ? "CRITICAL_DEFICIT" :
+                   (!IsMachineCapacityMet) ? "MACHINE_DEFICIT" :
+                   (!IsLaborCapacityMet) ? "LABOR_DEFICIT" :
+                   (MachineLoads.Any(m => m.NeedsOvertime) || RequiredHeadcountZeroOt > ActiveEmployeesAvailable) ? "WARNING_OVERTIME" :
+                   "OPTIMAL");
+            set => _customAlertSeverity = value;
+        }
+
+        public string AlertTitle { get; set; } = string.Empty;
+        public string AlertMessage { get; set; } = string.Empty;
+        public List<string> AlertPoints { get; set; } = new List<string>();
+
+        // Active Devices List
+        public List<LiveDeviceProductionItem> ActiveDevices { get; set; } = new List<LiveDeviceProductionItem>();
+    }
 }
