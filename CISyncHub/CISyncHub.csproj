@@ -6,9 +6,10 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>YieldSyncApp</RootNamespace>
+    <RootNamespace>CISyncHub</RootNamespace>
     <TargetPlatformMoniker>Windows,Version=7.0</TargetPlatformMoniker>
     <TargetPlatformDisplayName>Windows</TargetPlatformDisplayName>
+    <ApplicationTitle>CI Sync Hub</ApplicationTitle>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,3 +23,4 @@
   </ItemGroup>
 
 </Project>
+

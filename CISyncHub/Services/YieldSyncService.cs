@@ -5,44 +5,19 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using CISyncHub.Models;
 
-namespace YieldSyncApp;
+namespace CISyncHub.Services;
 
-public class SyncService
+public class YieldSyncService
 {
     private readonly string _destConnStr;
     private readonly Action<string> _logger;
 
-    public SyncService(string destConnStr, Action<string> logger)
+    public YieldSyncService(string destConnStr, Action<string> logger)
     {
         _destConnStr = destConnStr;
         _logger = logger;
-    }
-
-    public async Task<bool> TestConnectionAsync(string connStr, string serverLabel, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            _logger($"Testing connection to [{serverLabel}]...");
-            using var conn = new SqlConnection(connStr);
-            var connectTask = conn.OpenAsync(cancellationToken);
-            if (await Task.WhenAny(connectTask, Task.Delay(8000, cancellationToken)) == connectTask)
-            {
-                await connectTask; // throw any exception if occurred
-                _logger($"✅ Connection to [{serverLabel}] SUCCESSFUL.");
-                return true;
-            }
-            else
-            {
-                _logger($"❌ Connection to [{serverLabel}] TIMED OUT (8s).");
-                return false;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger($"❌ Connection to [{serverLabel}] FAILED: {ex.Message}");
-            return false;
-        }
     }
 
     public async Task EnsureDestinationTableExistsAsync(CancellationToken cancellationToken = default)
@@ -99,7 +74,7 @@ END;";
         CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
-        var result = new SyncResult { Division = source.Division };
+        var result = new SyncResult { TaskName = "Yield Sync", Division = source.Division };
 
         _logger($"------------------------------------------------------------");
         _logger($"[START] Syncing Division: {source.Division} ({source.Name})...");
@@ -120,7 +95,6 @@ END;";
                 return result;
             }
 
-            // Upsert into target table CI_Yield
             result.RecordsUpserted = await UpsertToDestinationAsync(dtYield, cancellationToken);
             _logger($"✅ Successfully upserted {result.RecordsUpserted:N0} records into [dbo].[CI_Yield].");
 
@@ -136,7 +110,7 @@ END;";
         {
             sw.Stop();
             result.Duration = sw.Elapsed;
-            _logger($"[END] Division: {source.Division} finished in {sw.Elapsed.TotalSeconds:F2} seconds.");
+            _logger($"[END] Division: {source.Division} finished in {sw.Elapsed.TotalSeconds:F2}s.");
         }
 
         return result;
@@ -218,7 +192,6 @@ ORDER BY
             double defectFirst = reader.IsDBNull(4) ? 0 : Convert.ToDouble(reader.GetValue(4));
             double defectFinal = reader.IsDBNull(5) ? 0 : Convert.ToDouble(reader.GetValue(5));
 
-            // Calculate FPY (%)
             decimal fpy = 0m;
             if (qtyIn > 0)
             {
@@ -229,7 +202,6 @@ ORDER BY
                 fpy = Math.Round((decimal)calc, 4);
             }
 
-            // Calculate Overall Yield (%)
             decimal overallYield = 0m;
             if (qtyIn > 0)
             {
@@ -263,7 +235,6 @@ ORDER BY
         using var conn = new SqlConnection(_destConnStr);
         await conn.OpenAsync(cancellationToken);
 
-        // 1. Create a local temporary staging table
         const string createStagingSql = @"
 CREATE TABLE #Staging_CI_Yield (
     [DeviceCode]       NVARCHAR(100) NOT NULL,
@@ -284,7 +255,6 @@ CREATE TABLE #Staging_CI_Yield (
             await cmdStaging.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        // 2. Bulk copy into staging table
         using (var bulkCopy = new SqlBulkCopy(conn))
         {
             bulkCopy.DestinationTableName = "#Staging_CI_Yield";
@@ -306,7 +276,6 @@ CREATE TABLE #Staging_CI_Yield (
             await bulkCopy.WriteToServerAsync(dtSource, cancellationToken);
         }
 
-        // 3. MERGE from staging to destination table [dbo].[CI_Yield]
         const string mergeSql = @"
 MERGE INTO [dbo].[CI_Yield] AS target
 USING #Staging_CI_Yield AS source
@@ -341,8 +310,7 @@ WHEN NOT MATCHED BY TARGET THEN
         using (var cmdMerge = new SqlCommand(mergeSql, conn))
         {
             cmdMerge.CommandTimeout = 300;
-            int affected = await cmdMerge.ExecuteNonQueryAsync(cancellationToken);
-            return affected;
+            return await cmdMerge.ExecuteNonQueryAsync(cancellationToken);
         }
     }
 }

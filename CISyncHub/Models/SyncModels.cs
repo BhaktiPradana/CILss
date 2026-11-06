@@ -1,6 +1,6 @@
 using System;
 
-namespace YieldSyncApp;
+namespace CISyncHub.Models;
 
 public class YieldRecord
 {
@@ -30,10 +30,19 @@ public class SyncSourceConfig
 
 public class SyncResult
 {
+    public string TaskName { get; set; } = string.Empty;
     public string Division { get; set; } = string.Empty;
     public bool Success { get; set; }
     public int RecordsExtracted { get; set; }
     public int RecordsUpserted { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+    public TimeSpan Duration { get; set; }
+}
+
+public class EmployeeSyncResult
+{
+    public bool Success { get; set; }
+    public int TotalEmployeesSynced { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;
     public TimeSpan Duration { get; set; }
 }
