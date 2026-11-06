@@ -106,3 +106,4 @@ namespace LssTraining.Web.Pages.CapacitySimulator
         }
     }
 }
+
