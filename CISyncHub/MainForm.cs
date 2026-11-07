@@ -31,6 +31,7 @@ public partial class MainForm : Form
 
     private YieldSyncService? _yieldService;
     private EmployeeSyncService? _empService;
+    private IECycleTimeSyncService? _ieCycleService;
     private ConnectionDiagnosticService? _diagService;
 
     public MainForm()
@@ -47,9 +48,10 @@ public partial class MainForm : Form
         _trayMenu = new ContextMenuStrip();
         _trayMenu.Items.Add("Open CI Sync Hub", null, (s, e) => RestoreFromTray());
         _trayMenu.Items.Add(new ToolStripSeparator());
-        _trayMenu.Items.Add("Sync All Now", null, async (s, e) => await RunSyncAllAsync());
+        _trayMenu.Items.Add("Sync All Now (Yield, Employee, Cycle Time)", null, async (s, e) => await RunSyncAllAsync());
         _trayMenu.Items.Add("Sync Yield Only", null, async (s, e) => await RunYieldSyncAsync());
         _trayMenu.Items.Add("Sync Employees Only", null, async (s, e) => await RunEmployeeSyncAsync());
+        _trayMenu.Items.Add("Sync IE Cycle Time Only", null, async (s, e) => await RunIECycleSyncAsync());
         _trayMenu.Items.Add(new ToolStripSeparator());
         _trayMenu.Items.Add("Exit", null, (s, e) => ForceExit());
 
@@ -117,6 +119,7 @@ public partial class MainForm : Form
 
             _yieldService = new YieldSyncService(_destConnStr, LogMessage);
             _empService = new EmployeeSyncService(_destConnStr, LogMessage);
+            _ieCycleService = new IECycleTimeSyncService(_destConnStr, LogMessage);
             _diagService = new ConnectionDiagnosticService(LogMessage);
 
             // Update UI fields
@@ -141,6 +144,7 @@ public partial class MainForm : Form
         btnSyncAll.Click += async (s, e) => await RunSyncAllAsync();
         btnDashSyncYield.Click += async (s, e) => await RunYieldSyncAsync();
         btnDashSyncEmployee.Click += async (s, e) => await RunEmployeeSyncAsync();
+        btnDashSyncIECycle.Click += async (s, e) => await RunIECycleSyncAsync();
         chkAutoScheduleDash.CheckedChanged += (s, e) =>
         {
             chkScheduleEnabled.Checked = chkAutoScheduleDash.Checked;
@@ -160,6 +164,10 @@ public partial class MainForm : Form
 
         // Employee Tab
         btnSyncEmployee.Click += async (s, e) => await RunEmployeeSyncAsync();
+
+        // IE Cycle Time Tab
+        btnSyncIECycle.Click += async (s, e) => await RunIECycleSyncAsync();
+        btnVerifyIECycleTable.Click += async (s, e) => await VerifyIECycleTableAsync();
 
         // Diagnostics Tab
         btnTestConnections.Click += async (s, e) => await RunDiagnosticsAsync();
@@ -292,6 +300,9 @@ public partial class MainForm : Form
 
             // Step 2: Yield Sync (Default Last 7 Days for safety)
             await RunYieldSyncInternalAsync(DateTime.Today.AddDays(-7), DateTime.Today, true, true, true);
+
+            // Step 3: IE Cycle Time Sync (MLS, OPTIC, AIS)
+            await RunIECycleSyncInternalAsync(true, true, true);
 
             LogMessage("============================================================");
             LogMessage($"🎉 [FULL SYNC COMPLETE] All operations finished at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
@@ -470,6 +481,130 @@ public partial class MainForm : Form
         {
             lblCardEmpStatus.Text = "Last Sync: Failed";
             lblCardEmpStatus.ForeColor = Color.FromArgb(231, 76, 60);
+        }
+    }
+
+    public async Task RunIECycleSyncAsync()
+    {
+        if (_isSyncing)
+        {
+            MessageBox.Show("A synchronization process is already running.", "Operation In Progress", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        bool syncMls = chkMlsIE.Checked;
+        bool syncOptic = chkOpticIE.Checked;
+        bool syncAis = chkAisIE.Checked;
+
+        if (!syncMls && !syncOptic && !syncAis)
+        {
+            MessageBox.Show("Please select at least one division (MLS, OPTIC, or AIS) to sync IE Cycle Time.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        SetSyncingState(true, "Synchronizing IE Cycle Time...");
+        try
+        {
+            await RunIECycleSyncInternalAsync(syncMls, syncOptic, syncAis);
+            _trayIcon?.ShowBalloonTip(3000, "CI Sync Hub", "IE Cycle Time sync finished successfully!", ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"❌ IE Cycle Time Sync failed: {ex.Message}");
+        }
+        finally
+        {
+            SetSyncingState(false, "Ready. IE Cycle Time synchronization finished.");
+        }
+    }
+
+    private async Task RunIECycleSyncInternalAsync(bool syncMls, bool syncOptic, bool syncAis)
+    {
+        if (_ieCycleService == null)
+        {
+            _ieCycleService = new IECycleTimeSyncService(_destConnStr, LogMessage);
+        }
+
+        LogMessage("------------------------------------------------------------");
+        LogMessage($"[START] IE Cycle Time Sync starting at {DateTime.Now:yyyy-MM-dd HH:mm:ss}...");
+        LogMessage("------------------------------------------------------------");
+
+        // Ensure destination table exists & schema is verified
+        await _ieCycleService.EnsureDestinationTableExistsAsync();
+
+        var sources = new List<SyncSourceConfig>();
+
+        if (syncMls && !string.IsNullOrWhiteSpace(_sourceMLS))
+        {
+            sources.Add(new SyncSourceConfig
+            {
+                Key = "MLS",
+                Name = "MLS Lighting",
+                Division = "MLS",
+                ConnectionString = _sourceMLS,
+                ServerName = "ETCBTMA03\\DIGITMONT",
+                DatabaseName = "digimon_lighting"
+            });
+        }
+
+        if (syncOptic && !string.IsNullOrWhiteSpace(_sourceOptic))
+        {
+            sources.Add(new SyncSourceConfig
+            {
+                Key = "OPTIC",
+                Name = "OPTIC / VISION",
+                Division = "OPTIC",
+                ConnectionString = _sourceOptic,
+                ServerName = "ETCBTMA03\\DIGITMONT",
+                DatabaseName = "digimon_vision"
+            });
+        }
+
+        if (syncAis && !string.IsNullOrWhiteSpace(_sourceAIS))
+        {
+            sources.Add(new SyncSourceConfig
+            {
+                Key = "AIS",
+                Name = "AIS Detection",
+                Division = "AIS",
+                ConnectionString = _sourceAIS,
+                ServerName = "ETCBTMSQL01\\DIGITMONT",
+                DatabaseName = "dbDigitmontDetection"
+            });
+        }
+
+        int totalExtracted = 0;
+        int totalUpserted = 0;
+
+        foreach (var src in sources)
+        {
+            var res = await _ieCycleService.SyncSourceAsync(src);
+            if (res.Success)
+            {
+                totalExtracted += res.RecordsExtracted;
+                totalUpserted += res.RecordsUpserted;
+            }
+        }
+
+        LogMessage("------------------------------------------------------------");
+        LogMessage($"[SUMMARY] IE Cycle Time Sync completed: {totalExtracted:N0} records extracted, {totalUpserted:N0} records upserted across {sources.Count} divisions.");
+        LogMessage("------------------------------------------------------------");
+    }
+
+    public async Task VerifyIECycleTableAsync()
+    {
+        try
+        {
+            if (_ieCycleService == null)
+                _ieCycleService = new IECycleTimeSyncService(_destConnStr, LogMessage);
+
+            await _ieCycleService.EnsureDestinationTableExistsAsync();
+            MessageBox.Show("Table [dbo].[CI_IECycleTime_Header] in destination database CI_LSS is verified and ready.", "Table Verified", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"❌ Table verification failed: {ex.Message}");
+            MessageBox.Show($"Verification failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

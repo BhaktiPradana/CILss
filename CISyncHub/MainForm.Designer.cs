@@ -20,12 +20,14 @@ partial class MainForm
     private System.Windows.Forms.TabPage tabDashboard;
     private System.Windows.Forms.TabPage tabYield;
     private System.Windows.Forms.TabPage tabEmployee;
+    private System.Windows.Forms.TabPage tabIECycleTime;
     private System.Windows.Forms.TabPage tabConnections;
     
     // Dashboard Tab Controls
     private System.Windows.Forms.Button btnSyncAll;
     private System.Windows.Forms.Button btnDashSyncYield;
     private System.Windows.Forms.Button btnDashSyncEmployee;
+    private System.Windows.Forms.Button btnDashSyncIECycle;
     private System.Windows.Forms.Panel pnlCardYield;
     private System.Windows.Forms.Label lblCardYieldTitle;
     private System.Windows.Forms.Label lblCardYieldStatus;
@@ -62,6 +64,16 @@ partial class MainForm
     private System.Windows.Forms.Button btnSyncEmployee;
     private System.Windows.Forms.Label lblEmpNote;
 
+    // IE Cycle Time Tab Controls
+    private System.Windows.Forms.GroupBox grpSourcesIE;
+    private System.Windows.Forms.CheckBox chkMlsIE;
+    private System.Windows.Forms.CheckBox chkOpticIE;
+    private System.Windows.Forms.CheckBox chkAisIE;
+    private System.Windows.Forms.GroupBox grpInfoIE;
+    private System.Windows.Forms.Label lblInfoIE;
+    private System.Windows.Forms.Button btnSyncIECycle;
+    private System.Windows.Forms.Button btnVerifyIECycleTable;
+
     // Connections Tab Controls
     private System.Windows.Forms.Button btnTestConnections;
     private System.Windows.Forms.GroupBox grpConnectionInfo;
@@ -97,11 +109,13 @@ partial class MainForm
         this.tabDashboard = new System.Windows.Forms.TabPage();
         this.tabYield = new System.Windows.Forms.TabPage();
         this.tabEmployee = new System.Windows.Forms.TabPage();
+        this.tabIECycleTime = new System.Windows.Forms.TabPage();
         this.tabConnections = new System.Windows.Forms.TabPage();
         
         this.btnSyncAll = new System.Windows.Forms.Button();
         this.btnDashSyncYield = new System.Windows.Forms.Button();
         this.btnDashSyncEmployee = new System.Windows.Forms.Button();
+        this.btnDashSyncIECycle = new System.Windows.Forms.Button();
         this.pnlCardYield = new System.Windows.Forms.Panel();
         this.lblCardYieldTitle = new System.Windows.Forms.Label();
         this.lblCardYieldStatus = new System.Windows.Forms.Label();
@@ -135,6 +149,15 @@ partial class MainForm
         this.lblEmpTargetInfo = new System.Windows.Forms.Label();
         this.btnSyncEmployee = new System.Windows.Forms.Button();
         this.lblEmpNote = new System.Windows.Forms.Label();
+
+        this.grpSourcesIE = new System.Windows.Forms.GroupBox();
+        this.chkMlsIE = new System.Windows.Forms.CheckBox();
+        this.chkOpticIE = new System.Windows.Forms.CheckBox();
+        this.chkAisIE = new System.Windows.Forms.CheckBox();
+        this.grpInfoIE = new System.Windows.Forms.GroupBox();
+        this.lblInfoIE = new System.Windows.Forms.Label();
+        this.btnSyncIECycle = new System.Windows.Forms.Button();
+        this.btnVerifyIECycleTable = new System.Windows.Forms.Button();
 
         this.btnTestConnections = new System.Windows.Forms.Button();
         this.grpConnectionInfo = new System.Windows.Forms.GroupBox();
@@ -193,7 +216,7 @@ partial class MainForm
         this.lblAppSubtitle.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblAppSubtitle.ForeColor = System.Drawing.Color.FromArgb(170, 185, 205);
         this.lblAppSubtitle.Location = new System.Drawing.Point(20, 40);
-        this.lblAppSubtitle.Text = "Excelitas CI Hub — Unified Synchronization Center (Daily Yield & Active Employees)";
+        this.lblAppSubtitle.Text = "Excelitas CI Hub — Unified Synchronization Center (Yield, Employees & IE Cycle Time)";
 
         // 
         // tabControl
@@ -205,6 +228,7 @@ partial class MainForm
         this.tabControl.Controls.Add(this.tabDashboard);
         this.tabControl.Controls.Add(this.tabYield);
         this.tabControl.Controls.Add(this.tabEmployee);
+        this.tabControl.Controls.Add(this.tabIECycleTime);
         this.tabControl.Controls.Add(this.tabConnections);
 
         // ==========================================
@@ -276,30 +300,49 @@ partial class MainForm
 
         // Main Action Button: SYNC ALL
         this.btnSyncAll.Location = new System.Drawing.Point(18, 115);
-        this.btnSyncAll.Size = new System.Drawing.Size(430, 52);
+        this.btnSyncAll.Size = new System.Drawing.Size(330, 52);
         this.btnSyncAll.BackColor = System.Drawing.Color.FromArgb(39, 174, 96);
         this.btnSyncAll.ForeColor = System.Drawing.Color.White;
-        this.btnSyncAll.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
+        this.btnSyncAll.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
         this.btnSyncAll.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSyncAll.Cursor = System.Windows.Forms.Cursors.Hand;
-        this.btnSyncAll.Text = "🚀 ONE-CLICK SYNC ALL (Yield + Employees)";
+        this.btnSyncAll.Text = "🚀 ONE-CLICK SYNC ALL\n(Yield, Employee & Cycle Time)";
 
         // Selective Buttons
-        this.btnDashSyncYield.Location = new System.Drawing.Point(465, 115);
-        this.btnDashSyncYield.Size = new System.Drawing.Size(215, 52);
+        this.btnDashSyncYield.Location = new System.Drawing.Point(365, 115);
+        this.btnDashSyncYield.Size = new System.Drawing.Size(170, 52);
         this.btnDashSyncYield.BackColor = System.Drawing.Color.FromArgb(41, 128, 185);
         this.btnDashSyncYield.ForeColor = System.Drawing.Color.White;
-        this.btnDashSyncYield.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+        this.btnDashSyncYield.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
         this.btnDashSyncYield.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnDashSyncYield.Cursor = System.Windows.Forms.Cursors.Hand;
-        this.btnDashSyncYield.Text = "📊 Sync Yield Only";
+        this.btnDashSyncYield.Text = "📊 Sync Yield";
 
-        this.btnDashSyncEmployee.Location = new System.Drawing.Point(695, 115);
-        this.btnDashSyncEmployee.Size = new System.Drawing.Size(217, 52);
+        this.btnDashSyncEmployee.Location = new System.Drawing.Point(550, 115);
+        this.btnDashSyncEmployee.Size = new System.Drawing.Size(175, 52);
         this.btnDashSyncEmployee.BackColor = System.Drawing.Color.FromArgb(142, 68, 173);
         this.btnDashSyncEmployee.ForeColor = System.Drawing.Color.White;
-        this.btnDashSyncEmployee.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+        this.btnDashSyncEmployee.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
         this.btnDashSyncEmployee.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.btnDashSyncEmployee.Cursor = System.Windows.Forms.Cursors.Hand;
+        this.btnDashSyncEmployee.Text = "👥 Sync Employees";
+
+        this.btnDashSyncIECycle.Location = new System.Drawing.Point(740, 115);
+        this.btnDashSyncIECycle.Size = new System.Drawing.Size(172, 52);
+        this.btnDashSyncIECycle.BackColor = System.Drawing.Color.FromArgb(211, 84, 0);
+        this.btnDashSyncIECycle.ForeColor = System.Drawing.Color.White;
+        this.btnDashSyncIECycle.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+        this.btnDashSyncIECycle.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.btnDashSyncIECycle.Cursor = System.Windows.Forms.Cursors.Hand;
+        this.btnDashSyncIECycle.Text = "⏱️ Sync Cycle Time";
+
+        this.tabDashboard.Controls.Add(this.pnlCardYield);
+        this.tabDashboard.Controls.Add(this.pnlCardEmployee);
+        this.tabDashboard.Controls.Add(this.pnlCardSchedule);
+        this.tabDashboard.Controls.Add(this.btnSyncAll);
+        this.tabDashboard.Controls.Add(this.btnDashSyncYield);
+        this.tabDashboard.Controls.Add(this.btnDashSyncEmployee);
+        this.tabDashboard.Controls.Add(this.btnDashSyncIECycle);
         this.btnDashSyncEmployee.Cursor = System.Windows.Forms.Cursors.Hand;
         this.btnDashSyncEmployee.Text = "👥 Sync Employees Only";
 
@@ -457,7 +500,74 @@ partial class MainForm
         this.tabEmployee.Controls.Add(this.btnSyncEmployee);
 
         // ==========================================
-        // TAB 4: CONNECTIONS & SETTINGS
+        // TAB 4: IE CYCLE TIME SYNC
+        // ==========================================
+        this.tabIECycleTime.Text = "  ⏱️ IE Cycle Time Sync  ";
+        this.tabIECycleTime.BackColor = System.Drawing.Color.FromArgb(248, 249, 251);
+        this.tabIECycleTime.Padding = new System.Windows.Forms.Padding(15);
+
+        // grpSourcesIE
+        this.grpSourcesIE.Location = new System.Drawing.Point(18, 12);
+        this.grpSourcesIE.Size = new System.Drawing.Size(430, 100);
+        this.grpSourcesIE.Text = "Source Databases (dmIECycleTime_Header)";
+        this.grpSourcesIE.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+        this.chkMlsIE.Text = "MLS (Lighting) - ETCBTMA03\\DIGITMONT.digimon_lighting";
+        this.chkMlsIE.Location = new System.Drawing.Point(15, 22);
+        this.chkMlsIE.Size = new System.Drawing.Size(400, 22);
+        this.chkMlsIE.Checked = true;
+        this.chkMlsIE.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.chkOpticIE.Text = "OPTIC / VISION - ETCBTMA03\\DIGITMONT.digimon_vision";
+        this.chkOpticIE.Location = new System.Drawing.Point(15, 46);
+        this.chkOpticIE.Size = new System.Drawing.Size(400, 22);
+        this.chkOpticIE.Checked = true;
+        this.chkOpticIE.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.chkAisIE.Text = "AIS (Detection) - ETCBTMSQL01\\DIGITMONT.dbDigitmontDetection";
+        this.chkAisIE.Location = new System.Drawing.Point(15, 70);
+        this.chkAisIE.Size = new System.Drawing.Size(400, 22);
+        this.chkAisIE.Checked = true;
+        this.chkAisIE.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.grpSourcesIE.Controls.Add(this.chkMlsIE);
+        this.grpSourcesIE.Controls.Add(this.chkOpticIE);
+        this.grpSourcesIE.Controls.Add(this.chkAisIE);
+
+        // grpInfoIE
+        this.grpInfoIE.Location = new System.Drawing.Point(460, 12);
+        this.grpInfoIE.Size = new System.Drawing.Size(455, 100);
+        this.grpInfoIE.Text = "Target Mapping & UPH Information";
+        this.grpInfoIE.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+        this.lblInfoIE.Location = new System.Drawing.Point(15, 22);
+        this.lblInfoIE.Size = new System.Drawing.Size(425, 70);
+        this.lblInfoIE.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.lblInfoIE.ForeColor = System.Drawing.Color.FromArgb(70, 80, 95);
+        this.lblInfoIE.Text = "Extracts dmIECycleTime_Header (MachCode, DeviceCode, ProcCode, UPH, MachineTime, LaborTime, Capacity) and performs an idempotent upsert into CI_LSS.dbo.CI_IECycleTime_Header.";
+        this.grpInfoIE.Controls.Add(this.lblInfoIE);
+
+        // Action Buttons
+        this.btnSyncIECycle.Location = new System.Drawing.Point(18, 125);
+        this.btnSyncIECycle.Size = new System.Drawing.Size(540, 46);
+        this.btnSyncIECycle.BackColor = System.Drawing.Color.FromArgb(211, 84, 0);
+        this.btnSyncIECycle.ForeColor = System.Drawing.Color.White;
+        this.btnSyncIECycle.Font = new System.Drawing.Font("Segoe UI", 10.5F, System.Drawing.FontStyle.Bold);
+        this.btnSyncIECycle.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.btnSyncIECycle.Cursor = System.Windows.Forms.Cursors.Hand;
+        this.btnSyncIECycle.Text = "⏱️ START IE CYCLE TIME SYNCHRONIZATION";
+
+        this.btnVerifyIECycleTable.Location = new System.Drawing.Point(575, 125);
+        this.btnVerifyIECycleTable.Size = new System.Drawing.Size(340, 46);
+        this.btnVerifyIECycleTable.BackColor = System.Drawing.Color.FromArgb(243, 156, 18);
+        this.btnVerifyIECycleTable.ForeColor = System.Drawing.Color.White;
+        this.btnVerifyIECycleTable.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+        this.btnVerifyIECycleTable.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.btnVerifyIECycleTable.Cursor = System.Windows.Forms.Cursors.Hand;
+        this.btnVerifyIECycleTable.Text = "🔍 Verify Destination Table (CI_IECycleTime_Header)";
+
+        this.tabIECycleTime.Controls.Add(this.grpSourcesIE);
+        this.tabIECycleTime.Controls.Add(this.grpInfoIE);
+        this.tabIECycleTime.Controls.Add(this.btnSyncIECycle);
+        this.tabIECycleTime.Controls.Add(this.btnVerifyIECycleTable);
+
+        // ==========================================
+        // TAB 5: CONNECTIONS & SETTINGS
         // ==========================================
         this.tabConnections.Text = "  🔌 Diagnostics & Settings  ";
         this.tabConnections.BackColor = System.Drawing.Color.FromArgb(248, 249, 251);
