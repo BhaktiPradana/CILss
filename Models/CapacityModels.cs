@@ -77,6 +77,8 @@ namespace LssTraining.Web.Models
         public string Area { get; set; } = string.Empty;
         public string MachCode { get; set; } = string.Empty;
         public string MachName { get; set; } = string.Empty;
+        public int MachineCount { get; set; } = 1;
+        public string AvailableMachines { get; set; } = string.Empty;
         public decimal UPH { get; set; }
         public decimal LaborHour { get; set; }
         public decimal LimitReject { get; set; } // Yield
@@ -170,6 +172,8 @@ namespace LssTraining.Web.Models
         public string MachCode { get; set; } = string.Empty;
         public string MachName { get; set; } = string.Empty;
         public string Area { get; set; } = string.Empty;
+        public int ActiveMachinesCount { get; set; } = 1;
+        public string AvailableMachines { get; set; } = string.Empty;
         public decimal RequiredHours { get; set; }
         public decimal AvailableNormalHours { get; set; }
         public decimal AvailableOvertimeHours { get; set; }
@@ -287,6 +291,8 @@ namespace LssTraining.Web.Models
         public string WorkCenter { get; set; } = string.Empty;
         public string MachineName { get; set; } = string.Empty;
         public string Area { get; set; } = "PROD";
+        public int ActiveMachinesCount { get; set; } = 1;
+        public string AvailableMachines { get; set; } = string.Empty;
         public decimal RequiredHours { get; set; }
         public decimal AvailableNormalHours { get; set; }
         public decimal AvailableWithOvertimeHours { get; set; }
@@ -344,6 +350,9 @@ namespace LssTraining.Web.Models
         public int Seq { get; set; }
         public string Description { get; set; } = string.Empty;
         public string WorkCenter { get; set; } = string.Empty;
+        public string MachineName { get; set; } = string.Empty;
+        public int MachineCount { get; set; } = 1;
+        public string AvailableMachines { get; set; } = string.Empty;
         public decimal MachineHour { get; set; }
         public decimal LaborHour { get; set; }
         public decimal DemandUnits { get; set; }

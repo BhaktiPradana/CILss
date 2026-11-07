@@ -302,3 +302,55 @@ BEGIN
     (N'AQL2', N'AQL GD');
 END
 GO
+
+-- =========================================================================================
+-- CI_IECycleTime_Header & CI_MachinesProcess (Machine Matrix & Engineering Capacity)
+-- =========================================================================================
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CI_IECycleTime_Header' AND schema_id = SCHEMA_ID('dbo'))
+BEGIN
+    CREATE TABLE [dbo].[CI_IECycleTime_Header] (
+        [Id]               BIGINT IDENTITY(1,1) NOT NULL,
+        [TransID]          BIGINT               NOT NULL,
+        [DeviceCode]       NVARCHAR(50)         NOT NULL,
+        [ProcCode]         NVARCHAR(50)         NULL,
+        [MachCode]         NVARCHAR(50)         NOT NULL,
+        [UPH]              FLOAT                NULL,
+        [MachineTime]      FLOAT                NULL,
+        [LaborTime]        FLOAT                NULL,
+        [LMRatio]          FLOAT                NULL,
+        [ShiftlyCapacity]  FLOAT                NULL,
+        [WeeklyCapacity]   FLOAT                NULL,
+        [Division]         NVARCHAR(50)         NULL,
+        [SourceDatabase]   NVARCHAR(100)        NULL,
+        [LastSyncDate]     DATETIME             NOT NULL DEFAULT (GETDATE()),
+        CONSTRAINT [PK_CI_IECycleTime_Header_Id] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE NONCLUSTERED INDEX [IX_CI_IECycleTime_Device_Proc] 
+        ON [dbo].[CI_IECycleTime_Header] ([DeviceCode] ASC, [ProcCode] ASC);
+
+    CREATE NONCLUSTERED INDEX [IX_CI_IECycleTime_MachCode] 
+        ON [dbo].[CI_IECycleTime_Header] ([MachCode] ASC);
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CI_MachinesProcess' AND schema_id = SCHEMA_ID('dbo'))
+BEGIN
+    CREATE TABLE [dbo].[CI_MachinesProcess] (
+        [MachCode]         NVARCHAR(50)   NOT NULL,
+        [ProcCode]         NVARCHAR(50)   NOT NULL,
+        [CurrentCount]     INT            NULL,
+        [MaxCount]         INT            NULL,
+        [Division]         NVARCHAR(50)   NULL,
+        [LastSyncDate]     DATETIME       NOT NULL DEFAULT (GETDATE()),
+        CONSTRAINT [PK_CI_MachinesProcess] PRIMARY KEY CLUSTERED ([MachCode] ASC, [ProcCode] ASC)
+    );
+
+    CREATE NONCLUSTERED INDEX [IX_CI_MachinesProcess_ProcCode] 
+        ON [dbo].[CI_MachinesProcess] ([ProcCode] ASC);
+
+    CREATE NONCLUSTERED INDEX [IX_CI_MachinesProcess_MachCode] 
+        ON [dbo].[CI_MachinesProcess] ([MachCode] ASC);
+END
+GO

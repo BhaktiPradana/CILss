@@ -32,6 +32,7 @@ public partial class MainForm : Form
     private YieldSyncService? _yieldService;
     private EmployeeSyncService? _empService;
     private IECycleTimeSyncService? _ieCycleService;
+    private MachinesProcessSyncService? _machProcessService;
     private ConnectionDiagnosticService? _diagService;
 
     public MainForm()
@@ -120,6 +121,7 @@ public partial class MainForm : Form
             _yieldService = new YieldSyncService(_destConnStr, LogMessage);
             _empService = new EmployeeSyncService(_destConnStr, LogMessage);
             _ieCycleService = new IECycleTimeSyncService(_destConnStr, LogMessage);
+            _machProcessService = new MachinesProcessSyncService(_destConnStr, LogMessage);
             _diagService = new ConnectionDiagnosticService(LogMessage);
 
             // Update UI fields
@@ -521,16 +523,17 @@ public partial class MainForm : Form
     private async Task RunIECycleSyncInternalAsync(bool syncMls, bool syncOptic, bool syncAis)
     {
         if (_ieCycleService == null)
-        {
             _ieCycleService = new IECycleTimeSyncService(_destConnStr, LogMessage);
-        }
+        if (_machProcessService == null)
+            _machProcessService = new MachinesProcessSyncService(_destConnStr, LogMessage);
 
         LogMessage("------------------------------------------------------------");
-        LogMessage($"[START] IE Cycle Time Sync starting at {DateTime.Now:yyyy-MM-dd HH:mm:ss}...");
+        LogMessage($"[START] IE Cycle Time & Machine Matrix Sync starting at {DateTime.Now:yyyy-MM-dd HH:mm:ss}...");
         LogMessage("------------------------------------------------------------");
 
-        // Ensure destination table exists & schema is verified
+        // Ensure destination tables exist & schema is verified
         await _ieCycleService.EnsureDestinationTableExistsAsync();
+        await _machProcessService.EnsureDestinationTableExistsAsync();
 
         var sources = new List<SyncSourceConfig>();
 
@@ -573,21 +576,31 @@ public partial class MainForm : Form
             });
         }
 
-        int totalExtracted = 0;
-        int totalUpserted = 0;
+        int totalExtractedCycle = 0;
+        int totalUpsertedCycle = 0;
+        int totalExtractedMach = 0;
+        int totalUpsertedMach = 0;
 
         foreach (var src in sources)
         {
-            var res = await _ieCycleService.SyncSourceAsync(src);
-            if (res.Success)
+            var resCycle = await _ieCycleService.SyncSourceAsync(src);
+            if (resCycle.Success)
             {
-                totalExtracted += res.RecordsExtracted;
-                totalUpserted += res.RecordsUpserted;
+                totalExtractedCycle += resCycle.RecordsExtracted;
+                totalUpsertedCycle += resCycle.RecordsUpserted;
+            }
+
+            var resMach = await _machProcessService.SyncSourceAsync(src);
+            if (resMach.Success)
+            {
+                totalExtractedMach += resMach.RecordsExtracted;
+                totalUpsertedMach += resMach.RecordsUpserted;
             }
         }
 
         LogMessage("------------------------------------------------------------");
-        LogMessage($"[SUMMARY] IE Cycle Time Sync completed: {totalExtracted:N0} records extracted, {totalUpserted:N0} records upserted across {sources.Count} divisions.");
+        LogMessage($"[SUMMARY] IE Cycle Time Sync: {totalExtractedCycle:N0} extracted, {totalUpsertedCycle:N0} upserted.");
+        LogMessage($"[SUMMARY] Machine Matrix (dmMachinesProcess): {totalExtractedMach:N0} extracted, {totalUpsertedMach:N0} upserted.");
         LogMessage("------------------------------------------------------------");
     }
 
@@ -597,9 +610,12 @@ public partial class MainForm : Form
         {
             if (_ieCycleService == null)
                 _ieCycleService = new IECycleTimeSyncService(_destConnStr, LogMessage);
+            if (_machProcessService == null)
+                _machProcessService = new MachinesProcessSyncService(_destConnStr, LogMessage);
 
             await _ieCycleService.EnsureDestinationTableExistsAsync();
-            MessageBox.Show("Table [dbo].[CI_IECycleTime_Header] in destination database CI_LSS is verified and ready.", "Table Verified", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await _machProcessService.EnsureDestinationTableExistsAsync();
+            MessageBox.Show("Tables [dbo].[CI_IECycleTime_Header] and [dbo].[CI_MachinesProcess] in destination database CI_LSS are verified and ready.", "Tables Verified", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {

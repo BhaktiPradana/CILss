@@ -418,6 +418,16 @@
                                     <td class="font-monospace fw-bold text-dark">@mach.WorkCenter</td>
                                     <td>
                                         <div class="fw-semibold text-dark">@mach.MachineName</div>
+                                        @if (mach.ActiveMachinesCount > 1)
+                                        {
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-0 px-1 small" style="font-size: 0.72rem;" title="Available machines: @mach.AvailableMachines">
+                                                @mach.ActiveMachinesCount machines pool
+                                            </span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(mach.AvailableMachines) && mach.ActiveMachinesCount > 1)
+                                        {
+                                            <div class="text-secondary" style="font-size: 0.72rem;">Pool: @mach.AvailableMachines</div>
+                                        }
                                     </td>
                                     <td><span class="badge bg-light text-dark border">@mach.Area</span></td>
                                     <td class="text-end fw-bold font-monospace @(mach.IsBottleneck ? "text-danger" : "text-dark")">

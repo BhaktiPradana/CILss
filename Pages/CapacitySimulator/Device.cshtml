@@ -455,8 +455,20 @@
                                     var isOtNeeded = mach.NeedsOvertime;
                                     <tr class="@(isBottle ? "table-danger" : (isOtNeeded ? "table-warning" : ""))">
                                         <td>
-                                            <div class="fw-bold text-dark">@mach.WorkCenter</div>
+                                            <div class="fw-bold text-dark d-flex align-items-center gap-1">
+                                                <span>@mach.WorkCenter</span>
+                                                @if (mach.ActiveMachinesCount > 1)
+                                                {
+                                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-0 px-1 small" style="font-size: 0.72rem;" title="Available machines: @mach.AvailableMachines">
+                                                        @mach.ActiveMachinesCount machines
+                                                    </span>
+                                                }
+                                            </div>
                                             <div class="text-muted small">@mach.MachineName</div>
+                                            @if (!string.IsNullOrEmpty(mach.AvailableMachines) && mach.ActiveMachinesCount > 1)
+                                            {
+                                                <div class="text-secondary" style="font-size: 0.72rem;">Pool: @mach.AvailableMachines</div>
+                                            }
                                         </td>
                                         <td>
                                             <div class="d-flex flex-wrap gap-1">
@@ -725,7 +737,15 @@
                                             <td class="font-monospace fw-bold">@step.DeviceCode</td>
                                             <td>@step.Seq</td>
                                             <td>@step.Description</td>
-                                            <td><span class="badge bg-light text-dark border">@step.WorkCenter</span></td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">@step.WorkCenter</span>
+                                                @if (step.MachineCount > 1)
+                                                {
+                                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 small" title="Available machines: @step.AvailableMachines">
+                                                        @step.MachineCount machines
+                                                    </span>
+                                                }
+                                            </td>
                                             <td class="text-end font-monospace">@step.MachineHour.ToString("F6")</td>
                                             <td class="text-end font-monospace">@step.LaborHour.ToString("F6")</td>
                                             <td class="text-end">@step.DemandUnits.ToString("N0")</td>

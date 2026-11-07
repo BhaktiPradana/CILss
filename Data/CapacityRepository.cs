@@ -139,6 +139,8 @@ namespace LssTraining.Web.Data
             result.YearlyBreakdownMode = breakdownMode;
             
             var machineRequiredHours = new Dictionary<string, decimal>();
+            var machineCounts = new Dictionary<string, int>();
+            var machineAvailableList = new Dictionary<string, string>();
             var processLaborHours = new Dictionary<string, decimal>();
             var processNames = new Dictionary<string, string>();
 
@@ -222,6 +224,15 @@ namespace LssTraining.Web.Data
                 try
                 {
                     var sqlDeviceProcess = @"
+                        WITH MachPool AS (
+                            SELECT 
+                                mp.ProcCode,
+                                COUNT(DISTINCT mp.MachCode) AS MachineCount,
+                                MIN(mp.MachCode) AS SampleMachCode,
+                                STRING_AGG(mp.MachCode, ', ') WITHIN GROUP (ORDER BY mp.MachCode) AS AvailableMachines
+                            FROM CI_MachinesProcess mp
+                            GROUP BY mp.ProcCode
+                        )
                         SELECT 
                             dp.DeviceCode,
                             ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
@@ -229,7 +240,7 @@ namespace LssTraining.Web.Data
                             dp.Seq,
                             dp.ProcCode,
                             ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
-                            ISNULL(m.Area, ISNULL(pr.Area, 'PROD')) AS ProcessArea,
+                            COALESCE(mh.Area, mpool.Area, pr.Area, 'PROD') AS ProcessArea,
                             dp.LaborHour,
                             CASE 
                                 WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
@@ -237,14 +248,22 @@ namespace LssTraining.Web.Data
                                 WHEN ISNULL(dp.TAKTTime, 0) > 0 THEN (CASE WHEN dp.TAKTTime > 5 THEN dp.TAKTTime / 3600.0 ELSE dp.TAKTTime END)
                                 ELSE 0.005
                             END AS MachineHour,
-                            h.MachCode,
-                            ISNULL(m.MachName, ISNULL(h.MachCode, pr.ProcName)) AS MachName,
+                            COALESCE(h.MachCode, pool.SampleMachCode, dp.ProcCode) AS MachCode,
+                            CASE 
+                                WHEN h.MachCode IS NOT NULL THEN ISNULL(mh.MachName, h.MachCode)
+                                WHEN pool.SampleMachCode IS NOT NULL THEN ISNULL(mpool.MachName, pool.SampleMachCode)
+                                ELSE ISNULL(pr.ProcName, dp.ProcCode)
+                            END AS MachName,
+                            ISNULL(pool.MachineCount, 1) AS MachineCount,
+                            COALESCE(pool.AvailableMachines, h.MachCode, dp.ProcCode) AS AvailableMachines,
                             ISNULL(h.UPH, 0) AS UPH
                         FROM CI_DeviceProcess dp
                         LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
                         LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
                         LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
-                        LEFT JOIN MasterMachines m ON h.MachCode = m.MachCode
+                        LEFT JOIN MasterMachines mh ON h.MachCode = mh.MachCode
+                        LEFT JOIN MachPool pool ON dp.ProcCode = pool.ProcCode
+                        LEFT JOIN MasterMachines mpool ON pool.SampleMachCode = mpool.MachCode
                         WHERE dp.DeviceCode = @DeviceCode
                         ORDER BY dp.Seq ASC";
 
@@ -276,6 +295,15 @@ namespace LssTraining.Web.Data
                     if (routingSteps.Count == 0 && !string.IsNullOrWhiteSpace(targetGroup))
                     {
                         var sqlGroupDeviceProcess = @"
+                            WITH MachPool AS (
+                                SELECT 
+                                    mp.ProcCode,
+                                    COUNT(DISTINCT mp.MachCode) AS MachineCount,
+                                    MIN(mp.MachCode) AS SampleMachCode,
+                                    STRING_AGG(mp.MachCode, ', ') WITHIN GROUP (ORDER BY mp.MachCode) AS AvailableMachines
+                                FROM CI_MachinesProcess mp
+                                GROUP BY mp.ProcCode
+                            )
                             SELECT 
                                 dp.DeviceCode,
                                 ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
@@ -283,7 +311,7 @@ namespace LssTraining.Web.Data
                                 dp.Seq,
                                 dp.ProcCode,
                                 ISNULL(pr.ProcName, dp.ProcCode) AS ProcName,
-                                ISNULL(m.Area, ISNULL(pr.Area, 'PROD')) AS ProcessArea,
+                                COALESCE(mh.Area, mpool.Area, pr.Area, 'PROD') AS ProcessArea,
                                 dp.LaborHour,
                                 CASE 
                                     WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
@@ -291,14 +319,22 @@ namespace LssTraining.Web.Data
                                     WHEN ISNULL(dp.TAKTTime, 0) > 0 THEN (CASE WHEN dp.TAKTTime > 5 THEN dp.TAKTTime / 3600.0 ELSE dp.TAKTTime END)
                                     ELSE 0.005
                                 END AS MachineHour,
-                                h.MachCode,
-                                ISNULL(m.MachName, ISNULL(h.MachCode, pr.ProcName)) AS MachName,
+                                COALESCE(h.MachCode, pool.SampleMachCode, dp.ProcCode) AS MachCode,
+                                CASE 
+                                    WHEN h.MachCode IS NOT NULL THEN ISNULL(mh.MachName, h.MachCode)
+                                    WHEN pool.SampleMachCode IS NOT NULL THEN ISNULL(mpool.MachName, pool.SampleMachCode)
+                                    ELSE ISNULL(pr.ProcName, dp.ProcCode)
+                                END AS MachName,
+                                ISNULL(pool.MachineCount, 1) AS MachineCount,
+                                COALESCE(pool.AvailableMachines, h.MachCode, dp.ProcCode) AS AvailableMachines,
                                 ISNULL(h.UPH, 0) AS UPH
                             FROM CI_DeviceProcess dp
                             LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
                             LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
                             LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
-                            LEFT JOIN MasterMachines m ON h.MachCode = m.MachCode
+                            LEFT JOIN MasterMachines mh ON h.MachCode = mh.MachCode
+                            LEFT JOIN MachPool pool ON dp.ProcCode = pool.ProcCode
+                            LEFT JOIN MasterMachines mpool ON pool.SampleMachCode = mpool.MachCode
                             WHERE dp.DeviceCode = (
                                 SELECT TOP 1 p2.DeviceCode
                                 FROM CI_Product p2
@@ -391,16 +427,25 @@ namespace LssTraining.Web.Data
                         ? Math.Round(1.0m / machineHourPerPcs, 1) 
                         : (laborHourPerPcs > 0m ? Math.Round(1.0m / laborHourPerPcs, 1) : 0m);
 
+                    int machCount = step.MachineCount != null ? Convert.ToInt32(step.MachineCount) : 1;
+                    if (machCount <= 0) machCount = 1;
+                    string availMachs = step.AvailableMachines != null ? (string)step.AvailableMachines : "";
+
                     string machCode;
                     string machName;
 
                     if (isMachineStep)
                     {
-                        machCode = "MC-SEQ" + seq;
-                        machName = procName + " (Machine)";
+                        machCode = (string)(step.MachCode ?? ("MC-SEQ" + seq));
+                        machName = (string)(step.MachName ?? (procName + " (Machine)"));
 
                         if (!machineNames.ContainsKey(machCode))
                             machineNames[machCode] = (machName, procArea);
+
+                        if (!machineCounts.ContainsKey(machCode) || machCount > machineCounts[machCode])
+                            machineCounts[machCode] = machCount;
+                        if (!string.IsNullOrEmpty(availMachs))
+                            machineAvailableList[machCode] = availMachs;
 
                         if (!machineRequiredHours.ContainsKey(machCode))
                             machineRequiredHours[machCode] = 0m;
@@ -451,6 +496,8 @@ namespace LssTraining.Web.Data
                         Area = procArea,
                         MachCode = machCode,
                         MachName = machName,
+                        MachineCount = machCount,
+                        AvailableMachines = availMachs,
                         UPH = stepUph,
                         LaborHour = laborHourPerPcs,
                         LimitReject = 1.0m,
@@ -473,7 +520,9 @@ namespace LssTraining.Web.Data
                 var machResult = new MachineCapacityResult
                 {
                     MachCode = machCode,
-                    RequiredHours = required
+                    RequiredHours = required,
+                    ActiveMachinesCount = machineCounts.GetValueOrDefault(machCode, 1),
+                    AvailableMachines = machineAvailableList.GetValueOrDefault(machCode, machCode)
                 };
 
                 if (machineNames.ContainsKey(machCode))
@@ -487,8 +536,8 @@ namespace LssTraining.Web.Data
                     machResult.Area = machCode.Contains("-") ? machCode.Split('-')[1] : "PROD";
                 }
 
-                // Available normal hours based on shifts & working days
-                machResult.AvailableNormalHours = input.NormalHoursPerShift * input.WorkingDays * input.ShiftsPerDay;
+                // Available normal hours based on shifts & working days multiplied by active machines
+                machResult.AvailableNormalHours = input.NormalHoursPerShift * input.WorkingDays * input.ShiftsPerDay * machResult.ActiveMachinesCount;
                 machResult.AvailableOvertimeHours = machResult.AvailableNormalHours * (input.OvertimeLimitPercent / 100m);
 
                 result.MachineResults.Add(machResult);
@@ -842,15 +891,30 @@ namespace LssTraining.Web.Data
             if (hasDeviceProcessTable)
             {
                 string deviceProcessSql = @"
+                    WITH MachPool AS (
+                        SELECT 
+                            mp.ProcCode,
+                            COUNT(DISTINCT mp.MachCode) AS MachineCount,
+                            MIN(mp.MachCode) AS SampleMachCode,
+                            STRING_AGG(mp.MachCode, ', ') WITHIN GROUP (ORDER BY mp.MachCode) AS AvailableMachines
+                        FROM CI_MachinesProcess mp
+                        GROUP BY mp.ProcCode
+                    )
                     SELECT 
                         dp.DeviceCode,
                         ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
                         dp.Seq,
                         dp.ProcCode,
                         ISNULL(pr.ProcName, dp.ProcCode) AS Description,
-                        ISNULL(h.MachCode, dp.ProcCode) AS WorkCenter,
-                        ISNULL(m.MachName, ISNULL(h.MachCode, pr.ProcName)) AS MachineName,
-                        ISNULL(m.Area, ISNULL(pr.Area, 'PROD')) AS Area,
+                        COALESCE(h.MachCode, pool.SampleMachCode, dp.ProcCode) AS WorkCenter,
+                        CASE 
+                            WHEN h.MachCode IS NOT NULL THEN ISNULL(mh.MachName, h.MachCode)
+                            WHEN pool.SampleMachCode IS NOT NULL THEN ISNULL(mpool.MachName, pool.SampleMachCode)
+                            ELSE ISNULL(pr.ProcName, dp.ProcCode)
+                        END AS MachineName,
+                        COALESCE(mh.Area, mpool.Area, pr.Area, 'PROD') AS Area,
+                        ISNULL(pool.MachineCount, 1) AS MachineCount,
+                        COALESCE(pool.AvailableMachines, h.MachCode, dp.ProcCode) AS AvailableMachines,
                         CASE 
                             WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
                             WHEN ISNULL(h.MachineTime, 0) > 0 THEN (CASE WHEN h.MachineTime > 5 THEN h.MachineTime / 3600.0 ELSE h.MachineTime END)
@@ -862,7 +926,9 @@ namespace LssTraining.Web.Data
                     LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
                     LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
                     LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
-                    LEFT JOIN MasterMachines m ON h.MachCode = m.MachCode
+                    LEFT JOIN MasterMachines mh ON h.MachCode = mh.MachCode
+                    LEFT JOIN MachPool pool ON dp.ProcCode = pool.ProcCode
+                    LEFT JOIN MasterMachines mpool ON pool.SampleMachCode = mpool.MachCode
                     WHERE dp.DeviceCode IN @DeviceCodes
                     ORDER BY dp.DeviceCode, dp.Seq ASC";
 
@@ -940,7 +1006,13 @@ namespace LssTraining.Web.Data
                     string desc = (string)(step.Description ?? ("Process " + seq));
                     string? rawWc = step.WorkCenter != null ? (string)step.WorkCenter : null;
                     string workCenter = ResolveWorkCenter(rawWc, desc);
-                    string machName = ResolveMachineName(workCenter, desc);
+                    string machName = step.MachineName != null && !string.IsNullOrWhiteSpace((string)step.MachineName)
+                        ? (string)step.MachineName
+                        : ResolveMachineName(workCenter, desc);
+                    string machArea = step.Area != null && !string.IsNullOrWhiteSpace((string)step.Area) ? (string)step.Area : "PROD";
+                    int machCount = step.MachineCount != null ? Convert.ToInt32(step.MachineCount) : 1;
+                    if (machCount <= 0) machCount = 1;
+                    string availMachs = step.AvailableMachines != null ? (string)step.AvailableMachines : workCenter;
 
                     decimal machHour = step.MachineHour != null ? Convert.ToDecimal(step.MachineHour) : 0m;
                     decimal laborHour = step.LaborHour != null ? Convert.ToDecimal(step.LaborHour) : 0m;
@@ -956,6 +1028,9 @@ namespace LssTraining.Web.Data
                         Seq = seq,
                         Description = desc,
                         WorkCenter = workCenter,
+                        MachineName = machName,
+                        MachineCount = machCount,
+                        AvailableMachines = availMachs,
                         MachineHour = machHour,
                         LaborHour = laborHour,
                         DemandUnits = exactWeeklyUnits,
@@ -974,11 +1049,23 @@ namespace LssTraining.Web.Data
                             {
                                 WorkCenter = workCenter,
                                 MachineName = machName,
-                                AvailableNormalHours = input.AvailableMachineHoursNormal,
-                                AvailableWithOvertimeHours = input.AvailableMachineHoursWithOt,
-                                Area = "PROD"
+                                Area = machArea,
+                                ActiveMachinesCount = machCount,
+                                AvailableMachines = availMachs,
+                                AvailableNormalHours = input.AvailableMachineHoursNormal * machCount,
+                                AvailableWithOvertimeHours = input.AvailableMachineHoursWithOt * machCount
                             };
                             machineLoadsDict[workCenter] = machItem;
+                        }
+                        else
+                        {
+                            if (machCount > machItem.ActiveMachinesCount)
+                            {
+                                machItem.ActiveMachinesCount = machCount;
+                                machItem.AvailableMachines = availMachs;
+                                machItem.AvailableNormalHours = input.AvailableMachineHoursNormal * machCount;
+                                machItem.AvailableWithOvertimeHours = input.AvailableMachineHoursWithOt * machCount;
+                            }
                         }
 
                         machItem.RequiredHours += stepReqMachHrs;
@@ -1021,7 +1108,7 @@ namespace LssTraining.Web.Data
             result.BottleneckMachineCount = result.Bottlenecks.Count;
             result.IsMachineCapacityMet = result.BottleneckMachineCount == 0;
             result.TotalRequiredMachineHours = result.MachineLoads.Sum(m => m.RequiredHours);
-            result.TotalAvailableMachineHours = result.MachineLoads.Count * input.AvailableMachineHoursWithOt;
+            result.TotalAvailableMachineHours = result.MachineLoads.Sum(m => m.AvailableWithOvertimeHours);
 
             // Summarize Labor Loads
             decimal totalLabor = laborLoadsDict.Values.Sum(l => l.TotalLaborHours);
@@ -1234,14 +1321,29 @@ namespace LssTraining.Web.Data
             if (hasDeviceProcessTable)
             {
                 string deviceProcessSql = @"
+                    WITH MachPool AS (
+                        SELECT 
+                            mp.ProcCode,
+                            COUNT(DISTINCT mp.MachCode) AS MachineCount,
+                            MIN(mp.MachCode) AS SampleMachCode,
+                            STRING_AGG(mp.MachCode, ', ') WITHIN GROUP (ORDER BY mp.MachCode) AS AvailableMachines
+                        FROM CI_MachinesProcess mp
+                        GROUP BY mp.ProcCode
+                    )
                     SELECT 
                         dp.DeviceCode,
                         dp.Seq,
                         dp.ProcCode,
                         ISNULL(pr.ProcName, dp.ProcCode) AS Description,
-                        ISNULL(h.MachCode, dp.ProcCode) AS WorkCenter,
-                        ISNULL(m.MachName, ISNULL(h.MachCode, pr.ProcName)) AS MachineName,
-                        ISNULL(m.Area, ISNULL(pr.Area, 'PROD')) AS Area,
+                        COALESCE(h.MachCode, pool.SampleMachCode, dp.ProcCode) AS WorkCenter,
+                        CASE 
+                            WHEN h.MachCode IS NOT NULL THEN ISNULL(mh.MachName, h.MachCode)
+                            WHEN pool.SampleMachCode IS NOT NULL THEN ISNULL(mpool.MachName, pool.SampleMachCode)
+                            ELSE ISNULL(pr.ProcName, dp.ProcCode)
+                        END AS MachineName,
+                        COALESCE(mh.Area, mpool.Area, pr.Area, 'PROD') AS Area,
+                        ISNULL(pool.MachineCount, 1) AS MachineCount,
+                        COALESCE(pool.AvailableMachines, h.MachCode, dp.ProcCode) AS AvailableMachines,
                         -- Machine Hour calculation:
                         CASE 
                             WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
@@ -1259,7 +1361,9 @@ namespace LssTraining.Web.Data
                     FROM CI_DeviceProcess dp
                     LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
                     LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
-                    LEFT JOIN MasterMachines m ON h.MachCode = m.MachCode
+                    LEFT JOIN MasterMachines mh ON h.MachCode = mh.MachCode
+                    LEFT JOIN MachPool pool ON dp.ProcCode = pool.ProcCode
+                    LEFT JOIN MasterMachines mpool ON pool.SampleMachCode = mpool.MachCode
                     WHERE dp.DeviceCode IN @DeviceCodes
                     ORDER BY dp.DeviceCode, dp.Seq ASC";
 
@@ -1384,6 +1488,10 @@ namespace LssTraining.Web.Data
                             ? (string)step.Area
                             : division;
 
+                        int machCount = step.MachineCount != null ? Convert.ToInt32(step.MachineCount) : 1;
+                        if (machCount <= 0) machCount = 1;
+                        string availMachs = step.AvailableMachines != null ? (string)step.AvailableMachines : workCenter;
+
                         decimal machHour = step.MachineHour != null ? Convert.ToDecimal(step.MachineHour) : 0m;
                         decimal laborHour = step.LaborHour != null ? Convert.ToDecimal(step.LaborHour) : 0m;
 
@@ -1402,11 +1510,23 @@ namespace LssTraining.Web.Data
                                 {
                                     WorkCenter = workCenter,
                                     MachineName = machName,
-                                    AvailableNormalHours = filter.AvailableMachineHoursNormal,
-                                    AvailableWithOvertimeHours = filter.AvailableMachineHoursWithOt,
-                                    Area = machArea
+                                    AvailableNormalHours = filter.AvailableMachineHoursNormal * machCount,
+                                    AvailableWithOvertimeHours = filter.AvailableMachineHoursWithOt * machCount,
+                                    Area = machArea,
+                                    ActiveMachinesCount = machCount,
+                                    AvailableMachines = availMachs
                                 };
                                 machineLoadsDict[workCenter] = machItem;
+                            }
+                            else
+                            {
+                                if (machCount > machItem.ActiveMachinesCount)
+                                {
+                                    machItem.ActiveMachinesCount = machCount;
+                                    machItem.AvailableMachines = availMachs;
+                                    machItem.AvailableNormalHours = filter.AvailableMachineHoursNormal * machCount;
+                                    machItem.AvailableWithOvertimeHours = filter.AvailableMachineHoursWithOt * machCount;
+                                }
                             }
 
                             machItem.RequiredHours += stepReqMachHrs;
@@ -1457,7 +1577,7 @@ namespace LssTraining.Web.Data
             result.BottleneckMachines = result.MachineLoads.Where(m => m.IsBottleneck).ToList();
             result.TotalMachineWorkCenters = result.MachineLoads.Count;
             result.TotalRequiredMachineHours = result.MachineLoads.Sum(m => m.RequiredHours);
-            result.TotalAvailableMachineHours = result.MachineLoads.Count * filter.AvailableMachineHoursWithOt;
+            result.TotalAvailableMachineHours = result.MachineLoads.Sum(m => m.AvailableWithOvertimeHours);
 
             // 6. Labor Loads Calculation
             decimal totalLabor = laborLoadsDict.Values.Sum(l => l.TotalLaborHours);

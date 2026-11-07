@@ -81,3 +81,4 @@ END
 GO
 
 PRINT 'CI_IECycleTime_Header and CI_MachinesProcess deployment completed successfully.';
+
