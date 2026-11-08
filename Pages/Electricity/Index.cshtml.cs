@@ -39,6 +39,9 @@ namespace LssTraining.Web.Pages.Electricity
         public string ViewMode { get; set; } = "Daily";
 
         [BindProperty(SupportsGet = true)]
+        public bool OnlyAbnormal { get; set; }
+
+        [BindProperty(SupportsGet = true)]
         public DateTime StartDate { get; set; } = DateTime.Today.AddDays(-7);
 
         [BindProperty(SupportsGet = true)]
@@ -269,6 +272,11 @@ namespace LssTraining.Web.Pages.Electricity
                     ConstituentMeters = def.ConstituentMeters,
                     ConstituentDisplayNames = def.ConstituentDisplayNames
                 });
+            }
+
+            if (OnlyAbnormal)
+            {
+                Cards = Cards.Where(c => c.HasAnomaly).ToList();
             }
 
             // Group cards by Floor/Section, preserving catalog order

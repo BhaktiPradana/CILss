@@ -27,21 +27,103 @@
                     }
                     @if (Model.AnomalySummary.TotalAnomaliesDetected > 0)
                     {
-                        <a href="#mlAnomalySection" class="badge bg-danger text-white px-3 py-1 rounded-pill text-decoration-none fw-bold shadow-sm d-inline-flex align-items-center gap-1">
-                            <span>⚠️</span> @Model.AnomalySummary.TotalAnomaliesDetected ML Anomalies
-                        </a>
+                        <button type="button" class="badge bg-danger text-white px-3 py-1 rounded-pill text-decoration-none fw-bold shadow-sm border-0 d-inline-flex align-items-center gap-1" onclick="openVoltHelpModal();">
+                            <span>⚡</span> @Model.AnomalySummary.TotalAnomaliesDetected Volt-Help Alerts
+                        </button>
                     }
                     else
                     {
-                        <span class="badge bg-info bg-opacity-25 text-white border border-info border-opacity-50 px-3 py-1 rounded-pill d-inline-flex align-items-center gap-1">
-                            <span>🤖</span> ML Baseline Nominal
+                        <span class="badge bg-success bg-opacity-25 text-white border border-success border-opacity-50 px-3 py-1 rounded-pill d-inline-flex align-items-center gap-1">
+                            <span>⚡</span> Volt-Help: Nominal
                         </span>
                     }
                 </div>
                 <h1 class="h2 fw-bold text-white mb-1">Electricity Consumption Dashboard</h1>
                 <p class="text-white-50 mb-0">Continuous monitoring of electrical distribution boards (DB), switchboards (SSB), and equipment panels</p>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <!-- VOLT-HELP NOTIFICATION DROPDOWN -->
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-outline-light btn-sm shadow-sm position-relative d-inline-flex align-items-center gap-2 dropdown-toggle" type="button" id="voltHelpDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="text-warning" viewBox="0 0 16 16">
+                            <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                        </svg>
+                        <span class="fw-bold">Volt-Help</span>
+                        @if (Model.AnomalySummary.TotalAnomaliesDetected > 0)
+                        {
+                            <span class="badge rounded-pill bg-danger border border-light">
+                                @Model.AnomalySummary.TotalAnomaliesDetected
+                            </span>
+                        }
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg p-0" aria-labelledby="voltHelpDropdown" style="min-width: 360px; max-width: 420px; border-radius: 12px; overflow: hidden; z-index: 1060;">
+                        <li class="p-3 bg-dark text-white d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fs-5 text-warning">⚡</span>
+                                <div>
+                                    <div class="fw-bold fs-6">Volt-Help Notifications</div>
+                                    <div class="small text-white-50">Energy Abnormality Alert System</div>
+                                </div>
+                            </div>
+                            <span class="badge @(Model.AnomalySummary.TotalAnomaliesDetected > 0 ? "bg-danger" : "bg-success") px-2 py-1">
+                                @Model.AnomalySummary.TotalAnomaliesDetected Alert@(Model.AnomalySummary.TotalAnomaliesDetected > 1 ? "s" : "")
+                            </span>
+                        </li>
+                        <div style="max-height: 320px; overflow-y: auto;">
+                        @if (Model.AnomalySummary.TopAnomalies.Any())
+                        {
+                            @foreach (var anom in Model.AnomalySummary.TopAnomalies)
+                            {
+                                var badgeBg = anom.Severity == "CRITICAL" ? "bg-danger text-white" : "bg-warning text-dark";
+                                var safeExpl = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(anom.Explanation);
+                                var safeReco = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(anom.Recommendation);
+                                <li>
+                                    <a class="dropdown-item p-3 border-bottom text-wrap" href="javascript:void(0)" onclick="openVoltHelpInspection('@anom.MeterName', '@anom.DisplayName', '@anom.Building', '@anom.Floor', '@anom.AnomalyType', '@anom.Severity', '@anom.ActualKwh.ToString("N1")', '@anom.ExpectedKwh.ToString("N1")', '@anom.DeviationKwh.ToString("N1")', '@anom.DeviationPercent.ToString("N0")', '@anom.ConfidencePercent.ToString("F1")', '@anom.Timestamp.ToString("yyyy-MM-dd HH:mm")', '@safeExpl', '@safeReco');">
+                                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                                            <strong class="text-dark text-truncate" style="max-width: 220px;">@anom.DisplayName</strong>
+                                            <span class="badge @badgeBg" style="font-size: 0.65rem;">@anom.Severity</span>
+                                        </div>
+                                        <div class="small text-muted mb-1 d-flex justify-content-between">
+                                            <span>@(anom.Building) · @anom.Floor</span>
+                                            <span class="text-danger fw-bold">+@anom.DeviationKwh.ToString("N1") kWh</span>
+                                        </div>
+                                        <div class="small text-secondary" style="font-size: 0.78rem;">
+                                            @(anom.AnomalyType == "OffHoursLeakage" ? "🌙 Off-Hours Leakage" : "⚡ Spike Surge"): @anom.Explanation
+                                        </div>
+                                    </a>
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="p-4 text-center text-muted">
+                                <div class="fs-4 mb-1">✅</div>
+                                <div class="fw-bold">All Distribution Boards Nominal</div>
+                                <div class="small">No consumption abnormalities detected.</div>
+                            </li>
+                        }
+                        </div>
+                        <li class="p-2 bg-light border-top d-flex gap-2">
+                            <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold" onclick="openVoltHelpModal();">
+                                ⚡ Open Volt-Help View
+                            </button>
+                            @if (Model.AnomalySummary.TotalAnomaliesDetected > 0)
+                            {
+                                <a asp-page="/Electricity/Index" 
+                                   asp-route-StartDate="@Model.StartDate.ToString("yyyy-MM-dd")" 
+                                   asp-route-EndDate="@Model.EndDate.ToString("yyyy-MM-dd")" 
+                                   asp-route-Building="@Model.Building"
+                                   asp-route-Floor="@Model.Floor"
+                                   asp-route-ViewMode="@Model.ViewMode"
+                                   asp-route-OnlyAbnormal="@(!Model.OnlyAbnormal)"
+                                   class="btn @(Model.OnlyAbnormal ? "btn-danger" : "btn-outline-danger") btn-sm text-nowrap fw-semibold">
+                                    @(Model.OnlyAbnormal ? "All Cards" : "Filter Abnormal")
+                                </a>
+                            }
+                        </li>
+                    </ul>
+                </div>
+
                 <a asp-page="/Electricity/DbMapping" class="btn btn-outline-light btn-sm shadow-sm d-inline-flex align-items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                         <path d="M14.763.075A.5.5 0 0 1 15 .5v15a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V14h-1v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V10a.5.5 0 0 1 .342-.474L6 7.64V4.5a.5.5 0 0 1 .276-.447l8-4a.5.5 0 0 1 .487.022z"/>
@@ -93,6 +175,19 @@
            class="btn @(Model.Building == "Building 238" ? "btn-primary" : "btn-outline-secondary") btn-sm rounded-pill px-3 shadow-sm">
             ⚡ Building 238 (1 Card)
         </a>
+        @if (Model.AnomalySummary.TotalAnomaliesDetected > 0)
+        {
+            <a asp-page="/Electricity/Index" 
+               asp-route-StartDate="@Model.StartDate.ToString("yyyy-MM-dd")" 
+               asp-route-EndDate="@Model.EndDate.ToString("yyyy-MM-dd")" 
+               asp-route-Building="@Model.Building"
+               asp-route-Floor="@Model.Floor"
+               asp-route-ViewMode="@Model.ViewMode" 
+               asp-route-OnlyAbnormal="@(!Model.OnlyAbnormal)" 
+               class="btn @(Model.OnlyAbnormal ? "btn-danger" : "btn-outline-danger") btn-sm rounded-pill px-3 shadow-sm d-inline-flex align-items-center gap-1">
+                <span>⚡</span> Volt-Help Abnormalities (@Model.AnomalySummary.TotalAnomaliesDetected)
+            </a>
+        }
     </div>
 
     <!-- SUMMARY KPI METRICS -->
@@ -227,199 +322,27 @@
         </div>
     </div>
 
-    <!-- ML.NET ENERGY ANOMALY INTELLIGENCE SECTION -->
-    <div class="card shadow-sm border-0 mb-4 overflow-hidden" id="mlAnomalySection" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #31104b 100%); color: #fff; border-radius: 12px;">
-        <div class="card-body p-4">
-            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 pb-3 border-bottom border-light border-opacity-10">
-                <div class="d-flex align-items-center gap-3">
-                    <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #a855f7); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4); flex-shrink: 0;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5ZM3 8.062C3 6.76 4.235 5.765 5.53 5.881a2.5 2.5 0 0 1 4.94 0C11.765 5.765 13 6.76 13 8.062c0 .878-.54 1.637-1.328 1.933a1.5 1.5 0 0 1-.672 1.35V12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-.655a1.5 1.5 0 0 1-.672-1.35C3.54 9.699 3 8.94 3 8.062Z"/>
-                            <path d="M7 6.5A1.5 1.5 0 0 1 8.5 5h.01a1.5 1.5 0 0 1 1.49 1.5.5.5 0 0 1-1 0 .5.5 0 0 0-.49-.5H8.5a.5.5 0 0 0-.5.5.5.5 0 0 1-1 0Z"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <h4 class="fw-bold mb-0 text-white">🤖 ML.NET Energy Anomaly Intelligence</h4>
-                            <span class="badge bg-primary bg-opacity-50 text-white border border-primary border-opacity-75 px-2 py-1" style="font-size: 0.72rem;">Microsoft.ML TimeSeries v3.0</span>
-                            <span class="badge bg-purple text-white px-2 py-1" style="background:#8b5cf6; font-size: 0.72rem;">IID Spike &amp; Rolling Baseline</span>
-                        </div>
-                        <p class="text-white-50 small mb-0 mt-1">
-                            Real-time automated detection of abnormal power surges, off-hours phantom loads, and baseline shifts using machine learning.
-                        </p>
-                    </div>
-                </div>
-                <div class="text-end">
-                    <span class="badge bg-dark bg-opacity-50 text-light border border-light border-opacity-10 px-3 py-2 rounded-pill small">
-                        🕒 Analyzed @Model.AnomalySummary.AnalysisTimestamp.ToString("HH:mm:ss")
-                    </span>
+    @if (Model.OnlyAbnormal)
+    {
+        <div class="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center mb-4 p-3 rounded-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="fs-3 text-warning">⚡</span>
+                <div>
+                    <h6 class="fw-bold mb-0 text-dark">Volt-Help Focused View Active</h6>
+                    <div class="small text-muted">Displaying only distribution boards with detected abnormalities (@Model.Cards.Count cards).</div>
                 </div>
             </div>
-
-            <!-- Mini KPI Counters -->
-            <div class="row g-3 my-3">
-                <div class="col-6 col-md-3">
-                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
-                        <div class="text-white-50 small text-uppercase fw-semibold">Total Anomalies</div>
-                        <div class="d-flex align-items-baseline gap-2 mt-1">
-                            <span class="fs-3 fw-bold @(Model.AnomalySummary.TotalAnomaliesDetected > 0 ? "text-warning" : "text-success")">
-                                @Model.AnomalySummary.TotalAnomaliesDetected
-                            </span>
-                            <span class="small text-white-50">events</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-6 col-md-3">
-                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
-                        <div class="text-white-50 small text-uppercase fw-semibold">Critical Spikes</div>
-                        <div class="d-flex align-items-baseline gap-2 mt-1">
-                            <span class="fs-3 fw-bold @(Model.AnomalySummary.CriticalAnomaliesCount > 0 ? "text-danger" : "text-light")">
-                                @Model.AnomalySummary.CriticalAnomaliesCount
-                            </span>
-                            <span class="small text-white-50">&gt;150% baseline</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-6 col-md-3">
-                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
-                        <div class="text-white-50 small text-uppercase fw-semibold">Off-Hours Phantom Load</div>
-                        <div class="d-flex align-items-baseline gap-2 mt-1">
-                            <span class="fs-3 fw-bold @(Model.AnomalySummary.OffHoursLeakagesCount > 0 ? "text-info" : "text-light")">
-                                @Model.AnomalySummary.OffHoursLeakagesCount
-                            </span>
-                            <span class="small text-white-50">weekend/night leak</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-6 col-md-3">
-                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
-                        <div class="text-white-50 small text-uppercase fw-semibold">Est. Energy Waste</div>
-                        <div class="d-flex align-items-baseline gap-2 mt-1">
-                            <span class="fs-3 fw-bold text-warning">
-                                @Model.AnomalySummary.TotalEstimatedWastedKwh.ToString("N1")
-                            </span>
-                            <span class="small text-white-50">kWh</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ANOMALY DETAILS TABLE -->
-            @if (Model.AnomalySummary.TopAnomalies.Any())
-            {
-                <div class="mt-4 pt-2">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="text-uppercase fw-bold text-white-50 mb-0" style="letter-spacing: 0.5px; font-size: 0.8rem;">
-                            Top Detected Anomaly Incidents &amp; Lean Six Sigma Root-Cause Recommendations
-                        </h6>
-                        <span class="badge bg-light text-dark fw-bold">Showing Top @Model.AnomalySummary.TopAnomalies.Count Anomaly Incidents</span>
-                    </div>
-
-                    <div class="table-responsive rounded" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1);">
-                        <table class="table table-dark table-hover align-middle mb-0" style="font-size: 0.85rem;">
-                            <thead style="background: rgba(255, 255, 255, 0.08); font-size: 0.75rem; text-transform: uppercase; color: #94a3b8;">
-                                <tr>
-                                    <th class="ps-3 py-3">Timestamp</th>
-                                    <th>Distribution Board</th>
-                                    <th>Location</th>
-                                    <th>Type</th>
-                                    <th>Actual / Baseline</th>
-                                    <th>Deviation</th>
-                                    <th>ML Confidence</th>
-                                    <th>Severity</th>
-                                    <th>LSS Action &amp; Recommendation</th>
-                                    <th class="text-end pe-3">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var anomaly in Model.AnomalySummary.TopAnomalies)
-                                {
-                                    <tr>
-                                        <td class="ps-3 text-nowrap font-monospace text-light">
-                                            @anomaly.Timestamp.ToString("yyyy-MM-dd HH:mm")
-                                        </td>
-                                        <td class="text-nowrap">
-                                            <div class="fw-bold text-white">@anomaly.DisplayName</div>
-                                            <div class="font-monospace text-white-50" style="font-size: 0.7rem;">@anomaly.MeterName</div>
-                                        </td>
-                                        <td class="text-nowrap">
-                                            <span class="badge bg-secondary bg-opacity-25 text-light border border-light border-opacity-10">@anomaly.Building</span>
-                                            <span class="badge bg-light bg-opacity-10 text-light border border-light border-opacity-10">@anomaly.Floor</span>
-                                        </td>
-                                        <td>
-                                            @if (anomaly.AnomalyType == "OffHoursLeakage")
-                                            {
-                                                <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-50">🌙 Off-Hours Leakage</span>
-                                            }
-                                            else if (anomaly.AnomalyType == "SpikeSurge")
-                                            {
-                                                <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50">⚡ Spike Surge</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-50">📊 Baseline Shift</span>
-                                            }
-                                        </td>
-                                        <td class="text-nowrap">
-                                            <span class="fw-bold text-white">@anomaly.ActualKwh.ToString("N1")</span>
-                                            <span class="text-white-50">/ @anomaly.ExpectedKwh.ToString("N1") kWh</span>
-                                        </td>
-                                        <td class="text-nowrap">
-                                            <span class="fw-bold @(anomaly.DeviationKwh > 0 ? "text-danger" : "text-success")">
-                                                +@anomaly.DeviationKwh.ToString("N1") kWh
-                                            </span>
-                                            <div class="small text-white-50">(+@anomaly.DeviationPercent.ToString("N0")%)</div>
-                                        </td>
-                                        <td class="text-nowrap font-monospace">
-                                            <div class="text-white">@anomaly.ConfidencePercent.ToString("F1")%</div>
-                                            <div class="text-white-50" style="font-size: 0.7rem;">Score: @anomaly.AnomalyScore.ToString("F2")</div>
-                                        </td>
-                                        <td>
-                                            @if (anomaly.Severity == "CRITICAL")
-                                            {
-                                                <span class="badge bg-danger text-white px-2 py-1">CRITICAL</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-warning text-dark px-2 py-1">WARNING</span>
-                                            }
-                                        </td>
-                                        <td style="min-width: 250px;">
-                                            <div class="text-white small">@anomaly.Explanation</div>
-                                            <div class="text-info small fw-semibold mt-1">💡 @anomaly.Recommendation</div>
-                                        </td>
-                                        <td class="text-end pe-3 text-nowrap">
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-light py-0 px-2 fw-semibold" 
-                                                    style="font-size: 0.75rem;" 
-                                                    onclick="focusMeterTrend('@anomaly.MeterName', '@anomaly.DisplayName');">
-                                                Inspect ↗
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="alert alert-success bg-opacity-10 border border-success border-opacity-25 text-success d-flex align-items-center gap-3 mt-3 mb-0 p-3 rounded">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                    </svg>
-                    <div>
-                        <strong>All Distribution Boards Operating Within Normal Baselines</strong>
-                        <div class="small text-success text-opacity-75">No critical spikes or phantom idle leakages were detected by ML.NET for the selected timeframe and filters.</div>
-                    </div>
-                </div>
-            }
+            <a asp-page="/Electricity/Index" 
+               asp-route-StartDate="@Model.StartDate.ToString("yyyy-MM-dd")" 
+               asp-route-EndDate="@Model.EndDate.ToString("yyyy-MM-dd")" 
+               asp-route-Building="@Model.Building"
+               asp-route-Floor="@Model.Floor"
+               asp-route-ViewMode="@Model.ViewMode"
+               class="btn btn-outline-dark btn-sm rounded-pill px-3 fw-semibold">
+                Reset to All Cards
+            </a>
         </div>
-    </div>
+    }
 
     <!-- CARDS DISPLAY SECTION -->
     <div class="mb-5">
@@ -501,8 +424,8 @@
                                         @if (card.HasAnomaly)
                                         {
                                             var badgeClass = card.AnomalySeverity == "CRITICAL" ? "bg-danger text-white" : "bg-warning text-dark";
-                                            <span class="badge @badgeClass fw-bold" style="font-size:0.68rem;" title="ML.NET detected abnormal consumption (Spike/Leakage)">
-                                                ⚠️ ML @card.AnomalySeverity
+                                            <span class="badge @badgeClass fw-bold" style="font-size:0.68rem; cursor:pointer;" title="Volt-Help: Abnormal consumption detected (Click for diagnostics)" onclick="openVoltHelpModal();">
+                                                ⚡ Volt-Help @card.AnomalySeverity
                                             </span>
                                         }
                                     </div>
@@ -653,11 +576,335 @@
     </div>
 </div>
 
+<!-- VOLT-HELP ABNORMALITY DIAGNOSTIC CENTER MODAL -->
+<div class="modal fade" id="voltHelpModal" tabindex="-1" aria-labelledby="voltHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header text-white p-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #31104b 100%);">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #f59e0b, #ef4444); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); flex-shrink: 0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" class="text-white">
+                            <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h4 class="modal-title fw-bold text-white mb-0" id="voltHelpModalLabel">Volt-Help Diagnostic Center</h4>
+                            <span class="badge bg-danger text-white px-2 py-1" style="font-size: 0.72rem;">Abnormality Focus</span>
+                        </div>
+                        <p class="text-white-50 small mb-0 mt-1">
+                            Focused intelligent analysis on electrical consumption spikes, off-hours phantom loads, and Lean Six Sigma recommendations.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-4 bg-light">
+                <!-- Mini KPI Cards -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-md-3">
+                        <div class="card border-0 shadow-sm h-100 p-3 bg-white rounded-3">
+                            <div class="text-muted small text-uppercase fw-semibold">Total Abnormalities</div>
+                            <div class="d-flex align-items-baseline gap-2 mt-1">
+                                <span class="fs-3 fw-bold @(Model.AnomalySummary.TotalAnomaliesDetected > 0 ? "text-danger" : "text-success")">
+                                    @Model.AnomalySummary.TotalAnomaliesDetected
+                                </span>
+                                <span class="small text-muted">events</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card border-0 shadow-sm h-100 p-3 bg-white rounded-3">
+                            <div class="text-muted small text-uppercase fw-semibold">Critical Spikes</div>
+                            <div class="d-flex align-items-baseline gap-2 mt-1">
+                                <span class="fs-3 fw-bold @(Model.AnomalySummary.CriticalAnomaliesCount > 0 ? "text-danger" : "text-muted")">
+                                    @Model.AnomalySummary.CriticalAnomaliesCount
+                                </span>
+                                <span class="small text-muted">&gt;150% baseline</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card border-0 shadow-sm h-100 p-3 bg-white rounded-3">
+                            <div class="text-muted small text-uppercase fw-semibold">Off-Hours Phantom Load</div>
+                            <div class="d-flex align-items-baseline gap-2 mt-1">
+                                <span class="fs-3 fw-bold @(Model.AnomalySummary.OffHoursLeakagesCount > 0 ? "text-primary" : "text-muted")">
+                                    @Model.AnomalySummary.OffHoursLeakagesCount
+                                </span>
+                                <span class="small text-muted">weekend/night leak</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="card border-0 shadow-sm h-100 p-3 bg-white rounded-3">
+                            <div class="text-muted small text-uppercase fw-semibold">Est. Energy Waste</div>
+                            <div class="d-flex align-items-baseline gap-2 mt-1">
+                                <span class="fs-3 fw-bold text-warning">
+                                    @Model.AnomalySummary.TotalEstimatedWastedKwh.ToString("N1")
+                                </span>
+                                <span class="small text-muted">kWh</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if (Model.AnomalySummary.TopAnomalies.Any())
+                {
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-uppercase fw-bold text-secondary small mb-0" style="letter-spacing: 0.5px;">
+                            Detected Incidents Requiring Attention (@Model.AnomalySummary.TopAnomalies.Count)
+                        </h6>
+                    </div>
+
+                    <div class="row g-3">
+                        @foreach (var anom in Model.AnomalySummary.TopAnomalies)
+                        {
+                            var cardBorder = anom.Severity == "CRITICAL" ? "border-danger border-2" : "border-warning border-2";
+                            var badgeBg = anom.Severity == "CRITICAL" ? "bg-danger text-white" : "bg-warning text-dark";
+                            <div class="col-12 col-lg-6">
+                                <div class="card h-100 shadow-sm @cardBorder bg-white rounded-3">
+                                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-2 px-3 border-0">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge @badgeBg fw-bold">@anom.Severity</span>
+                                            @if (anom.AnomalyType == "OffHoursLeakage")
+                                            {
+                                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">🌙 Off-Hours Leakage</span>
+                                            }
+                                            else if (anom.AnomalyType == "SpikeSurge")
+                                            {
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">⚡ Spike Surge</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">📊 Baseline Shift</span>
+                                            }
+                                        </div>
+                                        <span class="small text-muted font-monospace" style="font-size: 0.75rem;">
+                                            @anom.Timestamp.ToString("yyyy-MM-dd HH:mm")
+                                        </span>
+                                    </div>
+                                    <div class="card-body p-3 pt-1">
+                                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                            <div>
+                                                <h6 class="fw-bold mb-0 text-dark">@anom.DisplayName</h6>
+                                                <div class="small text-muted font-monospace" style="font-size: 0.72rem;">@anom.MeterName</div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-light text-secondary border">@anom.Building</span>
+                                                <span class="badge bg-light text-secondary border">@anom.Floor</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="p-2 mb-2 rounded bg-light border d-flex justify-content-around text-center" style="font-size: 0.8rem;">
+                                            <div>
+                                                <div class="text-muted small">Actual</div>
+                                                <div class="fw-bold text-dark">@anom.ActualKwh.ToString("N1") kWh</div>
+                                            </div>
+                                            <div class="border-end"></div>
+                                            <div>
+                                                <div class="text-muted small">Baseline</div>
+                                                <div class="fw-bold text-secondary">@anom.ExpectedKwh.ToString("N1") kWh</div>
+                                            </div>
+                                            <div class="border-end"></div>
+                                            <div>
+                                                <div class="text-muted small">Deviation</div>
+                                                <div class="fw-bold text-danger">+@anom.DeviationKwh.ToString("N1") kWh (+@anom.DeviationPercent.ToString("N0")%)</div>
+                                            </div>
+                                            <div class="border-end"></div>
+                                            <div>
+                                                <div class="text-muted small">Confidence</div>
+                                                <div class="fw-bold text-primary">@anom.ConfidencePercent.ToString("F1")%</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="small text-muted mb-2">
+                                            <strong>Root Cause Analysis:</strong> @anom.Explanation
+                                        </div>
+
+                                        <div class="p-2 rounded bg-warning bg-opacity-10 border border-warning border-opacity-25 small text-dark">
+                                            <strong>💡 Actionable Recommendation:</strong> @anom.Recommendation
+                                        </div>
+                                    </div>
+                                    <div class="card-footer bg-transparent border-0 d-flex justify-content-end p-3 pt-0">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-primary fw-semibold" 
+                                                onclick="focusMeterTrendAndCloseModal('@anom.MeterName', '@anom.DisplayName');">
+                                            Focus Trend in Graph →
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-success border-0 shadow-sm p-4 text-center rounded-3">
+                        <div class="fs-1 text-success mb-2">✅</div>
+                        <h5 class="fw-bold text-success">All Distribution Boards Nominal</h5>
+                        <p class="text-muted mb-0">No power spikes, abnormal baseline shifts, or off-hours phantom loads detected for the selected period.</p>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer bg-white d-flex justify-content-between p-3 border-top">
+                <div>
+                    @if (Model.AnomalySummary.TotalAnomaliesDetected > 0)
+                    {
+                        <a asp-page="/Electricity/Index" 
+                           asp-route-StartDate="@Model.StartDate.ToString("yyyy-MM-dd")" 
+                           asp-route-EndDate="@Model.EndDate.ToString("yyyy-MM-dd")" 
+                           asp-route-Building="@Model.Building"
+                           asp-route-Floor="@Model.Floor"
+                           asp-route-ViewMode="@Model.ViewMode"
+                           asp-route-OnlyAbnormal="@(!Model.OnlyAbnormal)"
+                           class="btn @(Model.OnlyAbnormal ? "btn-danger" : "btn-outline-danger") btn-sm rounded-pill px-3 fw-semibold">
+                            @(Model.OnlyAbnormal ? "Show All Distribution Boards" : "Filter Dashboard to Abnormal Cards Only")
+                        </a>
+                    }
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm px-4 rounded-pill" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VOLT-HELP SINGLE INCIDENT INSPECTION MODAL -->
+<div class="modal fade" id="voltHelpInspectionModal" tabindex="-1" aria-labelledby="voltHelpInspectionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-dark text-white p-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fs-5 text-warning">⚡</span>
+                    <div>
+                        <h5 class="modal-title fw-bold text-white mb-0" id="vhiTitle">Panel Name</h5>
+                        <div class="small text-white-50 font-monospace" id="vhiMeter">Meter ID</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge" id="vhiSeverityBadge">CRITICAL</span>
+                        <span class="badge bg-secondary bg-opacity-10 text-dark border" id="vhiTypeBadge">Spike Surge</span>
+                    </div>
+                    <div class="small text-muted font-monospace" id="vhiTimestamp">2026-11-08 12:00</div>
+                </div>
+
+                <div class="small text-muted mb-3" id="vhiLocation">Building 207 · Floor 1</div>
+
+                <div class="p-3 mb-3 rounded bg-light border">
+                    <div class="row g-2 text-center" style="font-size: 0.85rem;">
+                        <div class="col-6">
+                            <div class="text-muted small">Actual Consumption</div>
+                            <div class="fw-bold fs-6 text-dark" id="vhiActual">0.0 kWh</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">Expected Baseline</div>
+                            <div class="fw-bold fs-6 text-secondary" id="vhiExpected">0.0 kWh</div>
+                        </div>
+                        <div class="col-6 mt-2 pt-2 border-top">
+                            <div class="text-muted small">Deviation</div>
+                            <div class="fw-bold text-danger" id="vhiDeviation">+0.0 kWh (+0%)</div>
+                        </div>
+                        <div class="col-6 mt-2 pt-2 border-top">
+                            <div class="text-muted small">Confidence</div>
+                            <div class="fw-bold text-primary" id="vhiConfidence">95.0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="fw-bold text-dark small text-uppercase mb-1">Diagnostic Root Cause</label>
+                    <p class="text-muted small mb-0" id="vhiExplanation">Explanation text</p>
+                </div>
+
+                <div class="p-3 rounded bg-warning bg-opacity-10 border border-warning border-opacity-25">
+                    <label class="fw-bold text-dark small text-uppercase mb-1">💡 Actionable Recommendation</label>
+                    <div class="small text-dark fw-semibold" id="vhiRecommendation">Recommendation text</div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light p-3 border-top d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="openVoltHelpModal();">
+                    View All Abnormalities
+                </button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill fw-semibold" id="vhiTrendBtn">
+                        Focus Trend in Graph →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
     <script>
         var apexChartInstance = null;
+
+        function openVoltHelpModal() {
+            var modalElem = document.getElementById('voltHelpModal');
+            if (modalElem) {
+                var modal = bootstrap.Modal.getOrCreateInstance(modalElem);
+                modal.show();
+            }
+        }
+
+        function openVoltHelpInspection(meterName, displayName, building, floor, anomalyType, severity, actual, expected, dev, devPct, conf, timestamp, explanation, recommendation) {
+            document.getElementById('vhiTitle').innerText = displayName;
+            document.getElementById('vhiMeter').innerText = meterName;
+            document.getElementById('vhiLocation').innerText = building + ' · ' + floor;
+            document.getElementById('vhiTimestamp').innerText = timestamp;
+            document.getElementById('vhiActual').innerText = actual + ' kWh';
+            document.getElementById('vhiExpected').innerText = expected + ' kWh';
+            document.getElementById('vhiDeviation').innerText = '+' + dev + ' kWh (+' + devPct + '%)';
+            document.getElementById('vhiConfidence').innerText = conf + '%';
+            document.getElementById('vhiExplanation').innerText = explanation;
+            document.getElementById('vhiRecommendation').innerText = recommendation;
+
+            var sevBadge = document.getElementById('vhiSeverityBadge');
+            if (severity === 'CRITICAL') {
+                sevBadge.className = 'badge bg-danger text-white';
+                sevBadge.innerText = 'CRITICAL';
+            } else {
+                sevBadge.className = 'badge bg-warning text-dark';
+                sevBadge.innerText = 'WARNING';
+            }
+
+            var typeBadge = document.getElementById('vhiTypeBadge');
+            if (anomalyType === 'OffHoursLeakage') {
+                typeBadge.innerText = '🌙 Off-Hours Leakage';
+                typeBadge.className = 'badge bg-info bg-opacity-25 text-info border border-info border-opacity-50';
+            } else if (anomalyType === 'SpikeSurge') {
+                typeBadge.innerText = '⚡ Spike Surge';
+                typeBadge.className = 'badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50';
+            } else {
+                typeBadge.innerText = '📊 Baseline Shift';
+                typeBadge.className = 'badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-50';
+            }
+
+            var trendBtn = document.getElementById('vhiTrendBtn');
+            trendBtn.onclick = function() {
+                var inspectModal = bootstrap.Modal.getInstance(document.getElementById('voltHelpInspectionModal'));
+                if (inspectModal) inspectModal.hide();
+                focusMeterTrend(meterName, displayName);
+            };
+
+            var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('voltHelpInspectionModal'));
+            modal.show();
+        }
+
+        function focusMeterTrendAndCloseModal(meterName, cardTitle) {
+            var voltModal = bootstrap.Modal.getInstance(document.getElementById('voltHelpModal'));
+            if (voltModal) voltModal.hide();
+            var inspectModal = bootstrap.Modal.getInstance(document.getElementById('voltHelpInspectionModal'));
+            if (inspectModal) inspectModal.hide();
+            focusMeterTrend(meterName, cardTitle);
+        }
 
         function setDateRange(daysAgo) {
             var today = new Date();
