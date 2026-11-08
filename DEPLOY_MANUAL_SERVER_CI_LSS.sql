@@ -274,8 +274,8 @@ END
 GO
 
 -- -----------------------------------------------------------------------------------------
--- 6. TABEL: [dbo].[ProcessQuantity] (Machine-Level Process Input & Output Quantity)
---    Menyimpan QtyIn dan QtyOut per mesin (MachCode) per hari dari dmPChart (MLS, OPTIC, AIS)
+-- 6. TABEL: [dbo].[ProcessQuantity] (Machine-Level Process Input & Output Daily Quantity)
+--    Menyimpan akumulasi QtyIn dan QtyOut per mesin (MachCode) per hari dari dmPChart (MLS, OPTIC, AIS)
 -- -----------------------------------------------------------------------------------------
 PRINT '6. Memeriksa tabel [dbo].[ProcessQuantity]...';
 
@@ -353,12 +353,48 @@ BEGIN
 END
 GO
 
--- Indeks performa & integritas
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+-- Hapus indeks unik lama jika sebelumnya berbasis (MachCode, ProdDate, DeviceCode, ProcCode, Division)
+IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
 BEGIN
-    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] 
-        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [DeviceCode] ASC, [ProcCode] ASC, [Division] ASC);
-    PRINT '   [OK] Indeks unik [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] berhasil dibuat.';
+    DROP INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] ON [dbo].[ProcessQuantity];
+    PRINT '   [OK] Indeks lama [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] dilepas untuk migrasi ke akumulasi harian.';
+END
+GO
+
+-- Konsolidasi baris lama jika ada duplikat tanggal per mesin (gabungkan sum QtyIn & QtyOut)
+;WITH Aggregated AS (
+    SELECT 
+        MachCode, 
+        ProdDate, 
+        ISNULL(Division, '') AS DivKey,
+        MIN(Id) AS KeepId,
+        SUM(QuantityIn) AS TotalIn,
+        SUM(QuantityOut) AS TotalOut
+    FROM [dbo].[ProcessQuantity]
+    GROUP BY MachCode, ProdDate, ISNULL(Division, '')
+    HAVING COUNT(*) > 1
+)
+UPDATE p
+SET p.QuantityIn = a.TotalIn,
+    p.QuantityOut = a.TotalOut
+FROM [dbo].[ProcessQuantity] p
+INNER JOIN Aggregated a ON p.Id = a.KeepId;
+
+;WITH DuplicatesToDelete AS (
+    SELECT 
+        p.Id,
+        ROW_NUMBER() OVER (PARTITION BY p.MachCode, p.ProdDate, ISNULL(p.Division, '') ORDER BY p.Id ASC) AS rn
+    FROM [dbo].[ProcessQuantity] p
+)
+DELETE FROM DuplicatesToDelete WHERE rn > 1;
+GO
+
+-- Indeks unik akumulasi harian per mesin per divisi (1 row per machine per calendar day)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Div] 
+        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [Division] ASC);
+    PRINT '   [OK] Indeks unik akumulasi harian [UQ_ProcessQuantity_Mach_Date_Div] berhasil dibuat.';
 END
 GO
 
@@ -376,14 +412,6 @@ BEGIN
     CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_MachCode] 
         ON [dbo].[ProcessQuantity] ([MachCode] ASC);
     PRINT '   [OK] Indeks [IX_ProcessQuantity_MachCode] berhasil dibuat.';
-END
-GO
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProcessQuantity_DeviceCode' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
-BEGIN
-    CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_DeviceCode] 
-        ON [dbo].[ProcessQuantity] ([DeviceCode] ASC);
-    PRINT '   [OK] Indeks [IX_ProcessQuantity_DeviceCode] berhasil dibuat.';
 END
 GO
 

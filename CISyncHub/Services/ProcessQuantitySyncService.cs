@@ -50,12 +50,6 @@ BEGIN
 END
 ELSE
 BEGIN
-    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'DeviceCode')
-        ALTER TABLE [dbo].[ProcessQuantity] ADD [DeviceCode] NVARCHAR(100) NULL DEFAULT ('');
-
-    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'ProcCode')
-        ALTER TABLE [dbo].[ProcessQuantity] ADD [ProcCode] NVARCHAR(50) NULL DEFAULT ('');
-
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'QuantityOut')
         ALTER TABLE [dbo].[ProcessQuantity] ADD [QuantityOut] FLOAT NOT NULL DEFAULT (0);
 
@@ -70,12 +64,52 @@ BEGIN
 
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'LastSyncDate')
         ALTER TABLE [dbo].[ProcessQuantity] ADD [LastSyncDate] DATETIME NOT NULL DEFAULT (GETDATE());
+
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'DeviceCode')
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [DeviceCode] NVARCHAR(100) NULL DEFAULT ('');
+
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'ProcCode')
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [ProcCode] NVARCHAR(50) NULL DEFAULT ('');
 END
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+-- Drop legacy unique index if exists
+IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
 BEGIN
-    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] 
-        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [DeviceCode] ASC, [ProcCode] ASC, [Division] ASC);
+    DROP INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] ON [dbo].[ProcessQuantity];
+END;
+
+-- Deduplicate any existing records to ensure unique (MachCode, ProdDate, Division)
+;WITH Aggregated AS (
+    SELECT 
+        MachCode, 
+        ProdDate, 
+        ISNULL(Division, '') AS DivKey,
+        MIN(Id) AS KeepId,
+        SUM(QuantityIn) AS TotalIn,
+        SUM(QuantityOut) AS TotalOut
+    FROM [dbo].[ProcessQuantity]
+    GROUP BY MachCode, ProdDate, ISNULL(Division, '')
+    HAVING COUNT(*) > 1
+)
+UPDATE p
+SET p.QuantityIn = a.TotalIn,
+    p.QuantityOut = a.TotalOut
+FROM [dbo].[ProcessQuantity] p
+INNER JOIN Aggregated a ON p.Id = a.KeepId;
+
+;WITH DuplicatesToDelete AS (
+    SELECT 
+        p.Id,
+        ROW_NUMBER() OVER (PARTITION BY p.MachCode, p.ProdDate, ISNULL(p.Division, '') ORDER BY p.Id ASC) AS rn
+    FROM [dbo].[ProcessQuantity] p
+)
+DELETE FROM DuplicatesToDelete WHERE rn > 1;
+
+-- Unique index ensuring exactly 1 daily total row per machine per division
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Div] 
+        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [Division] ASC);
 END;
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProcessQuantity_ProdDate_MachCode' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
@@ -160,8 +194,6 @@ END;
         var dt = new DataTable();
         dt.Columns.Add("MachCode", typeof(string));
         dt.Columns.Add("ProdDate", typeof(DateTime));
-        dt.Columns.Add("DeviceCode", typeof(string));
-        dt.Columns.Add("ProcCode", typeof(string));
         dt.Columns.Add("QuantityIn", typeof(double));
         dt.Columns.Add("QuantityOut", typeof(double));
         dt.Columns.Add("Division", typeof(string));
@@ -178,12 +210,11 @@ END;
             dateFilter = "AND COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) >= @StartDate";
         }
 
+        // Akumulasi total QtyIn & QtyOut per mesin per hari (1 row per machine per calendar day)
         string sql = $@"
 SELECT 
     LTRIM(RTRIM(p.MachCode)) AS [MachCode],
     CAST(COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) AS DATE) AS [ProdDate],
-    ISNULL(LTRIM(RTRIM(p.DeviceCode)), '') AS [DeviceCode],
-    ISNULL(LTRIM(RTRIM(p.ProcCode)), '') AS [ProcCode],
     SUM(CAST(ISNULL(p.QuantityIn, 0) AS FLOAT)) AS [QuantityIn],
     SUM(CAST(ISNULL(p.QuantityOut, 0) AS FLOAT)) AS [QuantityOut]
 FROM dmPChart p WITH (NOLOCK)
@@ -193,9 +224,7 @@ WHERE p.MachCode IS NOT NULL
   {dateFilter}
 GROUP BY 
     LTRIM(RTRIM(p.MachCode)),
-    CAST(COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) AS DATE),
-    ISNULL(LTRIM(RTRIM(p.DeviceCode)), ''),
-    ISNULL(LTRIM(RTRIM(p.ProcCode)), '')
+    CAST(COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) AS DATE)
 ORDER BY 
     [ProdDate] DESC, [MachCode] ASC;";
 
@@ -214,16 +243,12 @@ ORDER BY
         {
             string machCode = reader.GetString(0);
             DateTime prodDate = reader.GetDateTime(1);
-            string devCode = reader.IsDBNull(2) ? "" : reader.GetString(2);
-            string procCode = reader.IsDBNull(3) ? "" : reader.GetString(3);
-            double qtyIn = reader.IsDBNull(4) ? 0 : Convert.ToDouble(reader.GetValue(4));
-            double qtyOut = reader.IsDBNull(5) ? 0 : Convert.ToDouble(reader.GetValue(5));
+            double qtyIn = reader.IsDBNull(2) ? 0 : Convert.ToDouble(reader.GetValue(2));
+            double qtyOut = reader.IsDBNull(3) ? 0 : Convert.ToDouble(reader.GetValue(3));
 
             dt.Rows.Add(
                 machCode,
                 prodDate,
-                devCode,
-                procCode,
                 qtyIn,
                 qtyOut,
                 source.Division,
@@ -240,13 +265,11 @@ ORDER BY
         using var conn = new SqlConnection(_destConnStr);
         await conn.OpenAsync(cancellationToken);
 
-        // 1. Create Staging Table in destination CI_LSS
+        // 1. Create Staging Table in destination CI_LSS (Daily Machine Level)
         const string createStageSql = @"
 CREATE TABLE #Stage_ProcessQuantity (
     [MachCode]       NVARCHAR(100) NOT NULL,
     [ProdDate]       DATE          NOT NULL,
-    [DeviceCode]     NVARCHAR(100) NULL,
-    [ProcCode]       NVARCHAR(50)  NULL,
     [QuantityIn]     FLOAT         NOT NULL,
     [QuantityOut]    FLOAT         NOT NULL,
     [Division]       NVARCHAR(50)  NULL,
@@ -268,8 +291,6 @@ CREATE TABLE #Stage_ProcessQuantity (
 
             bulkCopy.ColumnMappings.Add("MachCode", "MachCode");
             bulkCopy.ColumnMappings.Add("ProdDate", "ProdDate");
-            bulkCopy.ColumnMappings.Add("DeviceCode", "DeviceCode");
-            bulkCopy.ColumnMappings.Add("ProcCode", "ProcCode");
             bulkCopy.ColumnMappings.Add("QuantityIn", "QuantityIn");
             bulkCopy.ColumnMappings.Add("QuantityOut", "QuantityOut");
             bulkCopy.ColumnMappings.Add("Division", "Division");
@@ -279,14 +300,12 @@ CREATE TABLE #Stage_ProcessQuantity (
             await bulkCopy.WriteToServerAsync(dt, cancellationToken);
         }
 
-        // 3. MERGE Staging Table into dbo.ProcessQuantity
+        // 3. MERGE Staging Table into dbo.ProcessQuantity (Unique per MachCode, ProdDate, Division)
         const string mergeSql = @"
 MERGE [dbo].[ProcessQuantity] AS target
 USING #Stage_ProcessQuantity AS source
 ON (target.[MachCode] = source.[MachCode]
     AND target.[ProdDate] = source.[ProdDate]
-    AND ISNULL(target.[DeviceCode], '') = ISNULL(source.[DeviceCode], '')
-    AND ISNULL(target.[ProcCode], '') = ISNULL(source.[ProcCode], '')
     AND ISNULL(target.[Division], '') = ISNULL(source.[Division], ''))
 WHEN MATCHED THEN
     UPDATE SET
@@ -296,8 +315,8 @@ WHEN MATCHED THEN
         target.[SourceDatabase] = source.[SourceDatabase],
         target.[LastSyncDate]   = GETDATE()
 WHEN NOT MATCHED BY TARGET THEN
-    INSERT ([MachCode], [ProdDate], [DeviceCode], [ProcCode], [QuantityIn], [QuantityOut], [Division], [SourceServer], [SourceDatabase], [LastSyncDate])
-    VALUES (source.[MachCode], source.[ProdDate], source.[DeviceCode], source.[ProcCode], source.[QuantityIn], source.[QuantityOut], source.[Division], source.[SourceServer], source.[SourceDatabase], GETDATE());
+    INSERT ([MachCode], [ProdDate], [QuantityIn], [QuantityOut], [Division], [SourceServer], [SourceDatabase], [LastSyncDate])
+    VALUES (source.[MachCode], source.[ProdDate], source.[QuantityIn], source.[QuantityOut], source.[Division], source.[SourceServer], source.[SourceDatabase], GETDATE());
 
 DROP TABLE #Stage_ProcessQuantity;
 ";
@@ -310,3 +329,4 @@ DROP TABLE #Stage_ProcessQuantity;
         }
     }
 }
+

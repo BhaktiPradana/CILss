@@ -372,8 +372,8 @@ BEGIN
         CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC)
     );
 
-    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] 
-        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [DeviceCode] ASC, [ProcCode] ASC, [Division] ASC);
+    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Div] 
+        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [Division] ASC);
 
     CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_ProdDate_MachCode] 
         ON [dbo].[ProcessQuantity] ([ProdDate] ASC, [MachCode] ASC)
@@ -381,8 +381,5 @@ BEGIN
 
     CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_MachCode] 
         ON [dbo].[ProcessQuantity] ([MachCode] ASC);
-
-    CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_DeviceCode] 
-        ON [dbo].[ProcessQuantity] ([DeviceCode] ASC);
 END
 GO
