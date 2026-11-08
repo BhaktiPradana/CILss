@@ -50,6 +50,15 @@ BEGIN
 END
 ELSE
 BEGIN
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'Id')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [Id] BIGINT IDENTITY(1,1) NOT NULL;
+        IF NOT EXISTS (SELECT * FROM sys.key_constraints WHERE parent_object_id = OBJECT_ID('dbo.ProcessQuantity') AND type = 'PK')
+        BEGIN
+            ALTER TABLE [dbo].[ProcessQuantity] ADD CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC);
+        END
+    END
+
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'QuantityOut')
         ALTER TABLE [dbo].[ProcessQuantity] ADD [QuantityOut] FLOAT NOT NULL DEFAULT (0);
 
@@ -79,29 +88,10 @@ BEGIN
 END;
 
 -- Deduplicate any existing records to ensure unique (MachCode, ProdDate, Division)
-;WITH Aggregated AS (
-    SELECT 
-        MachCode, 
-        ProdDate, 
-        ISNULL(Division, '') AS DivKey,
-        MIN(Id) AS KeepId,
-        SUM(QuantityIn) AS TotalIn,
-        SUM(QuantityOut) AS TotalOut
-    FROM [dbo].[ProcessQuantity]
-    GROUP BY MachCode, ProdDate, ISNULL(Division, '')
-    HAVING COUNT(*) > 1
-)
-UPDATE p
-SET p.QuantityIn = a.TotalIn,
-    p.QuantityOut = a.TotalOut
-FROM [dbo].[ProcessQuantity] p
-INNER JOIN Aggregated a ON p.Id = a.KeepId;
-
 ;WITH DuplicatesToDelete AS (
     SELECT 
-        p.Id,
-        ROW_NUMBER() OVER (PARTITION BY p.MachCode, p.ProdDate, ISNULL(p.Division, '') ORDER BY p.Id ASC) AS rn
-    FROM [dbo].[ProcessQuantity] p
+        ROW_NUMBER() OVER (PARTITION BY MachCode, ProdDate, ISNULL(Division, '') ORDER BY (SELECT NULL)) AS rn
+    FROM [dbo].[ProcessQuantity]
 )
 DELETE FROM DuplicatesToDelete WHERE rn > 1;
 
