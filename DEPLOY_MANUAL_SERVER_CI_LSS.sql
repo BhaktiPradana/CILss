@@ -278,3 +278,4 @@ PRINT 'Pembaruan Skema Database CI_LSS Selesai dengan Sukses!';
 PRINT 'Waktu Selesai: ' + CONVERT(VARCHAR(30), GETDATE(), 120);
 PRINT '========================================================================';
 GO
+

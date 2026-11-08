@@ -241,3 +241,4 @@ DROP TABLE #Stage_MachinesProcess;
         }
     }
 }
+

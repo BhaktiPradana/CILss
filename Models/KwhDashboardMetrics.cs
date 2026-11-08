@@ -19,6 +19,8 @@ namespace LssTraining.Web.Models
         public DateTime? LatestTimestamp { get; set; }
         public bool HasData { get; set; }
         public int DataPointsCount { get; set; }
+        public bool HasAnomaly { get; set; }
+        public string AnomalySeverity { get; set; } = string.Empty;
         public List<decimal> Sparkline { get; set; } = new();
         public bool IsAccumulated { get; set; }
         public List<string> ConstituentMeters { get; set; } = new();

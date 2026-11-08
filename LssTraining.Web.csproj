@@ -17,5 +17,7 @@
 		<PackageReference Include="ClosedXML" Version="0.104.2" />
 		<PackageReference Include="Dapper" Version="2.1.35" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+		<PackageReference Include="Microsoft.ML" Version="3.0.1" />
+		<PackageReference Include="Microsoft.ML.TimeSeries" Version="3.0.1" />
 	</ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 using LssTraining.Web.Data;
 using LssTraining.Web.Models;
+using LssTraining.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -14,10 +15,12 @@ namespace LssTraining.Web.Pages.Electricity
     public class IndexModel : PageModel
     {
         private readonly KwhRepository _kwhRepo;
+        private readonly IEnergyAnomalyService _anomalyService;
 
-        public IndexModel(KwhRepository kwhRepo)
+        public IndexModel(KwhRepository kwhRepo, IEnergyAnomalyService anomalyService)
         {
             _kwhRepo = kwhRepo;
+            _anomalyService = anomalyService;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -49,6 +52,7 @@ namespace LssTraining.Web.Pages.Electricity
         public Dictionary<string, List<ElectricityCardDto>> CardsByFloor { get; set; } = new();
         public ElectricityDashboardSummary Summary { get; set; } = new();
         public List<KwhRecord> Records { get; set; } = new();
+        public EnergyAnomalySummary AnomalySummary { get; set; } = new();
         public string ChartDataJson { get; set; } = "{}";
         public bool HasDatabaseError { get; set; }
 
@@ -159,6 +163,16 @@ namespace LssTraining.Web.Pages.Electricity
             // Calculate day span for daily average
             int daysCount = Math.Max(1, (int)(EndDate.Date - StartDate.Date).TotalDays + 1);
 
+            // 3b. Run ML.NET Anomaly Detection across electricity records
+            try
+            {
+                AnomalySummary = _anomalyService.AnalyzeAnomalies(Records, Building, Floor);
+            }
+            catch
+            {
+                AnomalySummary = new EnergyAnomalySummary();
+            }
+
             // Group records by MeterName (trimmed, case-insensitive)
             var recordsByMeter = Records
                 .GroupBy(r => r.MeterName.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -226,6 +240,12 @@ namespace LssTraining.Web.Pages.Electricity
                     ? matching.OrderBy(r => r.Timestamp).Select(r => r.Usage_kWh).TakeLast(8).ToList()
                     : new List<decimal>();
 
+                bool isAnomalous = AnomalySummary.AnomalousMeterNames.Contains(cleanMeter) ||
+                                   (def.IsAccumulated && def.ConstituentMeters.Any(cm => AnomalySummary.AnomalousMeterNames.Contains(cm.Trim())));
+                string anomSev = isAnomalous
+                    ? (AnomalySummary.TopAnomalies.FirstOrDefault(a => a.MeterName.Equals(cleanMeter, StringComparison.OrdinalIgnoreCase))?.Severity ?? "WARNING")
+                    : string.Empty;
+
                 Cards.Add(new ElectricityCardDto
                 {
                     MeterName = def.MeterName,
@@ -242,6 +262,8 @@ namespace LssTraining.Web.Pages.Electricity
                     LatestTimestamp = latestRec?.Timestamp,
                     HasData = matching != null && matching.Any(),
                     DataPointsCount = matching?.Count ?? 0,
+                    HasAnomaly = isAnomalous,
+                    AnomalySeverity = anomSev,
                     Sparkline = sparkline,
                     IsAccumulated = def.IsAccumulated,
                     ConstituentMeters = def.ConstituentMeters,

@@ -25,6 +25,18 @@
                             <span class="active-glow-dot" style="width:7px;height:7px;"></span> Database Connected
                         </span>
                     }
+                    @if (Model.AnomalySummary.TotalAnomaliesDetected > 0)
+                    {
+                        <a href="#mlAnomalySection" class="badge bg-danger text-white px-3 py-1 rounded-pill text-decoration-none fw-bold shadow-sm d-inline-flex align-items-center gap-1">
+                            <span>⚠️</span> @Model.AnomalySummary.TotalAnomaliesDetected ML Anomalies
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="badge bg-info bg-opacity-25 text-white border border-info border-opacity-50 px-3 py-1 rounded-pill d-inline-flex align-items-center gap-1">
+                            <span>🤖</span> ML Baseline Nominal
+                        </span>
+                    }
                 </div>
                 <h1 class="h2 fw-bold text-white mb-1">Electricity Consumption Dashboard</h1>
                 <p class="text-white-50 mb-0">Continuous monitoring of electrical distribution boards (DB), switchboards (SSB), and equipment panels</p>
@@ -215,6 +227,200 @@
         </div>
     </div>
 
+    <!-- ML.NET ENERGY ANOMALY INTELLIGENCE SECTION -->
+    <div class="card shadow-sm border-0 mb-4 overflow-hidden" id="mlAnomalySection" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #31104b 100%); color: #fff; border-radius: 12px;">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 pb-3 border-bottom border-light border-opacity-10">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #a855f7); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4); flex-shrink: 0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5ZM3 8.062C3 6.76 4.235 5.765 5.53 5.881a2.5 2.5 0 0 1 4.94 0C11.765 5.765 13 6.76 13 8.062c0 .878-.54 1.637-1.328 1.933a1.5 1.5 0 0 1-.672 1.35V12a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-.655a1.5 1.5 0 0 1-.672-1.35C3.54 9.699 3 8.94 3 8.062Z"/>
+                            <path d="M7 6.5A1.5 1.5 0 0 1 8.5 5h.01a1.5 1.5 0 0 1 1.49 1.5.5.5 0 0 1-1 0 .5.5 0 0 0-.49-.5H8.5a.5.5 0 0 0-.5.5.5.5 0 0 1-1 0Z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <h4 class="fw-bold mb-0 text-white">🤖 ML.NET Energy Anomaly Intelligence</h4>
+                            <span class="badge bg-primary bg-opacity-50 text-white border border-primary border-opacity-75 px-2 py-1" style="font-size: 0.72rem;">Microsoft.ML TimeSeries v3.0</span>
+                            <span class="badge bg-purple text-white px-2 py-1" style="background:#8b5cf6; font-size: 0.72rem;">IID Spike &amp; Rolling Baseline</span>
+                        </div>
+                        <p class="text-white-50 small mb-0 mt-1">
+                            Real-time automated detection of abnormal power surges, off-hours phantom loads, and baseline shifts using machine learning.
+                        </p>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-dark bg-opacity-50 text-light border border-light border-opacity-10 px-3 py-2 rounded-pill small">
+                        🕒 Analyzed @Model.AnomalySummary.AnalysisTimestamp.ToString("HH:mm:ss")
+                    </span>
+                </div>
+            </div>
+
+            <!-- Mini KPI Counters -->
+            <div class="row g-3 my-3">
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <div class="text-white-50 small text-uppercase fw-semibold">Total Anomalies</div>
+                        <div class="d-flex align-items-baseline gap-2 mt-1">
+                            <span class="fs-3 fw-bold @(Model.AnomalySummary.TotalAnomaliesDetected > 0 ? "text-warning" : "text-success")">
+                                @Model.AnomalySummary.TotalAnomaliesDetected
+                            </span>
+                            <span class="small text-white-50">events</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <div class="text-white-50 small text-uppercase fw-semibold">Critical Spikes</div>
+                        <div class="d-flex align-items-baseline gap-2 mt-1">
+                            <span class="fs-3 fw-bold @(Model.AnomalySummary.CriticalAnomaliesCount > 0 ? "text-danger" : "text-light")">
+                                @Model.AnomalySummary.CriticalAnomaliesCount
+                            </span>
+                            <span class="small text-white-50">&gt;150% baseline</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <div class="text-white-50 small text-uppercase fw-semibold">Off-Hours Phantom Load</div>
+                        <div class="d-flex align-items-baseline gap-2 mt-1">
+                            <span class="fs-3 fw-bold @(Model.AnomalySummary.OffHoursLeakagesCount > 0 ? "text-info" : "text-light")">
+                                @Model.AnomalySummary.OffHoursLeakagesCount
+                            </span>
+                            <span class="small text-white-50">weekend/night leak</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <div class="text-white-50 small text-uppercase fw-semibold">Est. Energy Waste</div>
+                        <div class="d-flex align-items-baseline gap-2 mt-1">
+                            <span class="fs-3 fw-bold text-warning">
+                                @Model.AnomalySummary.TotalEstimatedWastedKwh.ToString("N1")
+                            </span>
+                            <span class="small text-white-50">kWh</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANOMALY DETAILS TABLE -->
+            @if (Model.AnomalySummary.TopAnomalies.Any())
+            {
+                <div class="mt-4 pt-2">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-uppercase fw-bold text-white-50 mb-0" style="letter-spacing: 0.5px; font-size: 0.8rem;">
+                            Top Detected Anomaly Incidents &amp; Lean Six Sigma Root-Cause Recommendations
+                        </h6>
+                        <span class="badge bg-light text-dark fw-bold">Showing Top @Model.AnomalySummary.TopAnomalies.Count Anomaly Incidents</span>
+                    </div>
+
+                    <div class="table-responsive rounded" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <table class="table table-dark table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead style="background: rgba(255, 255, 255, 0.08); font-size: 0.75rem; text-transform: uppercase; color: #94a3b8;">
+                                <tr>
+                                    <th class="ps-3 py-3">Timestamp</th>
+                                    <th>Distribution Board</th>
+                                    <th>Location</th>
+                                    <th>Type</th>
+                                    <th>Actual / Baseline</th>
+                                    <th>Deviation</th>
+                                    <th>ML Confidence</th>
+                                    <th>Severity</th>
+                                    <th>LSS Action &amp; Recommendation</th>
+                                    <th class="text-end pe-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var anomaly in Model.AnomalySummary.TopAnomalies)
+                                {
+                                    <tr>
+                                        <td class="ps-3 text-nowrap font-monospace text-light">
+                                            @anomaly.Timestamp.ToString("yyyy-MM-dd HH:mm")
+                                        </td>
+                                        <td class="text-nowrap">
+                                            <div class="fw-bold text-white">@anomaly.DisplayName</div>
+                                            <div class="font-monospace text-white-50" style="font-size: 0.7rem;">@anomaly.MeterName</div>
+                                        </td>
+                                        <td class="text-nowrap">
+                                            <span class="badge bg-secondary bg-opacity-25 text-light border border-light border-opacity-10">@anomaly.Building</span>
+                                            <span class="badge bg-light bg-opacity-10 text-light border border-light border-opacity-10">@anomaly.Floor</span>
+                                        </td>
+                                        <td>
+                                            @if (anomaly.AnomalyType == "OffHoursLeakage")
+                                            {
+                                                <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-50">🌙 Off-Hours Leakage</span>
+                                            }
+                                            else if (anomaly.AnomalyType == "SpikeSurge")
+                                            {
+                                                <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50">⚡ Spike Surge</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-50">📊 Baseline Shift</span>
+                                            }
+                                        </td>
+                                        <td class="text-nowrap">
+                                            <span class="fw-bold text-white">@anomaly.ActualKwh.ToString("N1")</span>
+                                            <span class="text-white-50">/ @anomaly.ExpectedKwh.ToString("N1") kWh</span>
+                                        </td>
+                                        <td class="text-nowrap">
+                                            <span class="fw-bold @(anomaly.DeviationKwh > 0 ? "text-danger" : "text-success")">
+                                                +@anomaly.DeviationKwh.ToString("N1") kWh
+                                            </span>
+                                            <div class="small text-white-50">(+@anomaly.DeviationPercent.ToString("N0")%)</div>
+                                        </td>
+                                        <td class="text-nowrap font-monospace">
+                                            <div class="text-white">@anomaly.ConfidencePercent.ToString("F1")%</div>
+                                            <div class="text-white-50" style="font-size: 0.7rem;">Score: @anomaly.AnomalyScore.ToString("F2")</div>
+                                        </td>
+                                        <td>
+                                            @if (anomaly.Severity == "CRITICAL")
+                                            {
+                                                <span class="badge bg-danger text-white px-2 py-1">CRITICAL</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark px-2 py-1">WARNING</span>
+                                            }
+                                        </td>
+                                        <td style="min-width: 250px;">
+                                            <div class="text-white small">@anomaly.Explanation</div>
+                                            <div class="text-info small fw-semibold mt-1">💡 @anomaly.Recommendation</div>
+                                        </td>
+                                        <td class="text-end pe-3 text-nowrap">
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-light py-0 px-2 fw-semibold" 
+                                                    style="font-size: 0.75rem;" 
+                                                    onclick="focusMeterTrend('@anomaly.MeterName', '@anomaly.DisplayName');">
+                                                Inspect ↗
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-success bg-opacity-10 border border-success border-opacity-25 text-success d-flex align-items-center gap-3 mt-3 mb-0 p-3 rounded">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                    </svg>
+                    <div>
+                        <strong>All Distribution Boards Operating Within Normal Baselines</strong>
+                        <div class="small text-success text-opacity-75">No critical spikes or phantom idle leakages were detected by ML.NET for the selected timeframe and filters.</div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
     <!-- CARDS DISPLAY SECTION -->
     <div class="mb-5">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -271,10 +477,13 @@
                     @foreach (var card in floorCards)
                     {
                         var isActive = card.HasData && card.TotalUsage > 0;
+                        var anomalyBorder = card.HasAnomaly 
+                            ? (card.AnomalySeverity == "CRITICAL" ? "border-danger border-2 shadow" : "border-warning border-2 shadow-sm") 
+                            : "";
                         <div class="col-xl-3 col-lg-4 col-md-6">
-                            <div class="electricity-card @(isActive ? "is-active" : "is-standby") @(card.IsAccumulated ? "border-primary border-2 shadow-sm" : "") h-100" id="card-@card.CardTitle.Replace(" ", "").Replace("#", "").Replace(".", "_")">
+                            <div class="electricity-card @(isActive ? "is-active" : "is-standby") @(card.IsAccumulated ? "border-primary border-2 shadow-sm" : "") @anomalyBorder h-100" id="card-@card.CardTitle.Replace(" ", "").Replace("#", "").Replace(".", "_")">
                                 <div class="electricity-card-header">
-                                    <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
                                         @if (isActive)
                                         {
                                             <span class="active-glow-dot" title="Active meter transmitting load data"></span>
@@ -288,6 +497,13 @@
                                         @if (card.IsAccumulated)
                                         {
                                             <span class="badge bg-primary text-white fw-bold" style="font-size:0.68rem;">ACCUMULATED</span>
+                                        }
+                                        @if (card.HasAnomaly)
+                                        {
+                                            var badgeClass = card.AnomalySeverity == "CRITICAL" ? "bg-danger text-white" : "bg-warning text-dark";
+                                            <span class="badge @badgeClass fw-bold" style="font-size:0.68rem;" title="ML.NET detected abnormal consumption (Spike/Leakage)">
+                                                ⚠️ ML @card.AnomalySeverity
+                                            </span>
                                         }
                                     </div>
                                     <span class="badge bg-light text-muted border" style="font-size:0.72rem;">@card.PanelType</span>

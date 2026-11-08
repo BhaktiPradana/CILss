@@ -61,6 +61,7 @@ builder.Services.AddScoped<DistributionBoardRepository>();
 builder.Services.AddScoped<ImprovementRepository>();
 builder.Services.AddScoped<CapacityRepository>();
 builder.Services.AddScoped<KwhPerPcsRepository>();
+builder.Services.AddSingleton<IEnergyAnomalyService, EnergyAnomalyService>();
 
 var app = builder.Build();
 
