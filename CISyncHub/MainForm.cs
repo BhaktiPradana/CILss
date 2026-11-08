@@ -33,6 +33,7 @@ public partial class MainForm : Form
     private EmployeeSyncService? _empService;
     private IECycleTimeSyncService? _ieCycleService;
     private MachinesProcessSyncService? _machProcessService;
+    private ProcessQuantitySyncService? _processQtyService;
     private ConnectionDiagnosticService? _diagService;
 
     public MainForm()
@@ -49,10 +50,11 @@ public partial class MainForm : Form
         _trayMenu = new ContextMenuStrip();
         _trayMenu.Items.Add("Open CI Sync Hub", null, (s, e) => RestoreFromTray());
         _trayMenu.Items.Add(new ToolStripSeparator());
-        _trayMenu.Items.Add("Sync All Now (Yield, Employee, Cycle Time)", null, async (s, e) => await RunSyncAllAsync());
+        _trayMenu.Items.Add("Sync All Now (Yield, Employee, Cycle Time & Process Qty)", null, async (s, e) => await RunSyncAllAsync());
         _trayMenu.Items.Add("Sync Yield Only", null, async (s, e) => await RunYieldSyncAsync());
         _trayMenu.Items.Add("Sync Employees Only", null, async (s, e) => await RunEmployeeSyncAsync());
         _trayMenu.Items.Add("Sync IE Cycle Time Only", null, async (s, e) => await RunIECycleSyncAsync());
+        _trayMenu.Items.Add("Sync Process Quantity (QtyIn) Only", null, async (s, e) => await RunProcessQuantitySyncAsync());
         _trayMenu.Items.Add(new ToolStripSeparator());
         _trayMenu.Items.Add("Exit", null, (s, e) => ForceExit());
 
@@ -122,6 +124,7 @@ public partial class MainForm : Form
             _empService = new EmployeeSyncService(_destConnStr, LogMessage);
             _ieCycleService = new IECycleTimeSyncService(_destConnStr, LogMessage);
             _machProcessService = new MachinesProcessSyncService(_destConnStr, LogMessage);
+            _processQtyService = new ProcessQuantitySyncService(_destConnStr, LogMessage);
             _diagService = new ConnectionDiagnosticService(LogMessage);
 
             // Update UI fields
@@ -133,6 +136,8 @@ public partial class MainForm : Form
 
             dtpFrom.Value = DateTime.Today.AddDays(-7);
             dtpTo.Value = DateTime.Today;
+            dtpFromPQ.Value = DateTime.Today.AddDays(-7);
+            dtpToPQ.Value = DateTime.Today;
         }
         catch (Exception ex)
         {
@@ -147,6 +152,7 @@ public partial class MainForm : Form
         btnDashSyncYield.Click += async (s, e) => await RunYieldSyncAsync();
         btnDashSyncEmployee.Click += async (s, e) => await RunEmployeeSyncAsync();
         btnDashSyncIECycle.Click += async (s, e) => await RunIECycleSyncAsync();
+        btnDashSyncProcessQty.Click += async (s, e) => await RunProcessQuantitySyncAsync();
         chkAutoScheduleDash.CheckedChanged += (s, e) =>
         {
             chkScheduleEnabled.Checked = chkAutoScheduleDash.Checked;
@@ -170,6 +176,16 @@ public partial class MainForm : Form
         // IE Cycle Time Tab
         btnSyncIECycle.Click += async (s, e) => await RunIECycleSyncAsync();
         btnVerifyIECycleTable.Click += async (s, e) => await VerifyIECycleTableAsync();
+
+        // Process Quantity Tab
+        btnSyncProcessQty.Click += async (s, e) => await RunProcessQuantitySyncAsync();
+        btnVerifyProcessQtyTable.Click += async (s, e) => await VerifyProcessQuantityTableAsync();
+        rbTodayPQ.CheckedChanged += (s, e) => OnDatePresetPQChanged();
+        rbYesterdayPQ.CheckedChanged += (s, e) => OnDatePresetPQChanged();
+        rbLast7DaysPQ.CheckedChanged += (s, e) => OnDatePresetPQChanged();
+        rbLast30DaysPQ.CheckedChanged += (s, e) => OnDatePresetPQChanged();
+        rbAllTimePQ.CheckedChanged += (s, e) => OnDatePresetPQChanged();
+        rbCustomPQ.CheckedChanged += (s, e) => OnDatePresetPQChanged();
 
         // Diagnostics Tab
         btnTestConnections.Click += async (s, e) => await RunDiagnosticsAsync();
@@ -247,6 +263,48 @@ public partial class MainForm : Form
         }
     }
 
+    private void OnDatePresetPQChanged()
+    {
+        if (rbTodayPQ.Checked)
+        {
+            dtpFromPQ.Value = DateTime.Today;
+            dtpToPQ.Value = DateTime.Today;
+            dtpFromPQ.Enabled = false;
+            dtpToPQ.Enabled = false;
+        }
+        else if (rbYesterdayPQ.Checked)
+        {
+            dtpFromPQ.Value = DateTime.Today.AddDays(-1);
+            dtpToPQ.Value = DateTime.Today.AddDays(-1);
+            dtpFromPQ.Enabled = false;
+            dtpToPQ.Enabled = false;
+        }
+        else if (rbLast7DaysPQ.Checked)
+        {
+            dtpFromPQ.Value = DateTime.Today.AddDays(-7);
+            dtpToPQ.Value = DateTime.Today;
+            dtpFromPQ.Enabled = false;
+            dtpToPQ.Enabled = false;
+        }
+        else if (rbLast30DaysPQ.Checked)
+        {
+            dtpFromPQ.Value = DateTime.Today.AddDays(-30);
+            dtpToPQ.Value = DateTime.Today;
+            dtpFromPQ.Enabled = false;
+            dtpToPQ.Enabled = false;
+        }
+        else if (rbAllTimePQ.Checked)
+        {
+            dtpFromPQ.Enabled = false;
+            dtpToPQ.Enabled = false;
+        }
+        else if (rbCustomPQ.Checked)
+        {
+            dtpFromPQ.Enabled = true;
+            dtpToPQ.Enabled = true;
+        }
+    }
+
     private void UpdateScheduleCardStatus()
     {
         if (_scheduleEnabled)
@@ -305,6 +363,9 @@ public partial class MainForm : Form
 
             // Step 3: IE Cycle Time Sync (MLS, OPTIC, AIS)
             await RunIECycleSyncInternalAsync(true, true, true);
+
+            // Step 4: Process Quantity Sync (MLS, OPTIC, AIS: Machine QtyIn)
+            await RunProcessQuantitySyncInternalAsync(DateTime.Today.AddDays(-7), DateTime.Today, true, true, true);
 
             LogMessage("============================================================");
             LogMessage($"🎉 [FULL SYNC COMPLETE] All operations finished at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
@@ -638,6 +699,159 @@ public partial class MainForm : Form
         }
     }
 
+    public async Task RunProcessQuantitySyncAsync()
+    {
+        if (_isSyncing)
+        {
+            MessageBox.Show("A synchronization process is already running.", "Operation In Progress", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        DateTime? start = null;
+        DateTime? end = null;
+
+        if (rbTodayPQ.Checked)
+        {
+            start = DateTime.Today;
+            end = DateTime.Today;
+        }
+        else if (rbYesterdayPQ.Checked)
+        {
+            start = DateTime.Today.AddDays(-1);
+            end = DateTime.Today.AddDays(-1);
+        }
+        else if (rbLast7DaysPQ.Checked)
+        {
+            start = DateTime.Today.AddDays(-7);
+            end = DateTime.Today;
+        }
+        else if (rbLast30DaysPQ.Checked)
+        {
+            start = DateTime.Today.AddDays(-30);
+            end = DateTime.Today;
+        }
+        else if (rbAllTimePQ.Checked)
+        {
+            start = null;
+            end = null;
+        }
+        else if (rbCustomPQ.Checked)
+        {
+            start = dtpFromPQ.Value.Date;
+            end = dtpToPQ.Value.Date;
+        }
+
+        bool syncMls = chkMlsPQ.Checked;
+        bool syncOptic = chkOpticPQ.Checked;
+        bool syncAis = chkAisPQ.Checked;
+
+        if (!syncMls && !syncOptic && !syncAis)
+        {
+            MessageBox.Show("Please select at least one source division (MLS, OPTIC, or AIS).", "No Source Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        SetSyncingState(true, "Synchronizing Process Quantity (Machine QtyIn)...");
+
+        try
+        {
+            await RunProcessQuantitySyncInternalAsync(start, end, syncMls, syncOptic, syncAis);
+            MessageBox.Show("Process Quantity (Machine QtyIn) synchronization completed successfully!", "Sync Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"❌ Process Quantity synchronization failed: {ex.Message}");
+            MessageBox.Show($"Synchronization error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetSyncingState(false, "Ready. Process Quantity sync finished.");
+        }
+    }
+
+    private async Task RunProcessQuantitySyncInternalAsync(DateTime? start, DateTime? end, bool syncMls, bool syncOptic, bool syncAis)
+    {
+        if (_processQtyService == null)
+            _processQtyService = new ProcessQuantitySyncService(_destConnStr, LogMessage);
+
+        await _processQtyService.EnsureDestinationTableExistsAsync();
+
+        var sources = new List<SyncSourceConfig>();
+
+        if (syncMls && !string.IsNullOrWhiteSpace(_sourceMLS))
+        {
+            sources.Add(new SyncSourceConfig
+            {
+                Key = "MLS",
+                Name = "MLS Lighting",
+                Division = "MLS",
+                ConnectionString = _sourceMLS,
+                ServerName = "ETCBTMA03\\DIGITMONT",
+                DatabaseName = "digimon_lighting"
+            });
+        }
+
+        if (syncOptic && !string.IsNullOrWhiteSpace(_sourceOptic))
+        {
+            sources.Add(new SyncSourceConfig
+            {
+                Key = "OPTIC",
+                Name = "OPTIC / VISION",
+                Division = "OPTIC",
+                ConnectionString = _sourceOptic,
+                ServerName = "ETCBTMA03\\DIGITMONT",
+                DatabaseName = "digimon_vision"
+            });
+        }
+
+        if (syncAis && !string.IsNullOrWhiteSpace(_sourceAIS))
+        {
+            sources.Add(new SyncSourceConfig
+            {
+                Key = "AIS",
+                Name = "AIS Detection",
+                Division = "AIS",
+                ConnectionString = _sourceAIS,
+                ServerName = "ETCBTMSQL01\\DIGITMONT",
+                DatabaseName = "dbDigitmontDetection"
+            });
+        }
+
+        int totalExtracted = 0;
+        int totalUpserted = 0;
+
+        foreach (var src in sources)
+        {
+            var res = await _processQtyService.SyncSourceAsync(src, start, end);
+            if (res.Success)
+            {
+                totalExtracted += res.RecordsExtracted;
+                totalUpserted += res.RecordsUpserted;
+            }
+        }
+
+        LogMessage("------------------------------------------------------------");
+        LogMessage($"[SUMMARY] Process Quantity (Machine QtyIn) Sync: {totalExtracted:N0} extracted, {totalUpserted:N0} upserted across all selected sources.");
+        LogMessage("------------------------------------------------------------");
+    }
+
+    public async Task VerifyProcessQuantityTableAsync()
+    {
+        try
+        {
+            if (_processQtyService == null)
+                _processQtyService = new ProcessQuantitySyncService(_destConnStr, LogMessage);
+
+            await _processQtyService.EnsureDestinationTableExistsAsync();
+            MessageBox.Show("Table [dbo].[ProcessQuantity] and associated indexes in destination database CI_LSS are verified and ready.", "Table Verified", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"❌ ProcessQuantity table verification failed: {ex.Message}");
+            MessageBox.Show($"Verification failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     public async Task RunDiagnosticsAsync()
     {
         if (_diagService == null) return;
@@ -673,10 +887,16 @@ public partial class MainForm : Form
         btnSyncAll.Enabled = !syncing;
         btnDashSyncYield.Enabled = !syncing;
         btnDashSyncEmployee.Enabled = !syncing;
+        btnDashSyncIECycle.Enabled = !syncing;
+        btnDashSyncProcessQty.Enabled = !syncing;
         btnSyncYield.Enabled = !syncing;
         btnSyncEmployee.Enabled = !syncing;
+        btnSyncIECycle.Enabled = !syncing;
+        btnSyncProcessQty.Enabled = !syncing;
         btnTestConnections.Enabled = !syncing;
         btnVerifyYieldTable.Enabled = !syncing;
+        btnVerifyIECycleTable.Enabled = !syncing;
+        btnVerifyProcessQtyTable.Enabled = !syncing;
 
         this.Cursor = syncing ? Cursors.WaitCursor : Cursors.Default;
     }

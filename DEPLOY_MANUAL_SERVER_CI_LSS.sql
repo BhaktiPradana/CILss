@@ -273,6 +273,120 @@ BEGIN
 END
 GO
 
+-- -----------------------------------------------------------------------------------------
+-- 6. TABEL: [dbo].[ProcessQuantity] (Machine-Level Process Input & Output Quantity)
+--    Menyimpan QtyIn dan QtyOut per mesin (MachCode) per hari dari dmPChart (MLS, OPTIC, AIS)
+-- -----------------------------------------------------------------------------------------
+PRINT '6. Memeriksa tabel [dbo].[ProcessQuantity]...';
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ProcessQuantity' AND schema_id = SCHEMA_ID('dbo'))
+BEGIN
+    CREATE TABLE [dbo].[ProcessQuantity] (
+        [Id]               BIGINT IDENTITY(1,1) NOT NULL,
+        [MachCode]         NVARCHAR(100)        NOT NULL,
+        [ProdDate]         DATE                 NOT NULL,
+        [QuantityIn]       FLOAT                NOT NULL DEFAULT (0),
+        [QuantityOut]      FLOAT                NOT NULL DEFAULT (0),
+        [DeviceCode]       NVARCHAR(100)        NULL DEFAULT (''),
+        [ProcCode]         NVARCHAR(50)         NULL DEFAULT (''),
+        [Division]         NVARCHAR(50)         NULL,
+        [SourceServer]     NVARCHAR(100)        NULL,
+        [SourceDatabase]   NVARCHAR(100)        NULL,
+        [LastSyncDate]     DATETIME             NOT NULL DEFAULT (GETDATE()),
+        CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    PRINT '   [OK] Tabel [dbo].[ProcessQuantity] berhasil dibuat.';
+END
+ELSE
+BEGIN
+    PRINT '   [OK] Tabel [dbo].[ProcessQuantity] sudah ada. Memeriksa kelengkapan kolom...';
+
+    -- Pastikan kolom DeviceCode ada
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'DeviceCode')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [DeviceCode] NVARCHAR(100) NULL DEFAULT ('');
+        PRINT '   [OK] Kolom [DeviceCode] berhasil ditambahkan pada ProcessQuantity.';
+    END
+
+    -- Pastikan kolom ProcCode ada
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'ProcCode')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [ProcCode] NVARCHAR(50) NULL DEFAULT ('');
+        PRINT '   [OK] Kolom [ProcCode] berhasil ditambahkan pada ProcessQuantity.';
+    END
+
+    -- Pastikan kolom QuantityOut ada
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'QuantityOut')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [QuantityOut] FLOAT NOT NULL DEFAULT (0);
+        PRINT '   [OK] Kolom [QuantityOut] berhasil ditambahkan pada ProcessQuantity.';
+    END
+
+    -- Pastikan kolom Division ada
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'Division')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [Division] NVARCHAR(50) NULL;
+        PRINT '   [OK] Kolom [Division] berhasil ditambahkan pada ProcessQuantity.';
+    END
+
+    -- Pastikan kolom SourceServer ada
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'SourceServer')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [SourceServer] NVARCHAR(100) NULL;
+        PRINT '   [OK] Kolom [SourceServer] berhasil ditambahkan pada ProcessQuantity.';
+    END
+
+    -- Pastikan kolom SourceDatabase ada
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'SourceDatabase')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [SourceDatabase] NVARCHAR(100) NULL;
+        PRINT '   [OK] Kolom [SourceDatabase] berhasil ditambahkan pada ProcessQuantity.';
+    END
+
+    -- Pastikan kolom LastSyncDate ada
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'LastSyncDate')
+    BEGIN
+        ALTER TABLE [dbo].[ProcessQuantity] ADD [LastSyncDate] DATETIME NOT NULL DEFAULT (GETDATE());
+        PRINT '   [OK] Kolom [LastSyncDate] berhasil ditambahkan pada ProcessQuantity.';
+    END
+END
+GO
+
+-- Indeks performa & integritas
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] 
+        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [DeviceCode] ASC, [ProcCode] ASC, [Division] ASC);
+    PRINT '   [OK] Indeks unik [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] berhasil dibuat.';
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProcessQuantity_ProdDate_MachCode' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_ProdDate_MachCode] 
+        ON [dbo].[ProcessQuantity] ([ProdDate] ASC, [MachCode] ASC)
+        INCLUDE ([QuantityIn], [QuantityOut]);
+    PRINT '   [OK] Indeks [IX_ProcessQuantity_ProdDate_MachCode] berhasil dibuat.';
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProcessQuantity_MachCode' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_MachCode] 
+        ON [dbo].[ProcessQuantity] ([MachCode] ASC);
+    PRINT '   [OK] Indeks [IX_ProcessQuantity_MachCode] berhasil dibuat.';
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProcessQuantity_DeviceCode' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_DeviceCode] 
+        ON [dbo].[ProcessQuantity] ([DeviceCode] ASC);
+    PRINT '   [OK] Indeks [IX_ProcessQuantity_DeviceCode] berhasil dibuat.';
+END
+GO
+
 PRINT '========================================================================';
 PRINT 'Pembaruan Skema Database CI_LSS Selesai dengan Sukses!';
 PRINT 'Waktu Selesai: ' + CONVERT(VARCHAR(30), GETDATE(), 120);

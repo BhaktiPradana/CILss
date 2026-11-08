@@ -21,6 +21,7 @@ partial class MainForm
     private System.Windows.Forms.TabPage tabYield;
     private System.Windows.Forms.TabPage tabEmployee;
     private System.Windows.Forms.TabPage tabIECycleTime;
+    private System.Windows.Forms.TabPage tabProcessQuantity;
     private System.Windows.Forms.TabPage tabConnections;
     
     // Dashboard Tab Controls
@@ -28,6 +29,7 @@ partial class MainForm
     private System.Windows.Forms.Button btnDashSyncYield;
     private System.Windows.Forms.Button btnDashSyncEmployee;
     private System.Windows.Forms.Button btnDashSyncIECycle;
+    private System.Windows.Forms.Button btnDashSyncProcessQty;
     private System.Windows.Forms.Panel pnlCardYield;
     private System.Windows.Forms.Label lblCardYieldTitle;
     private System.Windows.Forms.Label lblCardYieldStatus;
@@ -74,6 +76,24 @@ partial class MainForm
     private System.Windows.Forms.Button btnSyncIECycle;
     private System.Windows.Forms.Button btnVerifyIECycleTable;
 
+    // Process Quantity Tab Controls
+    private System.Windows.Forms.GroupBox grpSourcesPQ;
+    private System.Windows.Forms.CheckBox chkMlsPQ;
+    private System.Windows.Forms.CheckBox chkOpticPQ;
+    private System.Windows.Forms.CheckBox chkAisPQ;
+    private System.Windows.Forms.GroupBox grpDatePQ;
+    private System.Windows.Forms.RadioButton rbTodayPQ;
+    private System.Windows.Forms.RadioButton rbYesterdayPQ;
+    private System.Windows.Forms.RadioButton rbLast7DaysPQ;
+    private System.Windows.Forms.RadioButton rbLast30DaysPQ;
+    private System.Windows.Forms.RadioButton rbAllTimePQ;
+    private System.Windows.Forms.RadioButton rbCustomPQ;
+    private System.Windows.Forms.DateTimePicker dtpFromPQ;
+    private System.Windows.Forms.DateTimePicker dtpToPQ;
+    private System.Windows.Forms.Label lblToPQ;
+    private System.Windows.Forms.Button btnSyncProcessQty;
+    private System.Windows.Forms.Button btnVerifyProcessQtyTable;
+
     // Connections Tab Controls
     private System.Windows.Forms.Button btnTestConnections;
     private System.Windows.Forms.GroupBox grpConnectionInfo;
@@ -110,12 +130,14 @@ partial class MainForm
         this.tabYield = new System.Windows.Forms.TabPage();
         this.tabEmployee = new System.Windows.Forms.TabPage();
         this.tabIECycleTime = new System.Windows.Forms.TabPage();
+        this.tabProcessQuantity = new System.Windows.Forms.TabPage();
         this.tabConnections = new System.Windows.Forms.TabPage();
         
         this.btnSyncAll = new System.Windows.Forms.Button();
         this.btnDashSyncYield = new System.Windows.Forms.Button();
         this.btnDashSyncEmployee = new System.Windows.Forms.Button();
         this.btnDashSyncIECycle = new System.Windows.Forms.Button();
+        this.btnDashSyncProcessQty = new System.Windows.Forms.Button();
         this.pnlCardYield = new System.Windows.Forms.Panel();
         this.lblCardYieldTitle = new System.Windows.Forms.Label();
         this.lblCardYieldStatus = new System.Windows.Forms.Label();
@@ -158,6 +180,23 @@ partial class MainForm
         this.lblInfoIE = new System.Windows.Forms.Label();
         this.btnSyncIECycle = new System.Windows.Forms.Button();
         this.btnVerifyIECycleTable = new System.Windows.Forms.Button();
+
+        this.grpSourcesPQ = new System.Windows.Forms.GroupBox();
+        this.chkMlsPQ = new System.Windows.Forms.CheckBox();
+        this.chkOpticPQ = new System.Windows.Forms.CheckBox();
+        this.chkAisPQ = new System.Windows.Forms.CheckBox();
+        this.grpDatePQ = new System.Windows.Forms.GroupBox();
+        this.rbTodayPQ = new System.Windows.Forms.RadioButton();
+        this.rbYesterdayPQ = new System.Windows.Forms.RadioButton();
+        this.rbLast7DaysPQ = new System.Windows.Forms.RadioButton();
+        this.rbLast30DaysPQ = new System.Windows.Forms.RadioButton();
+        this.rbAllTimePQ = new System.Windows.Forms.RadioButton();
+        this.rbCustomPQ = new System.Windows.Forms.RadioButton();
+        this.dtpFromPQ = new System.Windows.Forms.DateTimePicker();
+        this.dtpToPQ = new System.Windows.Forms.DateTimePicker();
+        this.lblToPQ = new System.Windows.Forms.Label();
+        this.btnSyncProcessQty = new System.Windows.Forms.Button();
+        this.btnVerifyProcessQtyTable = new System.Windows.Forms.Button();
 
         this.btnTestConnections = new System.Windows.Forms.Button();
         this.grpConnectionInfo = new System.Windows.Forms.GroupBox();
@@ -216,7 +255,7 @@ partial class MainForm
         this.lblAppSubtitle.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblAppSubtitle.ForeColor = System.Drawing.Color.FromArgb(170, 185, 205);
         this.lblAppSubtitle.Location = new System.Drawing.Point(20, 40);
-        this.lblAppSubtitle.Text = "Excelitas CI Hub — Unified Synchronization Center (Yield, Employees & IE Cycle Time)";
+        this.lblAppSubtitle.Text = "Excelitas CI Hub — Unified Synchronization Center (Yield, Employees, Cycle Time & Process Quantity)";
 
         // 
         // tabControl
@@ -229,6 +268,7 @@ partial class MainForm
         this.tabControl.Controls.Add(this.tabYield);
         this.tabControl.Controls.Add(this.tabEmployee);
         this.tabControl.Controls.Add(this.tabIECycleTime);
+        this.tabControl.Controls.Add(this.tabProcessQuantity);
         this.tabControl.Controls.Add(this.tabConnections);
 
         // ==========================================
@@ -300,17 +340,17 @@ partial class MainForm
 
         // Main Action Button: SYNC ALL
         this.btnSyncAll.Location = new System.Drawing.Point(18, 115);
-        this.btnSyncAll.Size = new System.Drawing.Size(330, 52);
+        this.btnSyncAll.Size = new System.Drawing.Size(260, 52);
         this.btnSyncAll.BackColor = System.Drawing.Color.FromArgb(39, 174, 96);
         this.btnSyncAll.ForeColor = System.Drawing.Color.White;
-        this.btnSyncAll.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+        this.btnSyncAll.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
         this.btnSyncAll.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnSyncAll.Cursor = System.Windows.Forms.Cursors.Hand;
-        this.btnSyncAll.Text = "🚀 ONE-CLICK SYNC ALL\n(Yield, Employee & Cycle Time)";
+        this.btnSyncAll.Text = "🚀 ONE-CLICK SYNC ALL\n(Yield, Emp, Cycle & QtyIn)";
 
         // Selective Buttons
-        this.btnDashSyncYield.Location = new System.Drawing.Point(365, 115);
-        this.btnDashSyncYield.Size = new System.Drawing.Size(170, 52);
+        this.btnDashSyncYield.Location = new System.Drawing.Point(290, 115);
+        this.btnDashSyncYield.Size = new System.Drawing.Size(140, 52);
         this.btnDashSyncYield.BackColor = System.Drawing.Color.FromArgb(41, 128, 185);
         this.btnDashSyncYield.ForeColor = System.Drawing.Color.White;
         this.btnDashSyncYield.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
@@ -318,8 +358,8 @@ partial class MainForm
         this.btnDashSyncYield.Cursor = System.Windows.Forms.Cursors.Hand;
         this.btnDashSyncYield.Text = "📊 Sync Yield";
 
-        this.btnDashSyncEmployee.Location = new System.Drawing.Point(550, 115);
-        this.btnDashSyncEmployee.Size = new System.Drawing.Size(175, 52);
+        this.btnDashSyncEmployee.Location = new System.Drawing.Point(440, 115);
+        this.btnDashSyncEmployee.Size = new System.Drawing.Size(145, 52);
         this.btnDashSyncEmployee.BackColor = System.Drawing.Color.FromArgb(142, 68, 173);
         this.btnDashSyncEmployee.ForeColor = System.Drawing.Color.White;
         this.btnDashSyncEmployee.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
@@ -327,14 +367,23 @@ partial class MainForm
         this.btnDashSyncEmployee.Cursor = System.Windows.Forms.Cursors.Hand;
         this.btnDashSyncEmployee.Text = "👥 Sync Employees";
 
-        this.btnDashSyncIECycle.Location = new System.Drawing.Point(740, 115);
-        this.btnDashSyncIECycle.Size = new System.Drawing.Size(172, 52);
+        this.btnDashSyncIECycle.Location = new System.Drawing.Point(595, 115);
+        this.btnDashSyncIECycle.Size = new System.Drawing.Size(145, 52);
         this.btnDashSyncIECycle.BackColor = System.Drawing.Color.FromArgb(211, 84, 0);
         this.btnDashSyncIECycle.ForeColor = System.Drawing.Color.White;
         this.btnDashSyncIECycle.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
         this.btnDashSyncIECycle.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnDashSyncIECycle.Cursor = System.Windows.Forms.Cursors.Hand;
         this.btnDashSyncIECycle.Text = "⏱️ Sync Cycle Time";
+
+        this.btnDashSyncProcessQty.Location = new System.Drawing.Point(750, 115);
+        this.btnDashSyncProcessQty.Size = new System.Drawing.Size(165, 52);
+        this.btnDashSyncProcessQty.BackColor = System.Drawing.Color.FromArgb(16, 185, 129);
+        this.btnDashSyncProcessQty.ForeColor = System.Drawing.Color.White;
+        this.btnDashSyncProcessQty.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+        this.btnDashSyncProcessQty.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.btnDashSyncProcessQty.Cursor = System.Windows.Forms.Cursors.Hand;
+        this.btnDashSyncProcessQty.Text = "⚙️ Sync Machine Qty";
 
         this.tabDashboard.Controls.Add(this.pnlCardYield);
         this.tabDashboard.Controls.Add(this.pnlCardEmployee);
@@ -343,15 +392,7 @@ partial class MainForm
         this.tabDashboard.Controls.Add(this.btnDashSyncYield);
         this.tabDashboard.Controls.Add(this.btnDashSyncEmployee);
         this.tabDashboard.Controls.Add(this.btnDashSyncIECycle);
-        this.btnDashSyncEmployee.Cursor = System.Windows.Forms.Cursors.Hand;
-        this.btnDashSyncEmployee.Text = "👥 Sync Employees Only";
-
-        this.tabDashboard.Controls.Add(this.pnlCardYield);
-        this.tabDashboard.Controls.Add(this.pnlCardEmployee);
-        this.tabDashboard.Controls.Add(this.pnlCardSchedule);
-        this.tabDashboard.Controls.Add(this.btnSyncAll);
-        this.tabDashboard.Controls.Add(this.btnDashSyncYield);
-        this.tabDashboard.Controls.Add(this.btnDashSyncEmployee);
+        this.tabDashboard.Controls.Add(this.btnDashSyncProcessQty);
 
         // ==========================================
         // TAB 2: YIELD SYNC
@@ -567,7 +608,113 @@ partial class MainForm
         this.tabIECycleTime.Controls.Add(this.btnVerifyIECycleTable);
 
         // ==========================================
-        // TAB 5: CONNECTIONS & SETTINGS
+        // TAB 5: PROCESS QUANTITY (MACHINE QTYIN)
+        // ==========================================
+        this.tabProcessQuantity.Text = "  ⚙️ Process Quantity (Mach QtyIn)  ";
+        this.tabProcessQuantity.BackColor = System.Drawing.Color.FromArgb(248, 249, 251);
+        this.tabProcessQuantity.Padding = new System.Windows.Forms.Padding(15);
+
+        // grpSourcesPQ
+        this.grpSourcesPQ.Location = new System.Drawing.Point(18, 12);
+        this.grpSourcesPQ.Size = new System.Drawing.Size(420, 100);
+        this.grpSourcesPQ.Text = "Source Databases (dmPChart: MachCode & QtyIn)";
+        this.grpSourcesPQ.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+        this.chkMlsPQ.Text = "MLS (Lighting) - ETCBTMA03\\DIGITMONT.digimon_lighting";
+        this.chkMlsPQ.Location = new System.Drawing.Point(15, 22);
+        this.chkMlsPQ.Size = new System.Drawing.Size(390, 22);
+        this.chkMlsPQ.Checked = true;
+        this.chkMlsPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.chkOpticPQ.Text = "OPTIC / VISION - ETCBTMA03\\DIGITMONT.digimon_vision";
+        this.chkOpticPQ.Location = new System.Drawing.Point(15, 46);
+        this.chkOpticPQ.Size = new System.Drawing.Size(390, 22);
+        this.chkOpticPQ.Checked = true;
+        this.chkOpticPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.chkAisPQ.Text = "AIS (Detection) - ETCBTMSQL01\\DIGITMONT.dbDigitmontDetection";
+        this.chkAisPQ.Location = new System.Drawing.Point(15, 70);
+        this.chkAisPQ.Size = new System.Drawing.Size(390, 22);
+        this.chkAisPQ.Checked = true;
+        this.chkAisPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.grpSourcesPQ.Controls.Add(this.chkMlsPQ);
+        this.grpSourcesPQ.Controls.Add(this.chkOpticPQ);
+        this.grpSourcesPQ.Controls.Add(this.chkAisPQ);
+
+        // grpDatePQ
+        this.grpDatePQ.Location = new System.Drawing.Point(455, 12);
+        this.grpDatePQ.Size = new System.Drawing.Size(460, 100);
+        this.grpDatePQ.Text = "Production Date Window";
+        this.grpDatePQ.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+        this.rbTodayPQ.Text = "Today";
+        this.rbTodayPQ.Location = new System.Drawing.Point(15, 22);
+        this.rbTodayPQ.Size = new System.Drawing.Size(70, 20);
+        this.rbTodayPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.rbYesterdayPQ.Text = "Yesterday";
+        this.rbYesterdayPQ.Location = new System.Drawing.Point(95, 22);
+        this.rbYesterdayPQ.Size = new System.Drawing.Size(85, 20);
+        this.rbYesterdayPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.rbLast7DaysPQ.Text = "Last 7 Days (Default)";
+        this.rbLast7DaysPQ.Location = new System.Drawing.Point(190, 22);
+        this.rbLast7DaysPQ.Size = new System.Drawing.Size(140, 20);
+        this.rbLast7DaysPQ.Checked = true;
+        this.rbLast7DaysPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.rbLast30DaysPQ.Text = "Last 30 Days";
+        this.rbLast30DaysPQ.Location = new System.Drawing.Point(340, 22);
+        this.rbLast30DaysPQ.Size = new System.Drawing.Size(100, 20);
+        this.rbLast30DaysPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.rbAllTimePQ.Text = "All Historical";
+        this.rbAllTimePQ.Location = new System.Drawing.Point(15, 50);
+        this.rbAllTimePQ.Size = new System.Drawing.Size(100, 20);
+        this.rbAllTimePQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.rbCustomPQ.Text = "Custom:";
+        this.rbCustomPQ.Location = new System.Drawing.Point(125, 50);
+        this.rbCustomPQ.Size = new System.Drawing.Size(70, 20);
+        this.rbCustomPQ.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+        this.dtpFromPQ.Location = new System.Drawing.Point(200, 48);
+        this.dtpFromPQ.Size = new System.Drawing.Size(105, 23);
+        this.dtpFromPQ.Format = System.Windows.Forms.DateTimePickerFormat.Short;
+        this.dtpFromPQ.Enabled = false;
+        this.lblToPQ.Text = "to";
+        this.lblToPQ.Location = new System.Drawing.Point(312, 51);
+        this.lblToPQ.Size = new System.Drawing.Size(20, 20);
+        this.dtpToPQ.Location = new System.Drawing.Point(335, 48);
+        this.dtpToPQ.Size = new System.Drawing.Size(105, 23);
+        this.dtpToPQ.Format = System.Windows.Forms.DateTimePickerFormat.Short;
+        this.dtpToPQ.Enabled = false;
+        this.grpDatePQ.Controls.Add(this.rbTodayPQ);
+        this.grpDatePQ.Controls.Add(this.rbYesterdayPQ);
+        this.grpDatePQ.Controls.Add(this.rbLast7DaysPQ);
+        this.grpDatePQ.Controls.Add(this.rbLast30DaysPQ);
+        this.grpDatePQ.Controls.Add(this.rbAllTimePQ);
+        this.grpDatePQ.Controls.Add(this.rbCustomPQ);
+        this.grpDatePQ.Controls.Add(this.dtpFromPQ);
+        this.grpDatePQ.Controls.Add(this.lblToPQ);
+        this.grpDatePQ.Controls.Add(this.dtpToPQ);
+
+        // Buttons
+        this.btnSyncProcessQty.Location = new System.Drawing.Point(18, 125);
+        this.btnSyncProcessQty.Size = new System.Drawing.Size(420, 46);
+        this.btnSyncProcessQty.BackColor = System.Drawing.Color.FromArgb(16, 185, 129);
+        this.btnSyncProcessQty.ForeColor = System.Drawing.Color.White;
+        this.btnSyncProcessQty.Font = new System.Drawing.Font("Segoe UI", 10.5F, System.Drawing.FontStyle.Bold);
+        this.btnSyncProcessQty.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.btnSyncProcessQty.Cursor = System.Windows.Forms.Cursors.Hand;
+        this.btnSyncProcessQty.Text = "⚙️ START PROCESS QUANTITY (QTYIN) SYNC";
+
+        this.btnVerifyProcessQtyTable.Location = new System.Drawing.Point(455, 125);
+        this.btnVerifyProcessQtyTable.Size = new System.Drawing.Size(460, 46);
+        this.btnVerifyProcessQtyTable.BackColor = System.Drawing.Color.FromArgb(52, 73, 94);
+        this.btnVerifyProcessQtyTable.ForeColor = System.Drawing.Color.White;
+        this.btnVerifyProcessQtyTable.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+        this.btnVerifyProcessQtyTable.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.btnVerifyProcessQtyTable.Cursor = System.Windows.Forms.Cursors.Hand;
+        this.btnVerifyProcessQtyTable.Text = "🔍 Verify Target Table [dbo].[ProcessQuantity]";
+
+        this.tabProcessQuantity.Controls.Add(this.grpSourcesPQ);
+        this.tabProcessQuantity.Controls.Add(this.grpDatePQ);
+        this.tabProcessQuantity.Controls.Add(this.btnSyncProcessQty);
+        this.tabProcessQuantity.Controls.Add(this.btnVerifyProcessQtyTable);
+
+        // ==========================================
+        // TAB 6: CONNECTIONS & SETTINGS
         // ==========================================
         this.tabConnections.Text = "  🔌 Diagnostics & Settings  ";
         this.tabConnections.BackColor = System.Drawing.Color.FromArgb(248, 249, 251);
