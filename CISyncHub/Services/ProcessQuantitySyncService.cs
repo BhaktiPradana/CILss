@@ -34,31 +34,20 @@ public class ProcessQuantitySyncService
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ProcessQuantity' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[ProcessQuantity] (
-        [Id]               BIGINT IDENTITY(1,1) NOT NULL,
         [MachCode]         NVARCHAR(100)        NOT NULL,
         [ProdDate]         DATE                 NOT NULL,
         [QuantityIn]       FLOAT                NOT NULL DEFAULT (0),
         [QuantityOut]      FLOAT                NOT NULL DEFAULT (0),
-        [DeviceCode]       NVARCHAR(100)        NULL DEFAULT (''),
-        [ProcCode]         NVARCHAR(50)         NULL DEFAULT (''),
         [Division]         NVARCHAR(50)         NULL,
         [SourceServer]     NVARCHAR(100)        NULL,
         [SourceDatabase]   NVARCHAR(100)        NULL,
         [LastSyncDate]     DATETIME             NOT NULL DEFAULT (GETDATE()),
-        CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC)
+        [DeviceCode]       NVARCHAR(100)        NULL DEFAULT (''),
+        [ProcCode]         NVARCHAR(50)         NULL DEFAULT ('')
     );
 END
 ELSE
 BEGIN
-    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'Id')
-    BEGIN
-        ALTER TABLE [dbo].[ProcessQuantity] ADD [Id] BIGINT IDENTITY(1,1) NOT NULL;
-        IF NOT EXISTS (SELECT * FROM sys.key_constraints WHERE parent_object_id = OBJECT_ID('dbo.ProcessQuantity') AND type = 'PK')
-        BEGIN
-            ALTER TABLE [dbo].[ProcessQuantity] ADD CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC);
-        END
-    END
-
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'QuantityOut')
         ALTER TABLE [dbo].[ProcessQuantity] ADD [QuantityOut] FLOAT NOT NULL DEFAULT (0);
 
@@ -305,8 +294,8 @@ WHEN MATCHED THEN
         target.[SourceDatabase] = source.[SourceDatabase],
         target.[LastSyncDate]   = GETDATE()
 WHEN NOT MATCHED BY TARGET THEN
-    INSERT ([MachCode], [ProdDate], [QuantityIn], [QuantityOut], [Division], [SourceServer], [SourceDatabase], [LastSyncDate])
-    VALUES (source.[MachCode], source.[ProdDate], source.[QuantityIn], source.[QuantityOut], source.[Division], source.[SourceServer], source.[SourceDatabase], GETDATE());
+    INSERT ([MachCode], [ProdDate], [QuantityIn], [QuantityOut], [Division], [SourceServer], [SourceDatabase], [LastSyncDate], [DeviceCode], [ProcCode])
+    VALUES (source.[MachCode], source.[ProdDate], source.[QuantityIn], source.[QuantityOut], source.[Division], source.[SourceServer], source.[SourceDatabase], GETDATE(), '', '');
 
 DROP TABLE #Stage_ProcessQuantity;
 ";

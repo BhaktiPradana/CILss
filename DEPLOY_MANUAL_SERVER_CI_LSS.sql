@@ -282,18 +282,16 @@ PRINT '6. Memeriksa tabel [dbo].[ProcessQuantity]...';
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ProcessQuantity' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[ProcessQuantity] (
-        [Id]               BIGINT IDENTITY(1,1) NOT NULL,
         [MachCode]         NVARCHAR(100)        NOT NULL,
         [ProdDate]         DATE                 NOT NULL,
         [QuantityIn]       FLOAT                NOT NULL DEFAULT (0),
         [QuantityOut]      FLOAT                NOT NULL DEFAULT (0),
-        [DeviceCode]       NVARCHAR(100)        NULL DEFAULT (''),
-        [ProcCode]         NVARCHAR(50)         NULL DEFAULT (''),
         [Division]         NVARCHAR(50)         NULL,
         [SourceServer]     NVARCHAR(100)        NULL,
         [SourceDatabase]   NVARCHAR(100)        NULL,
         [LastSyncDate]     DATETIME             NOT NULL DEFAULT (GETDATE()),
-        CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC)
+        [DeviceCode]       NVARCHAR(100)        NULL DEFAULT (''),
+        [ProcCode]         NVARCHAR(50)         NULL DEFAULT ('')
     );
 
     PRINT '   [OK] Tabel [dbo].[ProcessQuantity] berhasil dibuat.';
@@ -301,17 +299,6 @@ END
 ELSE
 BEGIN
     PRINT '   [OK] Tabel [dbo].[ProcessQuantity] sudah ada. Memeriksa kelengkapan kolom...';
-
-    -- Pastikan kolom Id ada sebagai IDENTITY & PK
-    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'Id')
-    BEGIN
-        ALTER TABLE [dbo].[ProcessQuantity] ADD [Id] BIGINT IDENTITY(1,1) NOT NULL;
-        IF NOT EXISTS (SELECT * FROM sys.key_constraints WHERE parent_object_id = OBJECT_ID('dbo.ProcessQuantity') AND type = 'PK')
-        BEGIN
-            ALTER TABLE [dbo].[ProcessQuantity] ADD CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC);
-        END
-        PRINT '   [OK] Kolom [Id] IDENTITY dan Primary Key berhasil ditambahkan pada ProcessQuantity.';
-    END
 
     -- Pastikan kolom DeviceCode ada
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProcessQuantity') AND name = 'DeviceCode')
