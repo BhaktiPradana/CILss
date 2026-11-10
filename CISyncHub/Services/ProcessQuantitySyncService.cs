@@ -71,24 +71,24 @@ BEGIN
 END
 
 -- Drop legacy unique index if exists
-IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
 BEGIN
-    DROP INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] ON [dbo].[ProcessQuantity];
+    DROP INDEX [UQ_ProcessQuantity_Mach_Date_Div] ON [dbo].[ProcessQuantity];
 END;
 
--- Deduplicate any existing records to ensure unique (MachCode, ProdDate, Division)
+-- Deduplicate any existing records to ensure unique (MachCode, ProdDate, DeviceCode, ProcCode, Division)
 ;WITH DuplicatesToDelete AS (
     SELECT 
-        ROW_NUMBER() OVER (PARTITION BY MachCode, ProdDate, ISNULL(Division, '') ORDER BY (SELECT NULL)) AS rn
+        ROW_NUMBER() OVER (PARTITION BY MachCode, ProdDate, ISNULL(DeviceCode, ''), ISNULL(ProcCode, ''), ISNULL(Division, '') ORDER BY (SELECT NULL)) AS rn
     FROM [dbo].[ProcessQuantity]
 )
 DELETE FROM DuplicatesToDelete WHERE rn > 1;
 
--- Unique index ensuring exactly 1 daily total row per machine per division
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
+-- Unique index ensuring 1 row per machine, date, device, proc, and division
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
 BEGIN
-    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Div] 
-        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [Division] ASC);
+    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] 
+        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [DeviceCode] ASC, [ProcCode] ASC, [Division] ASC);
 END;
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProcessQuantity_ProdDate_MachCode' AND object_id = OBJECT_ID('dbo.ProcessQuantity'))
@@ -173,6 +173,8 @@ END;
         var dt = new DataTable();
         dt.Columns.Add("MachCode", typeof(string));
         dt.Columns.Add("ProdDate", typeof(DateTime));
+        dt.Columns.Add("DeviceCode", typeof(string));
+        dt.Columns.Add("ProcCode", typeof(string));
         dt.Columns.Add("QuantityIn", typeof(double));
         dt.Columns.Add("QuantityOut", typeof(double));
         dt.Columns.Add("Division", typeof(string));
@@ -189,11 +191,13 @@ END;
             dateFilter = "AND COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) >= @StartDate";
         }
 
-        // Akumulasi total QtyIn & QtyOut per mesin per hari (1 row per machine per calendar day)
+        // Akumulasi QtyIn & QtyOut per mesin, tanggal, device, dan proses
         string sql = $@"
 SELECT 
     LTRIM(RTRIM(p.MachCode)) AS [MachCode],
     CAST(COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) AS DATE) AS [ProdDate],
+    ISNULL(LTRIM(RTRIM(p.DeviceCode)), '') AS [DeviceCode],
+    ISNULL(LTRIM(RTRIM(p.ProcCode)), '') AS [ProcCode],
     SUM(CAST(ISNULL(p.QuantityIn, 0) AS FLOAT)) AS [QuantityIn],
     SUM(CAST(ISNULL(p.QuantityOut, 0) AS FLOAT)) AS [QuantityOut]
 FROM dmPChart p WITH (NOLOCK)
@@ -203,7 +207,9 @@ WHERE p.MachCode IS NOT NULL
   {dateFilter}
 GROUP BY 
     LTRIM(RTRIM(p.MachCode)),
-    CAST(COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) AS DATE)
+    CAST(COALESCE(p.DateFinishActual, p.DateFinish, p.DateStart) AS DATE),
+    ISNULL(LTRIM(RTRIM(p.DeviceCode)), ''),
+    ISNULL(LTRIM(RTRIM(p.ProcCode)), '')
 ORDER BY 
     [ProdDate] DESC, [MachCode] ASC;";
 
@@ -222,12 +228,16 @@ ORDER BY
         {
             string machCode = reader.GetString(0);
             DateTime prodDate = reader.GetDateTime(1);
-            double qtyIn = reader.IsDBNull(2) ? 0 : Convert.ToDouble(reader.GetValue(2));
-            double qtyOut = reader.IsDBNull(3) ? 0 : Convert.ToDouble(reader.GetValue(3));
+            string devCode = reader.IsDBNull(2) ? "" : reader.GetString(2);
+            string procCode = reader.IsDBNull(3) ? "" : reader.GetString(3);
+            double qtyIn = reader.IsDBNull(4) ? 0 : Convert.ToDouble(reader.GetValue(4));
+            double qtyOut = reader.IsDBNull(5) ? 0 : Convert.ToDouble(reader.GetValue(5));
 
             dt.Rows.Add(
                 machCode,
                 prodDate,
+                devCode,
+                procCode,
                 qtyIn,
                 qtyOut,
                 source.Division,
@@ -244,11 +254,13 @@ ORDER BY
         using var conn = new SqlConnection(_destConnStr);
         await conn.OpenAsync(cancellationToken);
 
-        // 1. Create Staging Table in destination CI_LSS (Daily Machine Level)
+        // 1. Create Staging Table in destination CI_LSS (with DeviceCode and ProcCode)
         const string createStageSql = @"
 CREATE TABLE #Stage_ProcessQuantity (
     [MachCode]       NVARCHAR(100) NOT NULL,
     [ProdDate]       DATE          NOT NULL,
+    [DeviceCode]     NVARCHAR(100) NULL,
+    [ProcCode]       NVARCHAR(50)  NULL,
     [QuantityIn]     FLOAT         NOT NULL,
     [QuantityOut]    FLOAT         NOT NULL,
     [Division]       NVARCHAR(50)  NULL,
@@ -270,6 +282,8 @@ CREATE TABLE #Stage_ProcessQuantity (
 
             bulkCopy.ColumnMappings.Add("MachCode", "MachCode");
             bulkCopy.ColumnMappings.Add("ProdDate", "ProdDate");
+            bulkCopy.ColumnMappings.Add("DeviceCode", "DeviceCode");
+            bulkCopy.ColumnMappings.Add("ProcCode", "ProcCode");
             bulkCopy.ColumnMappings.Add("QuantityIn", "QuantityIn");
             bulkCopy.ColumnMappings.Add("QuantityOut", "QuantityOut");
             bulkCopy.ColumnMappings.Add("Division", "Division");
@@ -279,12 +293,23 @@ CREATE TABLE #Stage_ProcessQuantity (
             await bulkCopy.WriteToServerAsync(dt, cancellationToken);
         }
 
-        // 3. MERGE Staging Table into dbo.ProcessQuantity (Unique per MachCode, ProdDate, Division)
+        // 3. Clean up any previous empty-device placeholder records for the dates being synced,
+        // and MERGE Staging Table into dbo.ProcessQuantity
         const string mergeSql = @"
+-- Clean up previous rows where DeviceCode/ProcCode were empty for the dates being synced
+DELETE target
+FROM [dbo].[ProcessQuantity] target
+INNER JOIN (SELECT DISTINCT [ProdDate], [Division] FROM #Stage_ProcessQuantity) s
+    ON target.[ProdDate] = s.[ProdDate] 
+    AND ISNULL(target.[Division], '') = ISNULL(s.[Division], '')
+WHERE ISNULL(target.[DeviceCode], '') = '' AND ISNULL(target.[ProcCode], '') = '';
+
 MERGE [dbo].[ProcessQuantity] AS target
 USING #Stage_ProcessQuantity AS source
 ON (target.[MachCode] = source.[MachCode]
     AND target.[ProdDate] = source.[ProdDate]
+    AND ISNULL(target.[DeviceCode], '') = ISNULL(source.[DeviceCode], '')
+    AND ISNULL(target.[ProcCode], '') = ISNULL(source.[ProcCode], '')
     AND ISNULL(target.[Division], '') = ISNULL(source.[Division], ''))
 WHEN MATCHED THEN
     UPDATE SET
@@ -295,7 +320,7 @@ WHEN MATCHED THEN
         target.[LastSyncDate]   = GETDATE()
 WHEN NOT MATCHED BY TARGET THEN
     INSERT ([MachCode], [ProdDate], [QuantityIn], [QuantityOut], [Division], [SourceServer], [SourceDatabase], [LastSyncDate], [DeviceCode], [ProcCode])
-    VALUES (source.[MachCode], source.[ProdDate], source.[QuantityIn], source.[QuantityOut], source.[Division], source.[SourceServer], source.[SourceDatabase], GETDATE(), '', '');
+    VALUES (source.[MachCode], source.[ProdDate], source.[QuantityIn], source.[QuantityOut], source.[Division], source.[SourceServer], source.[SourceDatabase], GETDATE(), ISNULL(source.[DeviceCode], ''), ISNULL(source.[ProcCode], ''));
 
 DROP TABLE #Stage_ProcessQuantity;
 ";

@@ -358,22 +358,20 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ProcessQuantity' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[ProcessQuantity] (
-        [Id]               BIGINT IDENTITY(1,1) NOT NULL,
         [MachCode]         NVARCHAR(100)        NOT NULL,
         [ProdDate]         DATE                 NOT NULL,
         [QuantityIn]       FLOAT                NOT NULL DEFAULT (0),
         [QuantityOut]      FLOAT                NOT NULL DEFAULT (0),
-        [DeviceCode]       NVARCHAR(100)        NULL DEFAULT (''),
-        [ProcCode]         NVARCHAR(50)         NULL DEFAULT (''),
         [Division]         NVARCHAR(50)         NULL,
         [SourceServer]     NVARCHAR(100)        NULL,
         [SourceDatabase]   NVARCHAR(100)        NULL,
         [LastSyncDate]     DATETIME             NOT NULL DEFAULT (GETDATE()),
-        CONSTRAINT [PK_ProcessQuantity] PRIMARY KEY CLUSTERED ([Id] ASC)
+        [DeviceCode]       NVARCHAR(100)        NULL DEFAULT (''),
+        [ProcCode]         NVARCHAR(50)         NULL DEFAULT ('')
     );
 
-    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Div] 
-        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [Division] ASC);
+    CREATE UNIQUE NONCLUSTERED INDEX [UQ_ProcessQuantity_Mach_Date_Dev_Proc_Div] 
+        ON [dbo].[ProcessQuantity] ([MachCode] ASC, [ProdDate] ASC, [DeviceCode] ASC, [ProcCode] ASC, [Division] ASC);
 
     CREATE NONCLUSTERED INDEX [IX_ProcessQuantity_ProdDate_MachCode] 
         ON [dbo].[ProcessQuantity] ([ProdDate] ASC, [MachCode] ASC)
