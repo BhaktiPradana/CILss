@@ -1149,6 +1149,235 @@ namespace LssTraining.Web.Data
                 .OrderByDescending(l => l.TotalLaborHours)
                 .ToList();
 
+            // Multi-Device Weekly Load & Composition Simulation
+            if (validDevices.Count > 1)
+            {
+                var palette = new[]
+                {
+                    "#3b82f6", // Blue
+                    "#10b981", // Emerald
+                    "#f59e0b", // Amber
+                    "#8b5cf6", // Purple
+                    "#ec4899", // Pink
+                    "#06b6d4", // Cyan
+                    "#6366f1", // Indigo
+                    "#14b8a6", // Teal
+                    "#f97316", // Orange
+                    "#84cc16", // Lime
+                    "#a855f7", // Fuchsia
+                    "#e11d48"  // Rose
+                };
+
+                int weeksCount = input.EffectiveWeeksPerYear;
+                if (weeksCount <= 0) weeksCount = 52;
+
+                // 1. Identify primary bottleneck machine across the matrices
+                var primaryBottleneck = result.MachineLoads
+                    .OrderByDescending(m => m.UtilizationPercent)
+                    .ThenByDescending(m => m.RequiredHours)
+                    .FirstOrDefault();
+
+                string bottleneckWc = primaryBottleneck?.WorkCenter ?? "Primary Machine";
+                decimal bottleneckAvailWeeklyHours = primaryBottleneck?.AvailableWithOvertimeHours ?? input.AvailableMachineHoursWithOt;
+                result.PrimaryBottleneckWorkCenter = bottleneckWc;
+                result.BottleneckMaxWeeklyHours = bottleneckAvailWeeklyHours;
+
+                // 2. Prepare device metadata, unit hours on bottleneck, and target quantities
+                var devProfiles = new List<(DeviceDemandInput Input, string Code, string Name, long InputQty, bool IsYearly, long TargetWeekly, long TotalYearly, decimal UnitMachHours, string Color)>();
+                for (int i = 0; i < validDevices.Count; i++)
+                {
+                    var d = validDevices[i];
+                    string code = d.DeviceCode.Trim();
+                    string name = !string.IsNullOrWhiteSpace(d.DeviceName) ? d.DeviceName : code;
+                    long inputQty = d.DemandQuantity;
+                    bool isYearly = string.Equals(d.DemandPeriod, "Yearly", StringComparison.OrdinalIgnoreCase);
+                    long targetWeekly = isYearly ? (long)Math.Max(1, Math.Round((decimal)inputQty / weeksCount)) : inputQty;
+                    long totalYearly = isYearly ? inputQty : (inputQty * weeksCount);
+
+                    decimal unitMachHours = 0m;
+                    if (primaryBottleneck != null && primaryBottleneck.DeviceHoursBreakdown.TryGetValue(code, out var totalDevHrs))
+                    {
+                        decimal devWeeklyUnits = isYearly ? ((decimal)inputQty / weeksCount) : inputQty;
+                        if (devWeeklyUnits > 0m)
+                            unitMachHours = totalDevHrs / devWeeklyUnits;
+                    }
+
+                    string color = palette[i % palette.Length];
+                    devProfiles.Add((d, code, name, inputQty, isYearly, targetWeekly, totalYearly, unitMachHours, color));
+                }
+
+                // 3. Week-by-week multi-device simulation
+                var remainingYearly = devProfiles.ToDictionary(p => p.Code, p => p.TotalYearly);
+                var totalProducedMap = devProfiles.ToDictionary(p => p.Code, p => 0L);
+                var completionWeekMap = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
+
+                long cumulativeAll = 0L;
+
+                for (int w = 1; w <= weeksCount; w++)
+                {
+                    var weekRow = new MultiDeviceWeeklyBreakdown
+                    {
+                        WeekNumber = w,
+                        BottleneckWorkCenter = bottleneckWc
+                    };
+
+                    // Active devices for this week (either weekly ongoing demand or remaining yearly demand > 0)
+                    var activeDevs = devProfiles
+                        .Where(p => !p.IsYearly || remainingYearly[p.Code] > 0)
+                        .ToList();
+
+                    if (activeDevs.Count == 0)
+                    {
+                        // All yearly demands are already complete
+                        weekRow.Status = "Completed";
+                        weekRow.CumulativeProducedUnits = cumulativeAll;
+                        foreach (var p in devProfiles)
+                        {
+                            weekRow.DeviceItems.Add(new DeviceWeeklyProductionItem
+                            {
+                                DeviceCode = p.Code,
+                                DeviceName = p.Name,
+                                TargetDemandUnits = 0,
+                                ProducedUnits = 0,
+                                CompositionPercent = 0m,
+                                MachineHoursUsed = 0m,
+                                ColorHex = p.Color
+                            });
+                        }
+                        result.WeeklyMultiDeviceBreakdowns.Add(weekRow);
+                        continue;
+                    }
+
+                    // Compute desired targets for this week
+                    var weekTargets = new Dictionary<string, long>();
+                    decimal totalWeekRequiredHours = 0m;
+                    foreach (var p in activeDevs)
+                    {
+                        long desired = p.IsYearly ? Math.Min(p.TargetWeekly, remainingYearly[p.Code]) : p.TargetWeekly;
+                        weekTargets[p.Code] = desired;
+                        totalWeekRequiredHours += (desired * p.UnitMachHours);
+                    }
+
+                    // Determine capacity constraint factor on primary bottleneck
+                    decimal capacityRatio = 1.0m;
+                    if (bottleneckAvailWeeklyHours > 0m && totalWeekRequiredHours > bottleneckAvailWeeklyHours)
+                    {
+                        capacityRatio = bottleneckAvailWeeklyHours / totalWeekRequiredHours;
+                    }
+
+                    weekRow.BottleneckUtilizationPercent = bottleneckAvailWeeklyHours > 0m
+                        ? Math.Round((totalWeekRequiredHours / bottleneckAvailWeeklyHours) * 100m, 1)
+                        : 0m;
+
+                    long weekTotalProduced = 0L;
+                    long weekTotalTarget = 0L;
+
+                    foreach (var p in devProfiles)
+                    {
+                        if (weekTargets.TryGetValue(p.Code, out long targetQty) && targetQty > 0)
+                        {
+                            long producible = (capacityRatio >= 1.0m)
+                                ? targetQty
+                                : (long)Math.Max(1, Math.Floor(targetQty * capacityRatio));
+
+                            if (p.IsYearly)
+                                producible = Math.Min(producible, remainingYearly[p.Code]);
+
+                            remainingYearly[p.Code] = Math.Max(0L, remainingYearly[p.Code] - producible);
+                            totalProducedMap[p.Code] += producible;
+
+                            if (p.IsYearly && remainingYearly[p.Code] == 0 && !completionWeekMap.ContainsKey(p.Code))
+                            {
+                                completionWeekMap[p.Code] = w;
+                            }
+
+                            decimal devHoursUsed = Math.Round(producible * p.UnitMachHours, 2);
+
+                            weekRow.DeviceItems.Add(new DeviceWeeklyProductionItem
+                            {
+                                DeviceCode = p.Code,
+                                DeviceName = p.Name,
+                                TargetDemandUnits = targetQty,
+                                ProducedUnits = producible,
+                                MachineHoursUsed = devHoursUsed,
+                                ColorHex = p.Color
+                            });
+
+                            weekTotalProduced += producible;
+                            weekTotalTarget += targetQty;
+                        }
+                        else
+                        {
+                            weekRow.DeviceItems.Add(new DeviceWeeklyProductionItem
+                            {
+                                DeviceCode = p.Code,
+                                DeviceName = p.Name,
+                                TargetDemandUnits = 0,
+                                ProducedUnits = 0,
+                                MachineHoursUsed = 0m,
+                                ColorHex = p.Color
+                            });
+                        }
+                    }
+
+                    // Calculate composition percentages for this week
+                    if (weekTotalProduced > 0)
+                    {
+                        foreach (var item in weekRow.DeviceItems)
+                        {
+                            item.CompositionPercent = Math.Round(((decimal)item.ProducedUnits / weekTotalProduced) * 100m, 1);
+                        }
+                    }
+
+                    weekRow.TotalTargetDemand = weekTotalTarget;
+                    weekRow.TotalProducedUnits = weekTotalProduced;
+                    cumulativeAll += weekTotalProduced;
+                    weekRow.CumulativeProducedUnits = cumulativeAll;
+
+                    if (weekRow.TotalShortageUnits > 0)
+                        weekRow.Status = "Bottleneck / Deficit";
+                    else if (weekRow.BottleneckUtilizationPercent > 100m)
+                        weekRow.Status = "Overtime Needed";
+                    else if (weekTotalProduced == 0)
+                        weekRow.Status = "Completed";
+                    else
+                        weekRow.Status = "Optimal";
+
+                    result.WeeklyMultiDeviceBreakdowns.Add(weekRow);
+                }
+
+                // 4. Build Device Composition Summaries across the horizon
+                long totalProducibleAll = totalProducedMap.Values.Sum();
+
+                foreach (var p in devProfiles)
+                {
+                    long totalProducible = totalProducedMap[p.Code];
+                    decimal sharePercent = totalProducibleAll > 0
+                        ? Math.Round(((decimal)totalProducible / totalProducibleAll) * 100m, 1)
+                        : 0m;
+
+                    int? completionWeek = completionWeekMap.TryGetValue(p.Code, out var cw) ? cw : null;
+                    if (p.IsYearly && completionWeek == null && totalProducible >= p.TotalYearly)
+                        completionWeek = weeksCount;
+
+                    result.DeviceCompositionSummaries.Add(new DeviceProductionCompositionSummary
+                    {
+                        DeviceCode = p.Code,
+                        DeviceName = p.Name,
+                        DemandPeriod = p.IsYearly ? "Yearly" : "Weekly",
+                        InputDemand = p.InputQty,
+                        TargetWeeklyDemand = p.TargetWeekly,
+                        TotalYearlyDemand = p.TotalYearly,
+                        TotalYearlyProducible = totalProducible,
+                        WeeklyAverageProducible = Math.Round((decimal)totalProducible / weeksCount, 1),
+                        ShareOfTotalMixPercent = sharePercent,
+                        TargetCompletionWeek = completionWeek,
+                        PrimaryBottleneckWorkCenter = bottleneckWc,
+                        ColorHex = p.Color
+                    });
+                }
+            }
+
             return result;
         }
 

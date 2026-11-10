@@ -400,6 +400,74 @@ namespace LssTraining.Web.Models
 
         // Detailed step routing
         public List<DeviceRoutingStepItem> RoutingSteps { get; set; } = new List<DeviceRoutingStepItem>();
+
+        // Multi-Device Weekly Load & Composition Section
+        public bool HasMultiDeviceLoad => TotalDevicesCount > 1;
+        public List<MultiDeviceWeeklyBreakdown> WeeklyMultiDeviceBreakdowns { get; set; } = new List<MultiDeviceWeeklyBreakdown>();
+        public List<DeviceProductionCompositionSummary> DeviceCompositionSummaries { get; set; } = new List<DeviceProductionCompositionSummary>();
+        public string PrimaryBottleneckWorkCenter { get; set; } = string.Empty;
+        public decimal BottleneckMaxWeeklyHours { get; set; }
+        public decimal TotalYearlyProducibleUnits => DeviceCompositionSummaries.Sum(d => d.TotalYearlyProducible);
+        public decimal TotalYearlyTargetDemand => DeviceCompositionSummaries.Sum(d => d.TotalYearlyDemand);
+        public decimal OverallDeliveryFulfillmentPercent => TotalYearlyTargetDemand > 0 ? Math.Round((TotalYearlyProducibleUnits / TotalYearlyTargetDemand) * 100m, 1) : 100m;
+    }
+
+    /// <summary>
+    /// Represents the scheduled production quantity of a specific device in a given week.
+    /// </summary>
+    public class DeviceWeeklyProductionItem
+    {
+        public string DeviceCode { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
+        public long TargetDemandUnits { get; set; }
+        public long ProducedUnits { get; set; }
+        public long ShortageUnits => Math.Max(0, TargetDemandUnits - ProducedUnits);
+        public decimal FulfillmentPercent => TargetDemandUnits > 0 ? Math.Round(((decimal)ProducedUnits / TargetDemandUnits) * 100m, 1) : 100m;
+        public decimal MachineHoursUsed { get; set; }
+        public decimal CompositionPercent { get; set; } // Share of total production in this week
+        public string ColorHex { get; set; } = "#3b82f6";
+    }
+
+    /// <summary>
+    /// Weekly breakdown row for multi-device capacity planning, containing per-device composition.
+    /// </summary>
+    public class MultiDeviceWeeklyBreakdown
+    {
+        public int WeekNumber { get; set; }
+        public long TotalTargetDemand { get; set; }
+        public long TotalProducedUnits { get; set; }
+        public long TotalShortageUnits => Math.Max(0, TotalTargetDemand - TotalProducedUnits);
+        public decimal OverallFulfillmentPercent => TotalTargetDemand > 0 ? Math.Round(((decimal)TotalProducedUnits / TotalTargetDemand) * 100m, 1) : 100m;
+        public long CumulativeProducedUnits { get; set; }
+        public decimal BottleneckUtilizationPercent { get; set; }
+        public string BottleneckWorkCenter { get; set; } = string.Empty;
+        public string Status { get; set; } = "Normal"; // "Optimal", "Overtime Needed", "Bottleneck / Deficit", "Completed"
+        
+        /// <summary>
+        /// Individual production quantity and share for each device in this week.
+        /// </summary>
+        public List<DeviceWeeklyProductionItem> DeviceItems { get; set; } = new List<DeviceWeeklyProductionItem>();
+    }
+
+    /// <summary>
+    /// Overall multi-device composition and capability summary across the planning horizon.
+    /// </summary>
+    public class DeviceProductionCompositionSummary
+    {
+        public string DeviceCode { get; set; } = string.Empty;
+        public string DeviceName { get; set; } = string.Empty;
+        public string DemandPeriod { get; set; } = "Weekly";
+        public long InputDemand { get; set; }
+        public long TargetWeeklyDemand { get; set; }
+        public long TotalYearlyDemand { get; set; }
+        public long TotalYearlyProducible { get; set; }
+        public long TotalYearlyShortage => Math.Max(0, TotalYearlyDemand - TotalYearlyProducible);
+        public decimal OverallFulfillmentRate => TotalYearlyDemand > 0 ? Math.Round(((decimal)TotalYearlyProducible / TotalYearlyDemand) * 100m, 1) : 100m;
+        public decimal WeeklyAverageProducible { get; set; }
+        public decimal ShareOfTotalMixPercent { get; set; }
+        public int? TargetCompletionWeek { get; set; }
+        public string PrimaryBottleneckWorkCenter { get; set; } = string.Empty;
+        public string ColorHex { get; set; } = "#3b82f6"; // Distinct color for chart
     }
 
     // =========================================================================
