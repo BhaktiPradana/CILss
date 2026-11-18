@@ -43,11 +43,23 @@ namespace LssTraining.Web.Pages.CapacitySimulator
                 // Populate names from master data
                 PopulateDeviceMetadata();
             }
+
+            // Set initial default AvailableHeadcount from database CI_Employee
+            if (Input.AvailableHeadcount <= 0 && Summary.TotalEmployees > 0)
+            {
+                Input.AvailableHeadcount = Summary.TotalEmployees;
+            }
         }
 
         public async Task<IActionResult> OnPostAnalyzeAsync()
         {
             await LoadMasterDataAsync();
+
+            // If manual headcount is not explicitly chosen and available headcount is 0, default to database employees
+            if (!Input.UseCustomHeadcount && Input.HeadcountSource != "Manual" && Input.AvailableHeadcount <= 0)
+            {
+                Input.AvailableHeadcount = Summary.TotalEmployees;
+            }
 
             // Filter out empty rows
             if (Input.Devices != null)

@@ -301,6 +301,61 @@
                     </div>
                 </div>
 
+                <!-- Headcount & Labor Capacity Settings Row -->
+                <div class="mt-4 pt-3 border-top">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+                        <label class="form-label fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-people-fill text-success" viewBox="0 0 16 16">
+                                <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                            </svg>
+                            Labor Capacity &amp; Headcount Availability Configuration
+                        </label>
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 small">
+                            Database CI_Employee: @Model.Summary.TotalEmployees Operators Available
+                        </span>
+                    </div>
+
+                    <div class="row g-3 align-items-center bg-light p-3 rounded-3 border">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold small text-muted text-uppercase mb-1">Headcount Data Source</label>
+                            <select asp-for="Input.HeadcountSource" id="headcountSourceSelect" class="form-select" onchange="syncHeadcountModeFromDropdown(this.value)">
+                                <option value="Database">Use Database Master (CI_Employee Table - @Model.Summary.TotalEmployees Ops)</option>
+                                <option value="Manual">Manual Input (Currently Available Headcount)</option>
+                            </select>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" asp-for="Input.UseCustomHeadcount" id="chkCustomHeadcount" onchange="syncHeadcountModeFromCheckbox(this.checked)">
+                                <label class="form-check-label small fw-semibold text-muted" for="chkCustomHeadcount">Check to enable manual headcount input</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase mb-1">
+                                Currently Available Headcount
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-badge-fill text-muted" viewBox="0 0 16 16">
+                                        <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm4.5 0a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zM8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm5 2.755C12.146 12.825 10.623 12 8 12s-4.146.826-5 1.755V14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-.245z"/>
+                                    </svg>
+                                </span>
+                                <input asp-for="Input.AvailableHeadcount" id="txtAvailableHeadcount" type="number" min="0" class="form-control fw-bold" placeholder="Operator Count" oninput="updateShiftPreview()" />
+                                <span class="input-group-text">Operators</span>
+                            </div>
+                            <div class="form-text small" id="headcountHelpText">
+                                @(Model.Input.UseCustomHeadcount || Model.Input.HeadcountSource == "Manual" ? "Manual Mode: Using operator count entered above." : $"Automatic Mode: Referencing active operators from CI_Employee table ({Model.Summary.TotalEmployees} operators).")
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="p-2 bg-white rounded-2 border">
+                                <span class="text-muted d-block small fw-semibold text-uppercase">Total Available Operator Hours</span>
+                                <span class="fw-bold fs-6 text-success" id="lblTotalAvailLaborHours">0.0 hrs/wk</span>
+                                <small class="text-muted d-block" id="lblLaborHoursBreakdown">Normal: 0h &bull; Inc. OT: 0h</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-4 pt-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <div class="text-muted small">
                         <span class="badge bg-light text-dark border me-2">Plant Constant: 7.25 hrs/shift</span>
@@ -363,6 +418,78 @@
                 </div>
                 <div class="text-end d-none d-md-block">
                     <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill">@res.BottleneckMachineCount Machine Deficit</span>
+                </div>
+            </div>
+        }
+
+        <!-- Labor Capacity & Headcount Adequacy Status Banner -->
+        @if (res.IsLaborCapacityMet)
+        {
+            @if (res.NeedsLaborOvertime)
+            {
+                <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-4 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-warning text-dark rounded-circle p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-clock-history" viewBox="0 0 16 16">
+                                <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022l-.074.997zm2.004.45a7.003 7.003 0 0 0-.985-.299l.219-.976c.383.086.76.2 1.126.342l-.36.933zm1.37.71a7.01 7.01 0 0 0-.439-.27l.493-.87a8.025 8.025 0 0 1 .6.37l-.654.77zm.25.99c.307.28.59.58.847.897l.763-.646a8.07 8.07 0 0 0-.97-1.025l-.64.774zm.64 1.34c.245.334.464.69.654 1.066l.893-.45a8.04 8.04 0 0 0-.77-1.256l-.777.64zm.446 1.76c.14.38.25.77.33 1.17l.98-.18a8.01 8.01 0 0 0-.4-1.38l-.91.39zm.19 1.95c.03.4.04.8.04 1.2h1c0-.46-.02-.92-.05-1.37l-.99.17zM8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2z"/>
+                                <path d="M8 4.466V8.5l3.5 1.5-.5.866L7 9V4.466h1z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-1 text-warning-emphasis">SUFFICIENT LABOR CAPACITY WITH OVERTIME (OVERTIME REQUIRED)</h4>
+                            <p class="mb-0 text-dark">
+                                Available headcount (<strong>@res.AvailableHeadcount Operators</strong> &bull; Source: <span class="badge bg-light text-dark border">@res.HeadcountSourceUsed</span>) is <strong>sufficient</strong> to meet target production demand by scheduling overtime (+@res.TotalOvertimeEquivalent.ToString("N2") OT eqv / @res.AverageOvertimeRatePercent.ToString("N1")% rate).
+                                Status: <strong>Sufficient (Surplus: +@res.LaborHeadcountSurplusOrDeficit Operators)</strong> &bull; Labor Utilization: <strong>@res.LaborUtilizationPercent.ToString("N1")%</strong>.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-end d-none d-md-block">
+                        <span class="badge bg-warning text-dark fs-6 px-3 py-2 rounded-pill">Utilization: @res.LaborUtilizationPercent.ToString("N1")%</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-success border-0 shadow-sm rounded-4 p-4 mb-4 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-success text-white rounded-circle p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-people-fill" viewBox="0 0 16 16">
+                                <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-1 text-success">SUFFICIENT LABOR CAPACITY (CAPACITY MET)</h4>
+                            <p class="mb-0 text-success-emphasis">
+                                Available headcount (<strong>@res.AvailableHeadcount Operators</strong> &bull; Source: <span class="badge bg-light text-dark border">@res.HeadcountSourceUsed</span>) <strong>fully meets</strong> all direct labor hour requirements. 
+                                Required: <strong>@res.TotalHeadcountWithOt Base Ops</strong> (Surplus: <strong>+@res.LaborHeadcountSurplusOrDeficit Operators</strong>). Labor Utilization: <strong>@res.LaborUtilizationPercent.ToString("N1")%</strong>.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-end d-none d-md-block">
+                        <span class="badge bg-success fs-6 px-3 py-2 rounded-pill">+@res.LaborHeadcountSurplusOrDeficit Ops Surplus</span>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="alert alert-danger border-0 shadow-sm rounded-4 p-4 mb-4 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-danger text-white rounded-circle p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-person-x-fill" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm6.146-2.854a.5.5 0 0 1 .708 0L14 6.293l1.146-1.147a.5.5 0 0 1 .708.708L14.707 7l1.147 1.146a.5.5 0 0 1-.708.708L14 7.707l-1.146 1.147a.5.5 0 0 1-.708-.708L13.293 7l-1.147-1.146a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-1 text-danger">LABOR CAPACITY DEFICIT (SHORTAGE DETECTED)</h4>
+                        <p class="mb-0 text-danger-emphasis">
+                            Currently available headcount (<strong>@res.AvailableHeadcount Operators</strong> &bull; Source: <span class="badge bg-light text-dark border">@res.HeadcountSourceUsed</span>) is <strong>INSUFFICIENT</strong> to meet production demand!
+                            Labor Shortage: <strong class="text-decoration-underline">-@Math.Abs(res.LaborHeadcountSurplusOrDeficit) Operators</strong> (Deficit of @Math.Abs(res.LaborHoursSurplusOrDeficit).ToString("N1") Labor Hours). Required: @res.TotalHeadcountWithOt Base Ops vs Available: @res.AvailableHeadcount Ops. Labor Utilization: <strong>@res.LaborUtilizationPercent.ToString("N1")%</strong>.
+                        </p>
+                    </div>
+                </div>
+                <div class="text-end d-none d-md-block">
+                    <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill">-@Math.Abs(res.LaborHeadcountSurplusOrDeficit) Ops Deficit</span>
                 </div>
             </div>
         }
@@ -885,58 +1012,107 @@
         </div>
 
         <!-- ========================================================================= -->
-        <!-- SECTION 2: LABOR CAPACITY -->
+        <!-- SECTION 2: LABOR CAPACITY & HEADCOUNT ANALYSIS -->
         <!-- ========================================================================= -->
         <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
                     <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 mb-1">SECTION 2</span>
                     <h4 class="fw-bold text-dark mb-0">
                         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-people-fill text-success me-2 align-middle" viewBox="0 0 16 16">
                             <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
                         </svg>
-                        Labor Capacity &amp; Headcount Analysis
+                        Labor Capacity &amp; Headcount Adequacy Analysis
                     </h4>
-                    <p class="text-muted small">Calculated using <strong>CI_DeviceProcess</strong> labor hours. Fractional requirements are rounded down to base operators, with fractional remainder absorbed as overtime (e.g., 2.4 ops &rarr; 2 base operators + 0.4 OT equivalent).</p>
+                    <p class="text-muted small">Calculated directly from master database table <strong>CI_SQ01</strong> (MachineHour &amp; LaborHour per device code and process sequence) and benchmarked against currently available plant headcount.</p>
                 </div>
                 <div>
-                    <span class="badge bg-success px-3 py-2 rounded-pill fs-6">
-                        Base: @res.TotalBaseHeadcount Ops &bull; Remainder: +@res.TotalOvertimeEquivalent.ToString("N2") OT eqv
-                    </span>
+                    @if (res.IsLaborCapacityMet)
+                    {
+                        <span class="badge bg-success px-3 py-2 rounded-pill fs-6">
+                            CAPACITY MET (+@res.LaborHeadcountSurplusOrDeficit Ops Surplus)
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger px-3 py-2 rounded-pill fs-6">
+                            CAPACITY SHORTAGE (-@Math.Abs(res.LaborHeadcountSurplusOrDeficit) Ops Deficit)
+                        </span>
+                    }
                 </div>
             </div>
 
             <div class="card-body px-4 pb-4">
                 <!-- KPI Labor Cards -->
-                <div class="row g-3 mb-4">
+                <div class="row g-3 mb-3">
                     <div class="col-sm-6 col-md-3">
                         <div class="p-3 bg-light rounded-3 border">
                             <span class="text-muted small fw-semibold text-uppercase">Total Direct Labor Hours</span>
                             <h4 class="fw-bold mb-0 text-dark">@res.TotalRequiredLaborHours.ToString("N1") <small class="text-muted fs-6">hrs/wk</small></h4>
-                            <span class="text-muted small">Direct labor across all processes</span>
+                            <span class="text-muted small">Direct labor from master CI_SQ01</span>
                         </div>
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <div class="p-3 bg-light rounded-3 border border-primary">
-                            <span class="text-muted small fw-semibold text-uppercase">Base Headcount (Floor)</span>
-                            <h4 class="fw-bold mb-0 text-primary">@res.TotalBaseHeadcount <small class="text-muted fs-6">Operators</small></h4>
-                            <span class="text-muted small">Exact theoretical: <strong>@res.TotalExactHeadcount.ToString("N2")</strong> ops</span>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 col-md-3">
-                        <div class="p-3 bg-light rounded-3 border border-warning">
-                            <span class="text-muted small fw-semibold text-uppercase">Overtime Remainder</span>
-                            <h4 class="fw-bold mb-0 text-warning-emphasis">
-                                +@res.TotalOvertimeEquivalent.ToString("N2") <small class="text-muted fs-6">OT eqv</small>
-                            </h4>
-                            <span class="text-muted small">@res.TotalOvertimeHours.ToString("N1") hrs OT (@res.AverageOvertimeRatePercent.ToString("N1")% rate)</span>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted small fw-semibold text-uppercase">Available Headcount</span>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle small">@res.HeadcountSourceUsed</span>
+                            </div>
+                            <h4 class="fw-bold mb-0 text-primary">@res.AvailableHeadcount <small class="text-muted fs-6">Operators</small></h4>
+                            <span class="text-muted small">Total Capacity: <strong>@res.TotalAvailableLaborHoursWithOt.ToString("N1")</strong> hrs/wk</span>
                         </div>
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <div class="p-3 bg-light rounded-3 border">
-                            <span class="text-muted small fw-semibold text-uppercase">Headcount (0% OT vs Configured)</span>
-                            <h4 class="fw-bold mb-0 text-success">@res.TotalHeadcountWithOt <small class="text-muted fs-6">Operators</small></h4>
-                            <span class="text-muted small">Normal (0% OT): <strong>@res.TotalHeadcountZeroOt</strong> ops (Save @res.HeadcountSavedByOt)</span>
+                            <span class="text-muted small fw-semibold text-uppercase">Required Headcount</span>
+                            <h4 class="fw-bold mb-0 text-dark">@res.TotalHeadcountWithOt <small class="text-muted fs-6">Base Ops</small></h4>
+                            <span class="text-muted small">Exact: <strong>@res.TotalExactHeadcount.ToString("N2")</strong> &bull; Zero OT: <strong>@res.TotalHeadcountZeroOt</strong> ops</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border @(res.IsLaborCapacityMet ? "border-success" : "border-danger")">
+                            <span class="text-muted small fw-semibold text-uppercase">Adequacy &amp; Surplus / Deficit</span>
+                            @if (res.IsLaborCapacityMet)
+                            {
+                                <h4 class="fw-bold mb-0 text-success">+@res.LaborHeadcountSurplusOrDeficit <small class="fs-6">Ops (Sufficient)</small></h4>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">Surplus: @res.LaborHoursSurplusOrDeficit.ToString("N1") hrs</span>
+                            }
+                            else
+                            {
+                                <h4 class="fw-bold mb-0 text-danger">-@Math.Abs(res.LaborHeadcountSurplusOrDeficit) <small class="fs-6">Ops (Shortage)</small></h4>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Deficit: @Math.Abs(res.LaborHoursSurplusOrDeficit).ToString("N1") hrs</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary KPI: Utilization & Overtime Breakdown -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small fw-semibold text-uppercase">Labor Utilization Rate</span>
+                                <span class="fw-bold @(res.LaborUtilizationPercent > 100 ? "text-danger" : (res.LaborUtilizationPercent > 85 ? "text-warning" : "text-success"))">
+                                    @res.LaborUtilizationPercent.ToString("N1")%
+                                </span>
+                            </div>
+                            <div class="progress mb-2" style="height: 10px;">
+                                <div class="progress-bar @(res.LaborUtilizationPercent > 100 ? "bg-danger" : (res.LaborUtilizationPercent > 85 ? "bg-warning" : "bg-success"))" 
+                                     role="progressbar" style="width: @Math.Min(100, res.LaborUtilizationPercent)%;" aria-valuenow="@res.LaborUtilizationPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted">
+                                <span>Required Hours: <strong>@res.TotalRequiredLaborHours.ToString("N1")h</strong></span>
+                                <span>Available Capacity (inc. OT): <strong>@res.TotalAvailableLaborHoursWithOt.ToString("N1")h</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-3 border border-warning">
+                            <span class="text-muted small fw-semibold text-uppercase">Overtime Remainder &amp; Load Absorption</span>
+                            <h5 class="fw-bold mb-1 text-warning-emphasis">
+                                +@res.TotalOvertimeEquivalent.ToString("N2") <small class="text-muted fs-6">OT eqv</small> (@res.TotalOvertimeHours.ToString("N1") hrs OT &bull; @res.AverageOvertimeRatePercent.ToString("N1")% rate)
+                            </h5>
+                            <span class="text-muted small">Overtime scheduling saves <strong>@res.HeadcountSavedByOt permanent base operators</strong> (Normal 0% OT requires @res.TotalHeadcountZeroOt ops).</span>
                         </div>
                     </div>
                 </div>
@@ -1373,7 +1549,60 @@
 
             const hint = document.getElementById('otHourHint');
             if (hint) hint.textContent = `Work hours: ${baseLaborHours.toFixed(2)}h base / ${withOtLaborHours.toFixed(2)}h with OT`;
+
+            // Update Total Available Labor Hours preview based on Headcount
+            const availHcInput = document.getElementById('txtAvailableHeadcount');
+            const availHc = parseInt(availHcInput?.value || '@Model.Summary.TotalEmployees', 10) || 0;
+            const totalAvailLaborWithOt = availHc * withOtLaborHours;
+            const totalAvailLaborNormal = availHc * baseLaborHours;
+
+            const lblHours = document.getElementById('lblTotalAvailLaborHours');
+            if (lblHours) lblHours.textContent = `${totalAvailLaborWithOt.toFixed(1)} hrs/wk`;
+
+            const lblBreakdown = document.getElementById('lblLaborHoursBreakdown');
+            if (lblBreakdown) lblBreakdown.textContent = `${availHc} Ops &bull; Normal: ${totalAvailLaborNormal.toFixed(1)}h &bull; OT: ${(totalAvailLaborWithOt - totalAvailLaborNormal).toFixed(1)}h`;
         }
+
+        const dbTotalEmployees = @Model.Summary.TotalEmployees;
+
+        function syncHeadcountModeFromDropdown(val) {
+            const isManual = (val === 'Manual');
+            const chk = document.getElementById('chkCustomHeadcount');
+            if (chk) chk.checked = isManual;
+            updateHeadcountInputState(isManual);
+        }
+
+        function syncHeadcountModeFromCheckbox(isChecked) {
+            const sel = document.getElementById('headcountSourceSelect');
+            if (sel) sel.value = isChecked ? 'Manual' : 'Database';
+            updateHeadcountInputState(isChecked);
+        }
+
+        function updateHeadcountInputState(isManual) {
+            const txt = document.getElementById('txtAvailableHeadcount');
+            const help = document.getElementById('headcountHelpText');
+            if (txt) {
+                if (!isManual && (!txt.value || parseInt(txt.value, 10) === 0 || txt.dataset.autoFilled === 'true')) {
+                    txt.value = dbTotalEmployees;
+                    txt.dataset.autoFilled = 'true';
+                } else if (isManual && txt.dataset.autoFilled === 'true') {
+                    txt.dataset.autoFilled = 'false';
+                }
+            }
+            if (help) {
+                help.textContent = isManual 
+                    ? 'Manual Mode: Using operator count input above.' 
+                    : `Automatic Mode: Referencing active operators from CI_Employee table (${dbTotalEmployees} operators).`;
+            }
+            updateShiftPreview();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const sel = document.getElementById('headcountSourceSelect');
+            const chk = document.getElementById('chkCustomHeadcount');
+            const isManual = (sel && sel.value === 'Manual') || (chk && chk.checked);
+            updateHeadcountInputState(isManual);
+        });
 
         // =========================================================================
         // MULTI-DEVICE LOAD CHART & PRODUCTION COMPOSITION JAVASCRIPT

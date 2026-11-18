@@ -879,99 +879,76 @@ namespace LssTraining.Web.Data
 
             List<dynamic> allSteps = new List<dynamic>();
 
-            // 1. Primary: Retrieve routing and labor hours following CI_DeviceProcess
-            bool hasDeviceProcessTable = false;
+            // 1. Dedicated & Exclusive Query: Retrieve routing, MachineHour, and LaborHour strictly from dbo.CI_SQ01
+            bool hasWorkCenterCol = false;
             try
             {
-                hasDeviceProcessTable = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM sys.tables WHERE name = 'CI_DeviceProcess' AND schema_id = SCHEMA_ID('dbo')") > 0;
+                hasWorkCenterCol = await connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(1) FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_SQ01') AND name = 'WorkCenter'") > 0;
             }
             catch { }
 
-            if (hasDeviceProcessTable)
+            string wcExpr = hasWorkCenterCol 
+                ? "COALESCE(NULLIF(LTRIM(RTRIM(sq.WorkCenter)), ''), NULLIF(LTRIM(RTRIM(sq.Description)), ''), 'Process ' + CAST(sq.Seq AS NVARCHAR(10)))" 
+                : "COALESCE(NULLIF(LTRIM(RTRIM(sq.Description)), ''), 'Process ' + CAST(sq.Seq AS NVARCHAR(10)))";
+
+            string sqSql = $@"
+                SELECT 
+                    sq.DeviceCode,
+                    ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName,
+                    sq.Seq,
+                    CAST(sq.Seq AS NVARCHAR(50)) AS ProcCode,
+                    ISNULL(sq.Description, 'Process ' + CAST(sq.Seq AS NVARCHAR(10))) AS Description,
+                    {wcExpr} AS WorkCenter,
+                    ISNULL(sq.Description, 'Process ' + CAST(sq.Seq AS NVARCHAR(10))) AS MachineName,
+                    'PROD' AS Area,
+                    1 AS MachineCount,
+                    {wcExpr} AS AvailableMachines,
+                    ISNULL(sq.MachineHour, 0) AS MachineHour,
+                    ISNULL(sq.LaborHour, 0) AS LaborHour
+                FROM CI_SQ01 sq
+                LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
+                WHERE sq.DeviceCode IN @DeviceCodes
+                ORDER BY sq.DeviceCode, sq.Seq ASC";
+
+            try
             {
-                string deviceProcessSql = @"
-                    WITH MachPool AS (
-                        SELECT 
-                            mp.ProcCode,
-                            COUNT(DISTINCT mp.MachCode) AS MachineCount,
-                            MIN(mp.MachCode) AS SampleMachCode,
-                            STRING_AGG(mp.MachCode, ', ') WITHIN GROUP (ORDER BY mp.MachCode) AS AvailableMachines
-                        FROM CI_MachinesProcess mp
-                        GROUP BY mp.ProcCode
-                    )
-                    SELECT 
-                        dp.DeviceCode,
-                        ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
-                        dp.Seq,
-                        dp.ProcCode,
-                        ISNULL(pr.ProcName, dp.ProcCode) AS Description,
-                        COALESCE(h.MachCode, pool.SampleMachCode, dp.ProcCode) AS WorkCenter,
-                        CASE 
-                            WHEN h.MachCode IS NOT NULL THEN ISNULL(mh.MachName, h.MachCode)
-                            WHEN pool.SampleMachCode IS NOT NULL THEN ISNULL(mpool.MachName, pool.SampleMachCode)
-                            ELSE ISNULL(pr.ProcName, dp.ProcCode)
-                        END AS MachineName,
-                        COALESCE(mh.Area, mpool.Area, pr.Area, 'PROD') AS Area,
-                        ISNULL(pool.MachineCount, 1) AS MachineCount,
-                        COALESCE(pool.AvailableMachines, h.MachCode, dp.ProcCode) AS AvailableMachines,
-                        CASE 
-                            WHEN ISNULL(h.UPH, 0) > 0 THEN (1.0 / h.UPH)
-                            WHEN ISNULL(h.MachineTime, 0) > 0 THEN (CASE WHEN h.MachineTime > 5 THEN h.MachineTime / 3600.0 ELSE h.MachineTime END)
-                            WHEN ISNULL(dp.TAKTTime, 0) > 0 THEN (CASE WHEN dp.TAKTTime > 5 THEN dp.TAKTTime / 3600.0 ELSE dp.TAKTTime END)
-                            ELSE 0.005
-                        END AS MachineHour,
-                        dp.LaborHour
-                    FROM CI_DeviceProcess dp
-                    LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
-                    LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
-                    LEFT JOIN CI_IECycleTime_Header h ON dp.DeviceCode = h.DeviceCode AND dp.ProcCode = h.ProcCode
-                    LEFT JOIN MasterMachines mh ON h.MachCode = mh.MachCode
-                    LEFT JOIN MachPool pool ON dp.ProcCode = pool.ProcCode
-                    LEFT JOIN MasterMachines mpool ON pool.SampleMachCode = mpool.MachCode
-                    WHERE dp.DeviceCode IN @DeviceCodes
-                    ORDER BY dp.DeviceCode, dp.Seq ASC";
-
-                try
-                {
-                    allSteps = (await connection.QueryAsync<dynamic>(deviceProcessSql, new { DeviceCodes = deviceCodes })).AsList();
-                }
-                catch { }
+                allSteps = (await connection.QueryAsync<dynamic>(sqSql, new { DeviceCodes = deviceCodes })).AsList();
             }
+            catch { }
 
-            // 2. Fallback to CI_SQ01 for any devices not present in CI_DeviceProcess
+            // If any device is not in CI_SQ01, fallback only if CI_SQ01 returned 0 rows for that device
             var coveredDevices = allSteps.Select(s => ((string)s.DeviceCode).Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet();
             var missingDevices = deviceCodes.Where(d => !coveredDevices.Contains(d)).ToList();
 
             if (missingDevices.Count > 0)
             {
-                bool hasWorkCenterCol = false;
+                // Fallback attempt in case device is stored in CI_DeviceProcess
                 try
                 {
-                    hasWorkCenterCol = await connection.ExecuteScalarAsync<int>(
-                        "SELECT COUNT(1) FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_SQ01') AND name = 'WorkCenter'") > 0;
-                }
-                catch { }
-
-                string sqSql = hasWorkCenterCol
-                    ? @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
-                               sq.Description, sq.MachineHour, sq.LaborHour, sq.WorkCenter,
-                               NULL AS MachineName, 'PROD' AS Area
-                        FROM CI_SQ01 sq
-                        LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
-                        WHERE sq.DeviceCode IN @MissingCodes
-                        ORDER BY sq.DeviceCode, sq.Seq ASC"
-                    : @"SELECT sq.DeviceCode, ISNULL(p.DeviceName, sq.DeviceCode) AS DeviceName, sq.Seq, 
-                               sq.Description, sq.MachineHour, sq.LaborHour, NULL AS WorkCenter,
-                               NULL AS MachineName, 'PROD' AS Area
-                        FROM CI_SQ01 sq
-                        LEFT JOIN CI_Product p ON sq.DeviceCode = p.DeviceCode
-                        WHERE sq.DeviceCode IN @MissingCodes
-                        ORDER BY sq.DeviceCode, sq.Seq ASC";
-
-                try
-                {
-                    var fallbackSteps = (await connection.QueryAsync<dynamic>(sqSql, new { MissingCodes = missingDevices })).AsList();
+                    string fallbackSql = @"
+                        SELECT 
+                            dp.DeviceCode,
+                            ISNULL(p.DeviceName, dp.DeviceCode) AS DeviceName,
+                            dp.Seq,
+                            dp.ProcCode,
+                            ISNULL(pr.ProcName, dp.ProcCode) AS Description,
+                            dp.ProcCode AS WorkCenter,
+                            ISNULL(pr.ProcName, dp.ProcCode) AS MachineName,
+                            'PROD' AS Area,
+                            1 AS MachineCount,
+                            dp.ProcCode AS AvailableMachines,
+                            CASE 
+                                WHEN ISNULL(dp.TAKTTime, 0) > 0 THEN (CASE WHEN dp.TAKTTime > 5 THEN dp.TAKTTime / 3600.0 ELSE dp.TAKTTime END)
+                                ELSE 0.005
+                            END AS MachineHour,
+                            dp.LaborHour
+                        FROM CI_DeviceProcess dp
+                        LEFT JOIN CI_Product p ON dp.DeviceCode = p.DeviceCode
+                        LEFT JOIN CI_Process pr ON dp.ProcCode = pr.ProcCode
+                        WHERE dp.DeviceCode IN @MissingCodes
+                        ORDER BY dp.DeviceCode, dp.Seq ASC";
+                    var fallbackSteps = (await connection.QueryAsync<dynamic>(fallbackSql, new { MissingCodes = missingDevices })).AsList();
                     allSteps.AddRange(fallbackSteps);
                 }
                 catch { }
@@ -1128,6 +1105,38 @@ namespace LssTraining.Web.Data
 
             result.TotalHeadcountZeroOt = (int)Math.Ceiling(totalExact);
             result.TotalHeadcountWithOt = result.TotalBaseHeadcount; // Base operators with fractional part absorbed as overtime
+
+            // Determine Available Headcount (from Database CI_Employee or Manual User Input)
+            int availableHeadcount = 0;
+            string headcountSourceUsed = "Database (CI_Employee)";
+
+            bool useCustomHc = input.UseCustomHeadcount || string.Equals(input.HeadcountSource, "Manual", StringComparison.OrdinalIgnoreCase);
+
+            if (useCustomHc && input.AvailableHeadcount > 0)
+            {
+                availableHeadcount = input.AvailableHeadcount;
+                headcountSourceUsed = "Manual Input";
+            }
+            else
+            {
+                try
+                {
+                    availableHeadcount = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM CI_Employee");
+                    headcountSourceUsed = "Database (CI_Employee)";
+                }
+                catch { }
+
+                if (availableHeadcount == 0 && input.AvailableHeadcount > 0)
+                {
+                    availableHeadcount = input.AvailableHeadcount;
+                    headcountSourceUsed = "Manual Input (Fallback)";
+                }
+            }
+
+            result.AvailableHeadcount = availableHeadcount;
+            result.HeadcountSourceUsed = headcountSourceUsed;
+            result.TotalAvailableLaborHoursNormal = availableHeadcount * availLabor0Ot;
+            result.TotalAvailableLaborHoursWithOt = availableHeadcount * availLaborWithOt;
 
             foreach (var l in laborLoadsDict.Values)
             {

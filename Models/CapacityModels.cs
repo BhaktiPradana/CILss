@@ -284,6 +284,21 @@ namespace LssTraining.Web.Models
 
         public decimal AvailableMachineHoursNormal => WorkingDays * ShiftsPerDay * NormalHoursPerShift;
         public decimal AvailableMachineHoursWithOt => AvailableMachineHoursNormal * (1m + (OvertimeLimitPercent / 100m));
+
+        /// <summary>
+        /// Headcount source selection: "Database" (from CI_Employee table) or "Manual" (custom input).
+        /// </summary>
+        public string HeadcountSource { get; set; } = "Database";
+
+        /// <summary>
+        /// Checkbox toggle to enable custom manual headcount input.
+        /// </summary>
+        public bool UseCustomHeadcount { get; set; } = false;
+
+        /// <summary>
+        /// Number of operators currently available (either manually specified or retrieved from database).
+        /// </summary>
+        public int AvailableHeadcount { get; set; } = 0;
     }
 
     public class DeviceMachineLoadItem
@@ -397,6 +412,20 @@ namespace LssTraining.Web.Models
         public int TotalHeadcountWithOt { get; set; }
         public int HeadcountSavedByOt => Math.Max(0, TotalHeadcountZeroOt - TotalHeadcountWithOt);
         public List<DeviceLaborLoadItem> LaborLoads { get; set; } = new List<DeviceLaborLoadItem>();
+
+        // Labor Capacity & Headcount Adequacy Section
+        public string HeadcountSourceUsed { get; set; } = "Database";
+        public int AvailableHeadcount { get; set; }
+        public decimal TotalAvailableLaborHoursNormal { get; set; }
+        public decimal TotalAvailableLaborHoursWithOt { get; set; }
+        public int LaborHeadcountSurplusOrDeficit => AvailableHeadcount - TotalHeadcountWithOt;
+        public decimal LaborHoursSurplusOrDeficit => TotalAvailableLaborHoursWithOt - TotalRequiredLaborHours;
+        public decimal LaborUtilizationPercent => TotalAvailableLaborHoursWithOt > 0 ? Math.Round((TotalRequiredLaborHours / TotalAvailableLaborHoursWithOt) * 100m, 1) : 0m;
+        public bool IsLaborCapacityMet => AvailableHeadcount >= TotalHeadcountWithOt;
+        public bool NeedsLaborOvertime => IsLaborCapacityMet && (AvailableHeadcount < TotalHeadcountZeroOt || TotalRequiredLaborHours > TotalAvailableLaborHoursNormal);
+        public string LaborCapacityStatus => IsLaborCapacityMet 
+            ? (NeedsLaborOvertime ? "OT NEEDED" : "SUFFICIENT") 
+            : "SHORTAGE";
 
         // Detailed step routing
         public List<DeviceRoutingStepItem> RoutingSteps { get; set; } = new List<DeviceRoutingStepItem>();
