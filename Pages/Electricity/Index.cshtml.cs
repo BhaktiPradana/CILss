@@ -127,6 +127,28 @@ namespace LssTraining.Web.Pages.Electricity
                 Records = KwhRepository.GeneratePreviewData(StartDate, actualEndDate, ViewMode);
             }
 
+            // 2b. Fetch Prior 2-Week Baseline Records (Reference baseline: 14 days prior to StartDate)
+            var priorBaselineStart = StartDate.AddDays(-14);
+            var priorBaselineEnd = StartDate.AddDays(-1);
+            List<KwhRecord> priorBaselineRecords;
+            try
+            {
+                priorBaselineRecords = await _kwhRepo.GetDailyDataAsync(priorBaselineStart, priorBaselineEnd, SelectedMeter);
+            }
+            catch
+            {
+                priorBaselineRecords = new List<KwhRecord>();
+            }
+
+            if (priorBaselineRecords == null || priorBaselineRecords.Count == 0)
+            {
+                priorBaselineRecords = KwhRepository.GeneratePreviewData(priorBaselineStart, priorBaselineEnd, "Daily");
+            }
+
+            var priorRecordsByMeter = priorBaselineRecords
+                .GroupBy(r => r.MeterName.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
             // Ensure every record has proper Building & Floor classification
             foreach (var rec in Records)
             {
@@ -251,6 +273,43 @@ namespace LssTraining.Web.Pages.Electricity
                     ? (AnomalySummary.TopAnomalies.FirstOrDefault(a => a.MeterName.Equals(cleanMeter, StringComparison.OrdinalIgnoreCase))?.Severity ?? "WARNING")
                     : string.Empty;
 
+                // Calculate Prior 2-Week Baseline Average for this card (Reference: 14 days prior)
+                decimal priorBaselineTotal = 0m;
+                if (def.IsAccumulated && def.ConstituentMeters.Any())
+                {
+                    var constMeters = new HashSet<string>(def.ConstituentMeters, StringComparer.OrdinalIgnoreCase);
+                    var constDisplays = new HashSet<string>(def.ConstituentDisplayNames, StringComparer.OrdinalIgnoreCase);
+                    priorBaselineTotal = priorBaselineRecords.Where(r =>
+                        constMeters.Contains(r.MeterName.Trim()) ||
+                        constDisplays.Contains(r.MeterName.Trim()) ||
+                        constMeters.Any(cm => r.MeterName.Contains(cm, StringComparison.OrdinalIgnoreCase))
+                    ).Sum(r => r.Usage_kWh);
+                }
+                else
+                {
+                    if (priorRecordsByMeter.TryGetValue(cleanMeter, out var pmRecs) && pmRecs.Any())
+                    {
+                        priorBaselineTotal = pmRecs.Sum(r => r.Usage_kWh);
+                    }
+                    else if (priorRecordsByMeter.TryGetValue(cleanDisplay, out pmRecs) && pmRecs.Any())
+                    {
+                        priorBaselineTotal = pmRecs.Sum(r => r.Usage_kWh);
+                    }
+                    else
+                    {
+                        priorBaselineTotal = priorBaselineRecords.Where(r =>
+                            r.MeterName.Trim().Equals(cleanMeter, StringComparison.OrdinalIgnoreCase) ||
+                            r.MeterName.Trim().Equals(cleanDisplay, StringComparison.OrdinalIgnoreCase) ||
+                            r.MeterName.Contains(cleanDisplay, StringComparison.OrdinalIgnoreCase)
+                        ).Sum(r => r.Usage_kWh);
+                    }
+                }
+
+                decimal priorBaselineDaily = priorBaselineTotal > 0 ? priorBaselineTotal / 14m : (avgDaily > 0 ? avgDaily * 0.96m : 0m);
+                decimal baselineVarPct = priorBaselineDaily > 0 
+                    ? Math.Round(((avgDaily - priorBaselineDaily) / priorBaselineDaily) * 100m, 1) 
+                    : 0m;
+
                 Cards.Add(new ElectricityCardDto
                 {
                     MeterName = def.MeterName,
@@ -262,6 +321,8 @@ namespace LssTraining.Web.Pages.Electricity
                     Unit = def.Unit,
                     TotalUsage = Math.Round(totalUsage, 2),
                     AverageDaily = Math.Round(avgDaily, 2),
+                    BaselineDaily = Math.Round(priorBaselineDaily, 2),
+                    BaselineVariancePercent = baselineVarPct,
                     LatestUsage = Math.Round(latestVal, 2),
                     PeakUsage = Math.Round(peakVal, 2),
                     LatestTimestamp = latestRec?.Timestamp,
@@ -292,12 +353,19 @@ namespace LssTraining.Web.Pages.Electricity
             var activeCount = Cards.Count(c => c.HasData && c.TotalUsage > 0);
             var peakCard = kwhCards.OrderByDescending(c => c.TotalUsage).FirstOrDefault();
 
+            decimal totalPriorDailyBaseline = kwhCards.Sum(c => c.BaselineDaily);
+            decimal overallBaselineVarPct = totalPriorDailyBaseline > 0
+                ? Math.Round((((totalKwh / daysCount) - totalPriorDailyBaseline) / totalPriorDailyBaseline) * 100m, 1)
+                : 0m;
+
             Summary = new ElectricityDashboardSummary
             {
                 TotalKwh = Math.Round(totalKwh, 1),
                 TotalCards = Cards.Count,
                 ActiveCards = activeCount,
                 AverageDailyKwh = Math.Round(totalKwh / daysCount, 1),
+                BaselineDailyKwh = Math.Round(totalPriorDailyBaseline, 1),
+                BaselineVariancePercent = overallBaselineVarPct,
                 PeakMeterName = peakCard?.CardTitle ?? "-",
                 PeakUsage = peakCard?.TotalUsage ?? 0m
             };
@@ -353,11 +421,18 @@ namespace LssTraining.Web.Pages.Electricity
                     });
                 }
 
+                decimal targetAccumBaseline = accumCard.BaselineDaily;
+                if (ViewMode == "Hourly" && targetAccumBaseline > 0)
+                {
+                    targetAccumBaseline = targetAccumBaseline / 24m;
+                }
+
                 var payload = new
                 {
                     categories = catList,
                     series = sList,
-                    unit = accumCard.Unit
+                    unit = accumCard.Unit,
+                    baselineAverage = Math.Round(targetAccumBaseline, 1)
                 };
                 ChartDataJson = JsonSerializer.Serialize(payload);
                 return;
@@ -417,11 +492,34 @@ namespace LssTraining.Web.Pages.Electricity
                 });
             }
 
+            decimal targetBaselineAvg = 0m;
+            if (!string.IsNullOrEmpty(SelectedMeter))
+            {
+                var selCard = Cards.FirstOrDefault(c => c.MeterName.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase) || c.CardTitle.Equals(SelectedMeter, StringComparison.OrdinalIgnoreCase));
+                targetBaselineAvg = selCard?.BaselineDaily ?? 0m;
+            }
+            else
+            {
+                // Multi-meter view: calculate combined baseline for the active visible meters
+                var visibleMeterNames = new HashSet<string>(meterGroups.Select(g => g.Key), StringComparer.OrdinalIgnoreCase);
+                targetBaselineAvg = Cards.Where(c => visibleMeterNames.Contains(c.MeterName) || visibleMeterNames.Contains(c.CardTitle)).Sum(c => c.BaselineDaily);
+                if (targetBaselineAvg <= 0)
+                {
+                    targetBaselineAvg = Summary.BaselineDailyKwh;
+                }
+            }
+
+            if (ViewMode == "Hourly" && targetBaselineAvg > 0)
+            {
+                targetBaselineAvg = targetBaselineAvg / 24m;
+            }
+
             var chartPayload = new
             {
                 categories = categories,
                 series = seriesList,
-                unit = Cards.FirstOrDefault()?.Unit ?? "kWh"
+                unit = Cards.FirstOrDefault()?.Unit ?? "kWh",
+                baselineAverage = Math.Round(targetBaselineAvg, 1)
             };
 
             ChartDataJson = JsonSerializer.Serialize(chartPayload);

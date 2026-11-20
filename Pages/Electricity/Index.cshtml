@@ -236,8 +236,26 @@
                     </svg>
                 </div>
                 <div>
-                    <div class="electricity-kpi-lbl">Daily Average</div>
+                    <div class="electricity-kpi-lbl">Daily Average (vs Baseline)</div>
                     <div class="electricity-kpi-val">@Model.Summary.AverageDailyKwh.ToString("N1") <span class="fs-6 text-muted fw-normal">kWh/d</span></div>
+                    <div class="small mt-1 d-flex align-items-center gap-1 flex-wrap">
+                        <span class="text-muted" style="font-size:0.75rem;">Prior 2-Wk Baseline: <strong>@Model.Summary.BaselineDailyKwh.ToString("N1")</strong></span>
+                        @if (Model.Summary.BaselineDailyKwh > 0)
+                        {
+                            if (Model.Summary.BaselineVariancePercent > 0)
+                            {
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" style="font-size: 0.70rem;">
+                                    ▲ +@Model.Summary.BaselineVariancePercent.ToString("N1")%
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style="font-size: 0.70rem;">
+                                    ▼ @Model.Summary.BaselineVariancePercent.ToString("N1")%
+                                </span>
+                            }
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -472,7 +490,15 @@
                                             @if (card.Unit == "kWh")
                                             {
                                                 <div class="electricity-daily-avg">Avg: <strong>@card.AverageDaily.ToString("N1")</strong>/d</div>
-                                                <div class="text-muted" style="font-size:0.7rem;">Peak: @card.PeakUsage.ToString("N1")</div>
+                                                <div class="text-muted" style="font-size:0.7rem;">
+                                                    Base: <strong>@card.BaselineDaily.ToString("N1")</strong>
+                                                    @if (card.BaselineDaily > 0)
+                                                    {
+                                                        <span class="@(card.BaselineVariancePercent > 0 ? "text-danger fw-bold" : "text-success fw-bold")">
+                                                            (@(card.BaselineVariancePercent > 0 ? "+" : "")@card.BaselineVariancePercent.ToString("N1")%)
+                                                        </span>
+                                                    }
+                                                </div>
                                             }
                                             else
                                             {
@@ -511,7 +537,13 @@
                 </h5>
                 <p class="text-muted small mb-0">Timeline load profile across selected distribution boards</p>
             </div>
-            <div id="chartBadgeContainer">
+            <div id="chartBadgeContainer" class="d-flex align-items-center gap-2 flex-wrap">
+                @if (Model.Summary.BaselineDailyKwh > 0)
+                {
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill fw-semibold">
+                        🎯 2-Wk Prior Baseline Reference: @Model.Summary.BaselineDailyKwh.ToString("N1") kWh/d
+                    </span>
+                }
                 <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
                     Mode: @Model.ViewMode Summary
                 </span>
@@ -1197,6 +1229,27 @@
                     strokeDashArray: 4
                 }
             };
+
+            if (chartPayload.baselineAverage && chartPayload.baselineAverage > 0) {
+                options.annotations = {
+                    yaxis: [{
+                        y: chartPayload.baselineAverage,
+                        borderColor: '#059669',
+                        strokeDashArray: 5,
+                        borderWidth: 2,
+                        label: {
+                            borderColor: '#059669',
+                            style: {
+                                color: '#fff',
+                                background: '#059669',
+                                fontSize: '11px',
+                                fontWeight: 600
+                            },
+                            text: '2-Wk Prior Baseline: ' + chartPayload.baselineAverage.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ' + (chartPayload.unit || 'kWh')
+                        }
+                    }]
+                };
+            }
 
             apexChartInstance = new ApexCharts(document.querySelector("#consumptionApexChart"), options);
             apexChartInstance.render();

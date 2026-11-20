@@ -201,11 +201,11 @@ namespace LssTraining.Web.Data
 
                 if (!string.IsNullOrEmpty(dbName))
                 {
-                    // 2. Calculate Baseline kWh/day (LogDate < implDate)
+                    // 2. Calculate Baseline kWh/day based on prior 2 weeks (14 days before implementation)
                     string baseQuery = @"
                         SELECT AVG(Total_kWh) 
                         FROM Daily_kWh_Data 
-                        WHERE MeterName = @DbName AND LogDate < CAST(@ImplDate AS DATE) AND LogDate >= CAST(DATEADD(day, -30, @ImplDate) AS DATE)";
+                        WHERE MeterName = @DbName AND LogDate < CAST(@ImplDate AS DATE) AND LogDate >= CAST(DATEADD(day, -14, @ImplDate) AS DATE)";
                     using var baseCmd = new SqlCommand(baseQuery, conn);
                     baseCmd.Parameters.AddWithValue("@DbName", dbName);
                     baseCmd.Parameters.AddWithValue("@ImplDate", implDate);
