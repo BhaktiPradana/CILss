@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -124,6 +126,71 @@ namespace LssTraining.Web.Pages.Electricity
                 };
                 DbChartJson = JsonSerializer.Serialize(dbPayload);
             }
+        }
+
+        public async Task<IActionResult> OnGetExportCsvAsync(
+            DateTime? exportStartDate,
+            DateTime? exportEndDate,
+            string? exportDb,
+            string? exportSearch,
+            string? exportMethod)
+        {
+            var start = exportStartDate ?? StartDate;
+            var end = exportEndDate ?? EndDate;
+            if (start > end)
+            {
+                var temp = start;
+                start = end;
+                end = temp;
+            }
+
+            var method = !string.IsNullOrEmpty(exportMethod) ? exportMethod : AllocationMethod;
+
+            var (machs, dbs, summ, trends) = await _kwhPerPcsRepo.GetKwhPerPcsDataAsync(
+                start,
+                end,
+                exportDb,
+                exportSearch,
+                method
+            );
+
+            var sb = new StringBuilder();
+            sb.AppendLine("MachineCode,MachineName,DistributionBoard,Area,DB_TotalKwh,SharingMachines,AllocatedKwh,QuantityInPcs,KwhPerPcs,AllocationMethod,StartDate,EndDate");
+
+            foreach (var m in machs.OrderBy(x => x.MachCode))
+            {
+                sb.AppendLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "\"{0}\",\"{1}\",\"{2}\",\"{3}\",{4:F2},{5},{6:F2},{7},{8:F6},\"{9}\",\"{10:yyyy-MM-dd}\",\"{11:yyyy-MM-dd}\"",
+                    EscapeCsv(m.MachCode),
+                    EscapeCsv(m.MachName),
+                    EscapeCsv(m.DBName),
+                    EscapeCsv(m.Area),
+                    m.DbTotalKwh,
+                    m.SharedCount,
+                    m.AllocatedKwh,
+                    m.QuantityIn,
+                    m.KwhPerPcs,
+                    EscapeCsv(m.AllocationMethod),
+                    start,
+                    end
+                ));
+            }
+
+            var preamble = Encoding.UTF8.GetPreamble();
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            var fileBytes = new byte[preamble.Length + bytes.Length];
+            Buffer.BlockCopy(preamble, 0, fileBytes, 0, preamble.Length);
+            Buffer.BlockCopy(bytes, 0, fileBytes, preamble.Length, bytes.Length);
+
+            string fileName = $"Machine_Kwh_Per_Pcs_{start:yyyyMMdd}_to_{end:yyyyMMdd}.csv";
+            return File(fileBytes, "text/csv", fileName);
+        }
+
+        private static string EscapeCsv(string? field)
+        {
+            if (string.IsNullOrEmpty(field)) return "";
+            return field.Replace("\"", "\"\"");
         }
     }
 }

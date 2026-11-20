@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -42,7 +44,7 @@ namespace LssTraining.Web.Pages.Electricity
         public bool OnlyAbnormal { get; set; }
 
         [BindProperty(SupportsGet = true)]
-        public DateTime StartDate { get; set; } = DateTime.Today.AddDays(-7);
+        public DateTime StartDate { get; set; } = DateTime.Today.AddDays(-14);
 
         [BindProperty(SupportsGet = true)]
         public DateTime EndDate { get; set; } = DateTime.Today;
@@ -423,6 +425,106 @@ namespace LssTraining.Web.Pages.Electricity
             };
 
             ChartDataJson = JsonSerializer.Serialize(chartPayload);
+        }
+
+        public async Task<IActionResult> OnGetExportCsvAsync(
+            DateTime? exportStartDate,
+            DateTime? exportEndDate,
+            string? exportViewMode,
+            string? exportBuilding,
+            string? exportFloor,
+            string? exportMeter)
+        {
+            var start = exportStartDate ?? StartDate;
+            var end = exportEndDate ?? EndDate;
+            if (start > end)
+            {
+                var temp = start;
+                start = end;
+                end = temp;
+            }
+
+            var mode = string.Equals(exportViewMode, "Hourly", StringComparison.OrdinalIgnoreCase) ? "Hourly" : "Daily";
+            var actualEnd = mode == "Hourly" ? end.Date.AddDays(1).AddSeconds(-1) : end;
+
+            List<KwhRecord> exportRecords;
+            try
+            {
+                if (mode == "Hourly")
+                {
+                    exportRecords = await _kwhRepo.GetHourlyDataAsync(start, actualEnd, exportMeter);
+                }
+                else
+                {
+                    exportRecords = await _kwhRepo.GetDailyDataAsync(start, actualEnd, exportMeter);
+                }
+            }
+            catch
+            {
+                exportRecords = new List<KwhRecord>();
+            }
+
+            if (exportRecords == null || exportRecords.Count == 0)
+            {
+                exportRecords = KwhRepository.GeneratePreviewData(start, actualEnd, mode);
+            }
+
+            // Apply building/floor filters if specified
+            if (!string.IsNullOrEmpty(exportBuilding) || !string.IsNullOrEmpty(exportFloor))
+            {
+                exportRecords = exportRecords.Where(r =>
+                {
+                    var cardItem = ElectricityCardCatalog.FindItem(r.MeterName);
+                    var bldg = cardItem?.Building ?? ElectricityCatalog.ResolveMeter(r.MeterName).Building;
+                    var flr = cardItem?.Floor ?? ElectricityCatalog.ResolveMeter(r.MeterName).Floor;
+
+                    bool matchBldg = string.IsNullOrEmpty(exportBuilding) || string.Equals(bldg, exportBuilding, StringComparison.OrdinalIgnoreCase);
+                    bool matchFlr = string.IsNullOrEmpty(exportFloor) || string.Equals(flr, exportFloor, StringComparison.OrdinalIgnoreCase);
+                    return matchBldg && matchFlr;
+                }).ToList();
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine("LogTimestamp,LogDate,LogTime,Building,Floor,DistributionBoard,MeterName,Consumption_kWh,Unit,ViewMode");
+
+            foreach (var rec in exportRecords.OrderBy(r => r.Timestamp).ThenBy(r => r.MeterName))
+            {
+                var cardItem = ElectricityCardCatalog.FindItem(rec.MeterName);
+                var resolved = ElectricityCatalog.ResolveMeter(rec.MeterName);
+
+                string bldg = cardItem?.Building ?? resolved.Building;
+                string flr = cardItem?.Floor ?? resolved.Floor;
+                string displayName = cardItem?.DisplayName ?? resolved.CardTitle;
+                string unit = cardItem?.Unit ?? resolved.Unit ?? "kWh";
+
+                sb.AppendLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "\"{0:yyyy-MM-dd HH:mm:ss}\",\"{0:yyyy-MM-dd}\",\"{0:HH:mm}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",{5:F4},\"{6}\",\"{7}\"",
+                    rec.Timestamp,
+                    EscapeCsv(bldg),
+                    EscapeCsv(flr),
+                    EscapeCsv(displayName),
+                    EscapeCsv(rec.MeterName),
+                    rec.Usage_kWh,
+                    EscapeCsv(unit),
+                    mode
+                ));
+            }
+
+            var preamble = Encoding.UTF8.GetPreamble();
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            var fileBytes = new byte[preamble.Length + bytes.Length];
+            Buffer.BlockCopy(preamble, 0, fileBytes, 0, preamble.Length);
+            Buffer.BlockCopy(bytes, 0, fileBytes, preamble.Length, bytes.Length);
+
+            string fileName = $"Electricity_Consumption_{start:yyyyMMdd}_to_{end:yyyyMMdd}_{mode}.csv";
+            return File(fileBytes, "text/csv", fileName);
+        }
+
+        private static string EscapeCsv(string? field)
+        {
+            if (string.IsNullOrEmpty(field)) return "";
+            return field.Replace("\"", "\"\"");
         }
     }
 }
