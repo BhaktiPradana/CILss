@@ -1,0 +1,144 @@
+USE [CI_LSS];
+GO
+
+SET NOCOUNT ON;
+
+PRINT '======================================================================';
+PRINT '  CLEANUP: Menghapus Kolom TransID, Division, SourceDatabase, LastSyncDate';
+PRINT '  Tabel: [dbo].[CI_IECycleTime_Header]';
+PRINT '======================================================================';
+
+IF OBJECT_ID('dbo.CI_IECycleTime_Header', 'U') IS NOT NULL
+BEGIN
+    DECLARE @sql NVARCHAR(MAX) = N'';
+
+    -- 1. Hapus Default Constraints yang terikat pada kolom-kolom target
+    SELECT @sql += N'ALTER TABLE [dbo].[CI_IECycleTime_Header] DROP CONSTRAINT [' + dc.name + N'];' + CHAR(13) + CHAR(10)
+    FROM sys.default_constraints dc
+    JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+    WHERE dc.parent_object_id = OBJECT_ID('dbo.CI_IECycleTime_Header')
+      AND c.name IN ('TransID', 'Division', 'SourceDatabase', 'LastSyncDate');
+
+    IF LEN(@sql) > 0
+    BEGIN
+        PRINT '>> Menghapus Default Constraints...';
+        EXEC sp_executesql @sql;
+        SET @sql = N'';
+    END
+
+    -- 2. Hapus Foreign Key Constraints jika ada
+    SELECT @sql += N'ALTER TABLE [dbo].[CI_IECycleTime_Header] DROP CONSTRAINT [' + fk.name + N'];' + CHAR(13) + CHAR(10)
+    FROM sys.foreign_keys fk
+    JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+    JOIN sys.columns c ON fkc.parent_object_id = c.object_id AND fkc.parent_column_id = c.column_id
+    WHERE fk.parent_object_id = OBJECT_ID('dbo.CI_IECycleTime_Header')
+      AND c.name IN ('TransID', 'Division', 'SourceDatabase', 'LastSyncDate');
+
+    IF LEN(@sql) > 0
+    BEGIN
+        PRINT '>> Menghapus Foreign Key Constraints...';
+        EXEC sp_executesql @sql;
+        SET @sql = N'';
+    END
+
+    -- 3. Hapus Indeks atau Primary Key/Unique Constraints yang memuat kolom tersebut
+    SELECT @sql += 
+        CASE 
+            WHEN i.is_primary_key = 1 OR i.is_unique_constraint = 1 
+            THEN N'ALTER TABLE [dbo].[CI_IECycleTime_Header] DROP CONSTRAINT [' + i.name + N'];' + CHAR(13) + CHAR(10)
+            ELSE N'DROP INDEX [' + i.name + N'] ON [dbo].[CI_IECycleTime_Header];' + CHAR(13) + CHAR(10)
+        END
+    FROM sys.indexes i
+    WHERE i.object_id = OBJECT_ID('dbo.CI_IECycleTime_Header')
+      AND EXISTS (
+          SELECT 1 FROM sys.index_columns ic
+          JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+          WHERE ic.object_id = i.object_id AND ic.index_id = i.index_id
+            AND c.name IN ('TransID', 'Division', 'SourceDatabase', 'LastSyncDate')
+      );
+
+    IF LEN(@sql) > 0
+    BEGIN
+        PRINT '>> Menghapus Indeks / Constraint terkait...';
+        EXEC sp_executesql @sql;
+        SET @sql = N'';
+    END
+
+    -- 4. Drop masing-masing kolom
+    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_IECycleTime_Header') AND name = 'TransID')
+    BEGIN
+        PRINT '>> Menghapus kolom [TransID]...';
+        ALTER TABLE [dbo].[CI_IECycleTime_Header] DROP COLUMN [TransID];
+    END
+
+    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_IECycleTime_Header') AND name = 'Division')
+    BEGIN
+        PRINT '>> Menghapus kolom [Division]...';
+        ALTER TABLE [dbo].[CI_IECycleTime_Header] DROP COLUMN [Division];
+    END
+
+    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_IECycleTime_Header') AND name = 'SourceDatabase')
+    BEGIN
+        PRINT '>> Menghapus kolom [SourceDatabase]...';
+        ALTER TABLE [dbo].[CI_IECycleTime_Header] DROP COLUMN [SourceDatabase];
+    END
+
+    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_IECycleTime_Header') AND name = 'LastSyncDate')
+    BEGIN
+        PRINT '>> Menghapus kolom [LastSyncDate]...';
+        ALTER TABLE [dbo].[CI_IECycleTime_Header] DROP COLUMN [LastSyncDate];
+    END
+
+    -- 5. Pastikan Primary Key pada kolom [Id] terpasang (jika kolom Id ada dan belum ada PK)
+    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.CI_IECycleTime_Header') AND name = 'Id')
+       AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.CI_IECycleTime_Header') AND is_primary_key = 1)
+    BEGIN
+        PRINT '>> Memasang kembali PRIMARY KEY pada [Id]...';
+        ALTER TABLE [dbo].[CI_IECycleTime_Header] 
+            ADD CONSTRAINT [PK_CI_IECycleTime_Header_Id] PRIMARY KEY CLUSTERED ([Id] ASC);
+    END
+
+    -- 6. Pasang kembali Non-Clustered Indexes untuk optimasi query
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CI_IECycleTime_Device_Proc' AND object_id = OBJECT_ID('dbo.CI_IECycleTime_Header'))
+    BEGIN
+        PRINT '>> Membuat indeks [IX_CI_IECycleTime_Device_Proc]...';
+        CREATE NONCLUSTERED INDEX [IX_CI_IECycleTime_Device_Proc] 
+            ON [dbo].[CI_IECycleTime_Header] ([DeviceCode] ASC, [ProcCode] ASC);
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CI_IECycleTime_MachCode' AND object_id = OBJECT_ID('dbo.CI_IECycleTime_Header'))
+    BEGIN
+        PRINT '>> Membuat indeks [IX_CI_IECycleTime_MachCode]...';
+        CREATE NONCLUSTERED INDEX [IX_CI_IECycleTime_MachCode] 
+            ON [dbo].[CI_IECycleTime_Header] ([MachCode] ASC);
+    END
+
+    PRINT '======================================================================';
+    PRINT '  SUKSES: Seluruh kolom target berhasil dihapus!';
+    PRINT '======================================================================';
+END
+ELSE
+BEGIN
+    PRINT 'Tabel [dbo].[CI_IECycleTime_Header] tidak ditemukan di database CI_LSS.';
+END
+GO
+
+
+
+
+USE [CI_LSS];
+GO
+
+SELECT 
+    c.column_id AS [No],
+    c.name AS [NamaKolom],
+    t.name AS [TipeData],
+    c.max_length AS [UkuranByte],
+    c.is_nullable AS [BolehNull]
+FROM sys.columns c
+JOIN sys.types t ON c.user_type_id = t.user_type_id
+WHERE c.object_id = OBJECT_ID('dbo.CI_IECycleTime_Header')
+ORDER BY c.column_id;
+GO
+
+
