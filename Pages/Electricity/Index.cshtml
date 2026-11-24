@@ -137,6 +137,13 @@
                     </svg>
                     Energy Improvements
                 </a>
+                <button type="button" class="btn btn-outline-light btn-sm shadow-sm d-inline-flex align-items-center gap-1" onclick="openExportModal();" title="Export filtered or custom date range to CSV">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                    </svg>
+                    Export CSV
+                </button>
             </div>
         </div>
     </div>
@@ -229,8 +236,26 @@
                     </svg>
                 </div>
                 <div>
-                    <div class="electricity-kpi-lbl">Daily Average</div>
+                    <div class="electricity-kpi-lbl">Daily Average (vs Baseline)</div>
                     <div class="electricity-kpi-val">@Model.Summary.AverageDailyKwh.ToString("N1") <span class="fs-6 text-muted fw-normal">kWh/d</span></div>
+                    <div class="small mt-1 d-flex align-items-center gap-1 flex-wrap">
+                        <span class="text-muted" style="font-size:0.75rem;">Prior 2-Wk Baseline: <strong>@Model.Summary.BaselineDailyKwh.ToString("N1")</strong></span>
+                        @if (Model.Summary.BaselineDailyKwh > 0)
+                        {
+                            if (Model.Summary.BaselineVariancePercent > 0)
+                            {
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" style="font-size: 0.70rem;">
+                                    ▲ +@Model.Summary.BaselineVariancePercent.ToString("N1")%
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style="font-size: 0.70rem;">
+                                    ▼ @Model.Summary.BaselineVariancePercent.ToString("N1")%
+                                </span>
+                            }
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -316,6 +341,7 @@
                 <span class="text-muted small fw-semibold">Date Range Presets:</span>
                 <a href="#" class="preset-pill" onclick="setDateRange(0); return false;">Today</a>
                 <a href="#" class="preset-pill" onclick="setDateRange(7); return false;">Last 7 Days</a>
+                <a href="#" class="preset-pill @((Model.EndDate.Date - Model.StartDate.Date).TotalDays == 14 ? "active fw-bold border border-primary text-primary" : "")" onclick="setDateRange(14); return false;">Last 2 Weeks (14 Days)</a>
                 <a href="#" class="preset-pill" onclick="setDateRange(30); return false;">Last 30 Days</a>
                 <a href="#" class="preset-pill" onclick="setDateRange(90); return false;">Last 90 Days</a>
             </div>
@@ -464,7 +490,15 @@
                                             @if (card.Unit == "kWh")
                                             {
                                                 <div class="electricity-daily-avg">Avg: <strong>@card.AverageDaily.ToString("N1")</strong>/d</div>
-                                                <div class="text-muted" style="font-size:0.7rem;">Peak: @card.PeakUsage.ToString("N1")</div>
+                                                <div class="text-muted" style="font-size:0.7rem;">
+                                                    Base: <strong>@card.BaselineDaily.ToString("N1")</strong>
+                                                    @if (card.BaselineDaily > 0)
+                                                    {
+                                                        <span class="@(card.BaselineVariancePercent > 0 ? "text-danger fw-bold" : "text-success fw-bold")">
+                                                            (@(card.BaselineVariancePercent > 0 ? "+" : "")@card.BaselineVariancePercent.ToString("N1")%)
+                                                        </span>
+                                                    }
+                                                </div>
                                             }
                                             else
                                             {
@@ -503,7 +537,13 @@
                 </h5>
                 <p class="text-muted small mb-0">Timeline load profile across selected distribution boards</p>
             </div>
-            <div id="chartBadgeContainer">
+            <div id="chartBadgeContainer" class="d-flex align-items-center gap-2 flex-wrap">
+                @if (Model.Summary.BaselineDailyKwh > 0)
+                {
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill fw-semibold">
+                        🎯 2-Wk Prior Baseline Reference: @Model.Summary.BaselineDailyKwh.ToString("N1") kWh/d
+                    </span>
+                }
                 <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
                     Mode: @Model.ViewMode Summary
                 </span>
@@ -521,9 +561,18 @@
                 <h5 class="fw-bold text-dark mb-0">📋 Consumption Log Records</h5>
                 <p class="text-muted small mb-0">Direct readings from database table for filtered distribution boards</p>
             </div>
-            <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-1 rounded-pill">
-                @Model.Records.Count records
-            </span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-1 rounded-pill">
+                    @Model.Records.Count records
+                </span>
+                <button type="button" class="btn btn-outline-success btn-sm shadow-sm d-inline-flex align-items-center gap-1" onclick="openExportModal();" title="Export to CSV">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                    </svg>
+                    Export CSV
+                </button>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
@@ -840,6 +889,92 @@
     </div>
 </div>
 
+<!-- EXPORT RANGE SELECTION MODAL -->
+<div class="modal fade" id="exportCsvModal" tabindex="-1" aria-labelledby="exportCsvModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0 rounded-3">
+            <div class="modal-header bg-success text-white py-3">
+                <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="exportCsvModalLabel">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                    </svg>
+                    Export Electricity Consumption Data (.csv)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">
+                    Choose the date range and granularity for your CSV export. The file includes timestamps, building, floor, distribution board name, and kWh consumption.
+                </p>
+
+                <!-- Quick Presets in Modal -->
+                <label class="form-label fw-bold small text-secondary text-uppercase mb-2">Quick Range Presets</label>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-success btn-sm fw-semibold" onclick="setExportModalRange(14)">Last 2 Weeks (14 Days)</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setExportModalRange(7)">Last 7 Days</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setExportModalRange(30)">Last 30 Days</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setExportModalRange(90)">Last 90 Days</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setExportModalCurrentRange()">Current Screen Range</button>
+                </div>
+
+                <!-- Date Range Inputs -->
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label for="exportStartDate" class="form-label fw-bold small text-secondary text-uppercase">Start Date</label>
+                        <input type="date" id="exportStartDate" class="form-control shadow-sm" value="@Model.StartDate.ToString("yyyy-MM-dd")" />
+                    </div>
+                    <div class="col-6">
+                        <label for="exportEndDate" class="form-label fw-bold small text-secondary text-uppercase">End Date</label>
+                        <input type="date" id="exportEndDate" class="form-control shadow-sm" value="@Model.EndDate.ToString("yyyy-MM-dd")" />
+                    </div>
+                </div>
+
+                <!-- View Mode Selection -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-secondary text-uppercase">Data Granularity</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="exportGranularity" id="granDaily" value="Daily" @(Model.ViewMode == "Daily" ? "checked" : "")>
+                            <label class="form-check-label small fw-semibold" for="granDaily">
+                                Daily Summary (Aggregated per day)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="exportGranularity" id="granHourly" value="Hourly" @(Model.ViewMode == "Hourly" ? "checked" : "")>
+                            <label class="form-check-label small fw-semibold" for="granHourly">
+                                Hourly Detail (Readings per hour)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scope / Distribution Board Selection -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-secondary text-uppercase">Scope / Filter</label>
+                    <select id="exportMeterSelect" class="form-select shadow-sm small">
+                        <option value="">All Distribution Boards (@(string.IsNullOrEmpty(Model.Building) ? "All Buildings" : Model.Building))</option>
+                        @foreach (var m in Model.MeterOptions.Where(x => !string.IsNullOrEmpty(x.Value)))
+                        {
+                            <option value="@m.Value" selected="@(m.Value == Model.SelectedMeter ? "selected" : null)">@m.Text</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-4">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success btn-sm px-3 fw-bold d-inline-flex align-items-center gap-2" onclick="executeExportCsv();">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                    </svg>
+                    Download CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
@@ -944,6 +1079,62 @@
             }
         }
 
+        function openExportModal() {
+            var modalElem = document.getElementById('exportCsvModal');
+            if (modalElem) {
+                var modal = bootstrap.Modal.getOrCreateInstance(modalElem);
+                modal.show();
+            }
+        }
+
+        function setExportModalRange(daysAgo) {
+            var today = new Date();
+            var endStr = today.toISOString().split('T')[0];
+            var start = new Date();
+            if (daysAgo > 0) {
+                start.setDate(today.getDate() - daysAgo);
+            }
+            var startStr = start.toISOString().split('T')[0];
+            document.getElementById('exportStartDate').value = startStr;
+            document.getElementById('exportEndDate').value = endStr;
+        }
+
+        function setExportModalCurrentRange() {
+            document.getElementById('exportStartDate').value = '@Model.StartDate.ToString("yyyy-MM-dd")';
+            document.getElementById('exportEndDate').value = '@Model.EndDate.ToString("yyyy-MM-dd")';
+        }
+
+        function executeExportCsv() {
+            var start = document.getElementById('exportStartDate').value;
+            var end = document.getElementById('exportEndDate').value;
+            var granElem = document.querySelector('input[name="exportGranularity"]:checked');
+            var viewMode = granElem ? granElem.value : 'Daily';
+            var meter = document.getElementById('exportMeterSelect').value || '';
+            var bldg = '@(Model.Building ?? "")';
+            var flr = '@(Model.Floor ?? "")';
+
+            if (!start || !end) {
+                alert('Please select both Start Date and End Date.');
+                return;
+            }
+
+            var exportUrl = '/Electricity/Index?handler=ExportCsv'
+                + '&exportStartDate=' + encodeURIComponent(start)
+                + '&exportEndDate=' + encodeURIComponent(end)
+                + '&exportViewMode=' + encodeURIComponent(viewMode)
+                + '&exportBuilding=' + encodeURIComponent(bldg)
+                + '&exportFloor=' + encodeURIComponent(flr)
+                + '&exportMeter=' + encodeURIComponent(meter);
+
+            var modalElem = document.getElementById('exportCsvModal');
+            if (modalElem) {
+                var modal = bootstrap.Modal.getInstance(modalElem);
+                if (modal) modal.hide();
+            }
+
+            window.location.href = exportUrl;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             var chartPayload = @Html.Raw(Model.ChartDataJson);
 
@@ -1038,6 +1229,27 @@
                     strokeDashArray: 4
                 }
             };
+
+            if (chartPayload.baselineAverage && chartPayload.baselineAverage > 0) {
+                options.annotations = {
+                    yaxis: [{
+                        y: chartPayload.baselineAverage,
+                        borderColor: '#059669',
+                        strokeDashArray: 5,
+                        borderWidth: 2,
+                        label: {
+                            borderColor: '#059669',
+                            style: {
+                                color: '#fff',
+                                background: '#059669',
+                                fontSize: '11px',
+                                fontWeight: 600
+                            },
+                            text: '2-Wk Prior Baseline: ' + chartPayload.baselineAverage.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ' + (chartPayload.unit || 'kWh')
+                        }
+                    }]
+                };
+            }
 
             apexChartInstance = new ApexCharts(document.querySelector("#consumptionApexChart"), options);
             apexChartInstance.render();

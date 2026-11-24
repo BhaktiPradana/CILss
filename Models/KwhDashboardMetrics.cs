@@ -14,6 +14,8 @@ namespace LssTraining.Web.Models
         public string Unit { get; set; } = "kWh";
         public decimal TotalUsage { get; set; }
         public decimal AverageDaily { get; set; }
+        public decimal BaselineDaily { get; set; }
+        public decimal BaselineVariancePercent { get; set; }
         public decimal LatestUsage { get; set; }
         public decimal PeakUsage { get; set; }
         public DateTime? LatestTimestamp { get; set; }
@@ -33,6 +35,8 @@ namespace LssTraining.Web.Models
         public int TotalCards { get; set; }
         public int ActiveCards { get; set; }
         public decimal AverageDailyKwh { get; set; }
+        public decimal BaselineDailyKwh { get; set; }
+        public decimal BaselineVariancePercent { get; set; }
         public string PeakMeterName { get; set; } = "-";
         public decimal PeakUsage { get; set; }
     }
