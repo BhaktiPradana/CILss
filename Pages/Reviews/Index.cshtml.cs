@@ -10,11 +10,17 @@ public class IndexModel(IReviewRepository repository, ILogger<IndexModel> logger
 
     public IReadOnlyList<GreenBeltReview> Reviews { get; private set; } = [];
 
-    public async Task OnGetAsync(int enrollmentId, CancellationToken cancellationToken)
+    public async Task OnGetAsync(int? enrollmentId, CancellationToken cancellationToken)
     {
+        if (!enrollmentId.HasValue || enrollmentId.Value <= 0)
+        {
+            return;
+        }
+
+        int targetEnrollmentId = enrollmentId.Value;
         try
         {
-            var result = await repository.GetRoadmapAsync(enrollmentId, cancellationToken);
+            var result = await repository.GetRoadmapAsync(targetEnrollmentId, cancellationToken);
             if (result is not null)
             {
                 Enrollment = result.Value.Enrollment;
@@ -23,8 +29,8 @@ public class IndexModel(IReviewRepository repository, ILogger<IndexModel> logger
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Database unavailable; attempting fallback preview review data for enrollment {EnrollmentId}", enrollmentId);
-            LoadPreviewData(enrollmentId);
+            logger.LogWarning(ex, "Database unavailable; attempting fallback preview review data for enrollment {EnrollmentId}", targetEnrollmentId);
+            LoadPreviewData(targetEnrollmentId);
         }
     }
 
