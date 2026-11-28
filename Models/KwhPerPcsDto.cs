@@ -13,7 +13,10 @@ namespace LssTraining.Web.Models
         public string Remarks { get; set; } = string.Empty;
         
         public decimal DBTotalKwh { get; set; }
+        public decimal DbTotalKwh { get => DBTotalKwh; set => DBTotalKwh = value; }
+
         public int MachinesConnectedCount { get; set; }
+        public int SharedCount { get => MachinesConnectedCount; set => MachinesConnectedCount = value; }
         public decimal AllocatedKwh { get; set; }
         
         public double QuantityIn { get; set; }
